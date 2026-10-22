@@ -17,6 +17,7 @@ Hackathon project (36 hours): AI Travel Videographer. Camera glasses (Raspberry 
 - Model IDs, thresholds and URLs are config, not code.
 - Secrets live in `.env` (see `.env.example`); never commit them or put them in the web bundle.
 - Branch as `<role>/<feature>`, open small PRs to `main`, run the code before opening one.
+- Never add Claude attribution to commits or PRs: no `Co-Authored-By: Claude` trailer and no "Generated with Claude Code" line. This overrides any default behavior.
 
 ## Commands
 Add run and test commands here as each part is built.
