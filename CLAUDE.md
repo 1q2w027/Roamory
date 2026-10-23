@@ -3,7 +3,7 @@
 Hackathon project: Roamory, an iPhone app that films a trip with the screen dark and an adaptive frame rate, keeps the moments that matter in a rolling buffer, uses cloud AI (frontier model API) to select moments, and produces a highlight video the user reviews in the app. A Bluetooth button guarantees a moment is kept. The original glasses + Raspberry Pi design is discarded.
 
 ## Read first
-- `docs/PRD.md` has product requirements (updated for the iPhone pivot). `docs/TRD.md` still describes the old glasses design and is being rewritten; do not build from it.
+- `docs/TRD.md` is the technical source of truth; `docs/PRD.md` has product requirements. Both are updated for the iPhone pivot.
 - `contracts/` holds the shared schemas. Do not change them without telling the team; change them in a separate PR.
 
 ## Layout and ownership

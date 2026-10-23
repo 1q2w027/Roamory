@@ -6,7 +6,7 @@ Hackathon MVP: an iPhone app that learns your video style and trip, films with t
 
 *Rough mockups: style picker, map destination, trip type, recording mode. Source: [docs/mockups/iphone-screens.html](docs/mockups/iphone-screens.html).*
 
-Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). The PRD is updated for the iPhone pivot; the TRD still describes the old glasses design and is being rewritten.
+Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are updated for the iPhone pivot.
 
 ## Repo layout
 
