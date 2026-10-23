@@ -29,6 +29,6 @@ Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are update
 
 Setup steps for each folder go here as they are built.
 
-#Idea Note
+## Idea Note
 
 magsafe + mount -> automatically opens apps
