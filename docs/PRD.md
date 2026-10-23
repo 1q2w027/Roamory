@@ -149,7 +149,12 @@ Interaction ideas under consideration (author's proposals):
 - (Proposed) Several tiers, for example 30 fps, 10 fps and 2 fps.
 - (Proposed) A cheap check on the phone raises the frame rate: frame difference between samples, motion sensors, or a button press. No cloud call is needed to wake up.
 - (Proposed) The cloud model decides which footage is kept (Section 6), not when the frame rate changes.
-- Trade-off: footage recorded before the ramp-up is low frame rate and looks like time-lapse. The trigger should be sensitive enough to keep this short.
+- Trade-off: footage recorded before the ramp-up is low frame rate and looks like time-lapse. The following reduce this (all Proposed):
+  - **Raised floor.** The lowest tier is about 10 fps, not 1–2 fps, so the footage still plays as video. The exact floor is set by battery measurements on a real iPhone (see the spike in Section 12).
+  - **Early ramp-up.** Signals that come before a good moment raise the rate: the user slows or stops walking (motion sensors), the phone is raised or tilted, the user nears a landmark in the chosen city, or sound gets louder.
+  - **Fast up, slow down.** The rate rises to full within about a second and stays high for roughly 20–30 seconds after the last activity, so the end of a moment is always full quality.
+  - **Speed-ramp in the edit.** Any remaining low-fps lead-in is edited as a deliberate time-lapse that accelerates into normal speed at the moment, where the video style allows it.
+  - **Button override.** A Bluetooth press goes straight to full frame rate, and the buffer protects the footage before the press, so a slightly late press still works.
 
 ### 5.2a Rolling Buffer (Decided)
 
@@ -292,7 +297,7 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 | 4 | How is trip length used? | Pacing, selectivity, video length, or all three. |
 | 5 | Which trip-type interaction do we build? | Card deck is the current lead. |
 | 6 | Which Bluetooth button hardware, and how does it pair? | Must work with the screen at 0 brightness. |
-| 7 | Is low-frame-rate footage before a moment acceptable? | It looks like time-lapse. Needs the product owner's call. |
+| 7 | What are the battery and heat costs at 30, 15, 10 and 2 fps? | Spike: a small throwaway iPhone test app that records at each rate for 10 minutes with the screen at 0 brightness, on a real device. Sets the floor in FR-008. |
 | 8 | Native Swift or a cross-platform framework? | Not yet decided. |
 | 9 | Sample style clips: who produces them? | Need four representative clips. |
 | 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
