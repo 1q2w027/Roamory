@@ -7,8 +7,9 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 - `contracts/` holds the shared schemas. Do not change them without telling the team; change them in a separate PR.
 
 ## Layout and ownership
-- `ios/`: iPhone app (native Swift assumed, not yet decided)
-- `backend/`: Python 3.11, FastAPI; cloud moment selection via a frontier model API (render location not yet decided)
+- `ios/`: iPhone app (native Swift assumed, not yet decided). Camera capture is Yifan's; screens and integration are Daniel's
+- `backend/`: Python 3.11, FastAPI; cloud moment selection via a frontier model API (render location not yet decided). Detection is Daniel's; final video generation is Ian's
+- Design (Figma, motion graphics) is Andrew's; assets go in `docs/mockups/`
 - Only edit files in the folder you were asked to work on.
 
 ## Conventions

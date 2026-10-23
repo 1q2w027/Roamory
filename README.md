@@ -12,10 +12,22 @@ Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are update
 
 | Folder | What | Owner |
 | --- | --- | --- |
-| `ios/` | iPhone app: onboarding, camera capture with adaptive frame rate, rolling buffer, Bluetooth button, review screen (native Swift assumed; not yet decided) | TBD (iOS) |
-| `backend/` | Cloud service: frontier-model moment selection (keeps API keys off the phone); video rendering if it runs in the cloud (not yet decided) | TBD (AI / backend) |
+| `ios/` (camera) | iPhone camera capture, adaptive frame rate, rolling buffer | Yifan |
+| `ios/` (screens) | iPhone app UI: onboarding, trip setup, recording mode, review screen; putting all parts together | Daniel |
+| `backend/` (detection) | Cloud service: real-time moment selection with a frontier model (keeps API keys off the phone) | Daniel |
+| `backend/` (video) | Final highlight video: edit planning and rendering (render location not yet decided) | Ian |
+| Figma / motion graphics | App design and demo motion graphics (assets go in `docs/mockups/`) | Andrew |
 | `contracts/` | Shared JSON schemas and API shapes between the app and the backend | Everyone, via PR |
-| `docs/` | PRD, TRD, `DECISIONS.md`, mockups | Lead |
+| `docs/` | PRD, TRD, `DECISIONS.md`, mockups | Daniel |
+
+## Who does what
+
+- **Yifan:** use the iPhone camera for our app (capture side).
+- **Daniel:** AI that detects important scenes in real time, plus the app frontend and putting everything together.
+- **Ian:** AI that makes the final highlight video.
+- **Andrew:** Figma design and motion graphics for the demo.
+
+`ios/` is shared by Yifan (camera) and Daniel (screens), and `backend/` by Daniel (detection) and Ian (video); split work by subfolder to avoid conflicts. Yifan and Daniel agree how captured frames and clips reach the backend, and write it in `contracts/`.
 
 ## Workflow
 
