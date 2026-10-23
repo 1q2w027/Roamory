@@ -1,8 +1,8 @@
 # Roamory — Technical Requirements Document
 
-Oct 22, 2026 · v2.0 (iPhone pivot). Replaces v1.0 (glasses + Raspberry Pi), which is discarded.
+Oct 23, 2026 · v2.1 (iPhone pivot; iOS 26 target). Replaces v1.0 (glasses + Raspberry Pi), which is discarded.
 
-> **How to read this document.** It implements `docs/PRD.md` v2.0. Choices that come from the PRD's **(Decided)** items are stated plainly. Everything else is a **proposal** by the author, to be confirmed or changed; Section 11 lists what is open. iOS API names are from the author's knowledge and must be checked against current Apple documentation during the first spike.
+> **How to read this document.** It implements `docs/PRD.md` v2.0. Choices that come from the PRD's **(Decided)** items are stated plainly. Everything else is a **proposal** by the author, to be confirmed or changed; Section 14 lists what is open. iOS API names are from the author's knowledge and must be checked against current Apple documentation during the first spike.
 
 ## 1. Overview
 
@@ -58,7 +58,9 @@ Two components: the **iOS app**, which does everything except the model calls, a
 
 ## 3. iOS app
 
-**Proposal:** native Swift and SwiftUI, minimum iOS 17.2 (the first release with `AVCaptureEventInteraction`, §7), distributed by TestFlight or a development build for the hackathon. (PRD open question 8.)
+**Target: iOS 26 (Decided).** Deployment target iOS 26.0, built with Xcode 26; test devices must be iPhone 11 or later (the oldest hardware iOS 26 supports). Every API named in this document, including `AVCaptureEventInteraction` (§7) and SwiftData (§3.3), is available at that target, so no availability checks or fallbacks are needed.
+
+**Proposal:** native Swift and SwiftUI, distributed by TestFlight or a development build for the hackathon. (PRD open question 8.)
 
 ### 3.1 Modules
 
@@ -87,7 +89,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 
 ### 3.3 Persistence
 
-**Proposal:** SwiftData (iOS 17). Tables below. Preference data is local only; no account.
+**Proposal:** SwiftData. Tables below. Preference data is local only; no account.
 
 | Entity | Fields |
 |---|---|
@@ -213,7 +215,7 @@ When a candidate passes the gate, the phone immediately **protects the moment wi
 
 ## 7. Bluetooth button (FR-009)
 
-- **Proposal:** use an off-the-shelf Bluetooth shutter remote, which presents as a keyboard or volume key. The app receives it as a hardware key event in the foreground, for example through `AVCaptureEventInteraction` (iOS 17.2+) or by observing volume changes. This must be verified with the screen at brightness 0 and a locked-to-foreground app.
+- **Proposal:** use an off-the-shelf Bluetooth shutter remote, which presents as a keyboard or volume key. The app receives it as a hardware key event in the foreground, for example through `AVCaptureEventInteraction` or by observing volume changes. This must be verified with the screen at brightness 0 and a locked-to-foreground app.
 - **Alternative:** a custom BLE device using Core Bluetooth with a defined characteristic, if no off-the-shelf remote works.
 - On press: create a moment with `source = button` at the press time, jump to 30 fps, protect `[T−15 s, T+15 s]`, and give a haptic confirmation (`UIImpactFeedbackGenerator`). Button moments bypass the gate, cooldowns and budgets and are never released by the cloud.
 - Button moments are sent to the cloud later, off the critical path, only to get a description and category.
@@ -422,7 +424,7 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 ## 14. Open questions
 
 - Which frontier model provider and model IDs, and the per-trip spend cap?
-- Minimum iOS version (17.2 is proposed) and which test devices are available?
+- Which test devices are available? They must be iPhone 11 or later running iOS 26.
 - Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
