@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "moment_id": "m_03",
+  "trip_id": "t_123",
+  "session_id": "s_01",
+  "source": "button",
+  "trigger_ms": 1515000,
+  "from_ms": 1500000,
+  "to_ms": 1531000,
+  "clip_path": "clips/m_03.mp4",
+  "duration_s": 31.0,
+  "has_audio": false,
+  "fps_profile": [
+    {"t_s": 0, "fps": 2},
+    {"t_s": 15.0, "fps": 30}
+  ],
+  "samples": [
+    {"t_s": 1.0, "sharpness": 182.4, "change": 6.1, "dhash": "3c7e1f0f8f8c0c00"},
+    {"t_s": 5.0, "sharpness": 201.7, "change": 4.8, "dhash": "3c7e1f0f8f8e0c00"},
+    {"t_s": 9.0, "sharpness": 176.2, "change": 9.3, "dhash": "1c3e1f0f0f8e0e04"},
+    {"t_s": 13.0, "sharpness": 240.9, "change": 12.7, "dhash": "0e1e3f3f1f0e0604"},
+    {"t_s": 15.0, "sharpness": 255.3, "change": 18.2, "dhash": "0e1e3f3f1f1e0e06"},
+    {"t_s": 17.0, "sharpness": 248.1, "change": 7.4, "dhash": "0e1e3f3f1f1e0e06"},
+    {"t_s": 21.0, "sharpness": 230.6, "change": 5.9, "dhash": "061e3f3f3f1e0e06"},
+    {"t_s": 25.0, "sharpness": 219.0, "change": 6.6, "dhash": "061e1f3f3f1e0e02"},
+    {"t_s": 29.0, "sharpness": 205.5, "change": 8.0, "dhash": "040e1f3f3f1e0e02"}
+  ]
+}
