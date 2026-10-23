@@ -47,7 +47,7 @@ The user first tells the app what kind of video they like, where they are going,
 1. A first-time user opens the app and picks the video style that fits them from four sample clips.
 2. They choose a destination on an interactive map: continent, then country, then city.
 3. They say what kind of trip it is and how long it will last.
-4. They tap Start Recording and put the phone away (for example, in a pocket or mount).
+4. They tap Start Recording and wear the phone with the camera facing forward, in a regular chest mount (Section 5.1a). A phone in a pocket cannot film.
 5. During the trip, the app films scenes its model finds worth keeping. When the user presses the Bluetooth button, that moment is kept no matter what.
 6. When the trip ends, the app produces a video. The user watches and reviews it in the app.
 
@@ -58,7 +58,7 @@ The user first tells the app what kind of video they like, where they are going,
 ### 3.1 MVP Goals
 
 - **Goal A — Personalized setup.** A new user completes style, destination, trip type and trip length through an interactive flow, and the choices are saved.
-- **Goal B — Battery-aware capture.** The app records from the iPhone camera with the screen at zero brightness, and lowers the camera frame rate between interesting scenes.
+- **Goal B — Battery-aware capture.** The app records from the iPhone camera with the screen at zero brightness. Lowering the camera frame rate between interesting scenes is P1: if the battery spike (Section 12, question 7) shows mid-session rate changes are unsafe, the MVP records at a fixed rate.
 - **Goal C — Guaranteed moments.** A Bluetooth button press always puts that scene into the final video.
 - **Goal D — Finished video.** The app turns captured footage into a playable video, which the user can review in the app.
 
@@ -69,7 +69,7 @@ The user first tells the app what kind of video they like, where they are going,
 | Setup | A new user reaches Start Recording in under 2 minutes |
 | Style choice | Saved and applied to the final video |
 | Recording | Camera films with screen at 0% brightness |
-| Adaptive frame rate | Battery drain lower than constant full-rate recording (measured) |
+| Adaptive frame rate (P1) | Battery drain lower than constant full-rate recording (measured) |
 | Bluetooth button | 100% of presses end up in the final video |
 | Detection | At least 2–3 correctly detected moments in a scripted demo |
 | Personalization | Different style or trip type visibly changes the output |
@@ -126,6 +126,10 @@ Interaction ideas under consideration (author's proposals):
 
 **FR-005.** After setup, a Start Recording button begins the session.
 
+### 4.5a Permissions and Consent (Proposed)
+
+**FR-005a.** Before the first recording, the app asks for what it needs, each with a one-line reason: camera (required), motion (for frame-rate ramp-up), notifications (to say recording stopped), and adding to Photos (when the user saves the video). Microphone and location are asked only if the user turns on audio or landmark detection. A consent screen explains cloud analysis (what leaves the phone: small still frames, never full video) and sets the "Allow cloud analysis" setting. Denying camera blocks recording with a clear explanation; denying anything else turns that feature off.
+
 ### 4.6 Personal Preference Data (Decided)
 
 **FR-006.** The app stores the user's style choice and may store trip-type and destination history. Stored preferences prefill future trips and inform moment selection and editing.
@@ -141,6 +145,18 @@ Interaction ideas under consideration (author's proposals):
 - The app uses the iPhone camera to film.
 - The screen brightness is set to 0 to save battery.
 - The user can wake the screen to see status and stop the trip.
+
+### 5.1a Wearing the Phone (Decided: chest mount; orientation rule Proposed)
+
+**FR-007a.** The phone is worn with the back camera facing forward, in a regular chest mount (Decided). No custom hardware. Onboarding shows how to wear it. The video style sets the orientation so the final video needs no crop: portrait for Reels (9:16), landscape for Cinematic, Documentary and Vlog (16:9). The app checks the orientation from motion sensors at Start Recording and while recording, and asks the user to fix it (with a haptic) if it is wrong.
+
+### 5.1b Trips and Recording Sessions (Proposed)
+
+**FR-007b.** A trip can last days, but one recording session cannot: the app must stay open, and the battery and heat run out. So a trip is made of one or more **recording sessions**.
+
+- The user can pause and resume a trip. A phone call, leaving the app, low battery (under 10%) or overheating also pauses it, with a notification. Resuming always takes a user action.
+- Only End Trip ends the trip and starts making the video. When the trip length has passed, the app reminds the user to end it.
+- Moments from all sessions go into one final video.
 
 ### 5.2 Adaptive Frame Rate (Decided concept, details Proposed)
 
@@ -170,6 +186,7 @@ Interaction ideas under consideration (author's proposals):
 
 - (Proposed) The press also raises the camera to full frame rate and protects the buffered footage around the press.
 - (Proposed) The app confirms the press with a haptic or sound, since the screen is dark.
+- (Proposed) The guarantee also beats the video length target. If button moments do not fit, each is cut to the style's shortest clip length, AI moments are dropped first, and the video runs longer than the target if it has to.
 
 ### 5.4 Moment Metadata (Proposed)
 
@@ -214,7 +231,7 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 
 **FR-015.** Titles and captions may only use information the user provided (destination, trip type) or what is visible in the footage. The video must not claim events that did not happen.
 
-**FR-016 (Proposed).** Output is MP4/H.264, 30–60 seconds for the MVP, with vertical aspect for Reels and horizontal for the others.
+**FR-016 (Proposed).** Output is MP4/H.264, 30–60 seconds for the MVP (longer only when button moments need it, FR-009), with vertical aspect for Reels and horizontal for the others, matching how the phone was worn (FR-007a).
 
 **Where processing runs** (on the phone or on a server) is open (Section 12).
 
@@ -261,7 +278,9 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 | Style picker | Four-clip picker saves the choice |
 | Destination | Interactive map: continent, country, city |
 | Trip type and length | Animated selection and length input |
+| Permissions and consent | Camera granted; cloud consent recorded |
 | Start Recording | Begins an iPhone camera session |
+| Pause and resume | A paused trip resumes into the same trip |
 | Dark-screen recording | Brightness 0 during the trip |
 | Rolling buffer | Stream held in a queue buffer; selected moments are protected |
 | Moment selection | Cloud AI picks moments; style and trip type matter |
@@ -302,6 +321,8 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 | 9 | Sample style clips: who produces them? | Need four representative clips. |
 | 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
 | 11 | Hackathon schedule and team roles for the new scope. | The v1.0 36-hour plan no longer applies. |
+| 12 | Does our chest mount's phone clamp hold the phone in both portrait and landscape? | Decided: a regular chest mount. Standard clamps usually rotate; check ours. If it cannot, all styles record in the one orientation it holds. |
+| 13 | ~~What is the live demo?~~ | Decided: the demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). |
 
 ---
 
