@@ -23,3 +23,6 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 Add run and test commands here as each part is built.
 
 - Contracts: `pip install jsonschema && python contracts/check.py` validates the presets and examples against the schemas.
+- Backend setup: `cd backend && python3.11 -m venv .venv && .venv/bin/pip install -e ".[dev]"` (reads the repo-root `.env`).
+- Backend tests: `cd backend && .venv/bin/pytest`.
+- Backend run: `cd backend && .venv/bin/uvicorn app.main:app --reload`. Try it: `curl -H "Authorization: Bearer $APP_TOKEN" -F "request=@../contracts/examples/plan_request_reels.json" -F "m_01_0.jpg=@thumb.jpg" … localhost:8000/v1/plan` (one `{moment_id}_{k}.jpg` part per thumbnail).
