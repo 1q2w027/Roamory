@@ -82,7 +82,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 - **Trip type (FR-003):** a SwiftUI gesture-driven card deck (the PRD's leading idea). The set of types is a config list.
 - **Trip length (FR-004):** a day-count picker.
 - **Permissions and consent (FR-005a):** request each permission just before the step that needs it, not all at launch. The cloud consent screen sets `allowCloudAnalysis`.
-- **Mounting guide (FR-007a):** an illustration of the chest mount in the orientation the style needs.
+- **Mounting guide (FR-007a):** an illustration of the regular chest mount (PRD FR-007a) in the orientation the style needs.
 - **Output:** a `TripSetup` value `{style, destination{continent,country,city}, tripType, lengthDays, allowCloudAnalysis}`. Capture orientation is derived from `style`.
 
 ### 3.3 Persistence
@@ -391,11 +391,11 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, screen at 0 brightness, logging battery level and thermal state, and changes the rate mid-session while writing segments. Run on a real iPhone. It answers the PRD battery question and the §4.3 and §5.1 assumptions.
 
-### 12.4 Replay mode and the demo (Proposal)
+### 12.4 Replay mode and the demo (Decided: pre-recorded footage; mechanism Proposal)
 
-A real walk cannot happen on stage, so the app has a **replay mode** in debug builds: an `AVAssetReader` feeds a pre-recorded walk video (and its recorded motion log) into the same pipeline in place of the camera. Everything after capture (buffer, Stage 1, cloud, button, edit, render) runs unchanged, so the demo shows the real system. The replay harness in §12.2 uses the same path.
+The demo's final video is made from pre-recorded footage (Decided). The app has a **replay mode** in debug builds: an `AVAssetReader` feeds a pre-recorded walk video (and its recorded motion log) into the same pipeline in place of the camera. Everything after capture (buffer, Stage 1, cloud, button, edit, render) runs unchanged, so the demo shows the real system. The replay harness in §12.2 uses the same path.
 
-Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute recorded walk with `DEMO_MODE` on, (3) press the Bluetooth button live during it, (4) end the trip and show the processing screen, (5) play the finished video with the button moment marked. Have a finished video from the same replay ready in case the network fails.
+Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk recorded beforehand on the chest mount with `DEMO_MODE` on, (3) press the Bluetooth button live during it, (4) end the trip and show the processing screen, (5) play the finished video with the button moment marked. Have a finished video from the same replay ready in case the network fails.
 
 ### 12.5 Risks
 
@@ -423,7 +423,7 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute recorde
 
 - Which frontier model provider and model IDs, and the per-trip spend cap?
 - Minimum iOS version (17.2 is proposed) and which test devices are available?
-- Which chest mount, and does the demo walk get recorded in both orientations?
+- Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
 - Does the user need rendering to continue if they leave the app?

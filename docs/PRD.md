@@ -47,7 +47,7 @@ The user first tells the app what kind of video they like, where they are going,
 1. A first-time user opens the app and picks the video style that fits them from four sample clips.
 2. They choose a destination on an interactive map: continent, then country, then city.
 3. They say what kind of trip it is and how long it will last.
-4. They tap Start Recording and wear the phone with the camera facing forward, in a chest mount or a strap clip (Section 5.1a). A phone in a pocket cannot film.
+4. They tap Start Recording and wear the phone with the camera facing forward, in a regular chest mount (Section 5.1a). A phone in a pocket cannot film.
 5. During the trip, the app films scenes its model finds worth keeping. When the user presses the Bluetooth button, that moment is kept no matter what.
 6. When the trip ends, the app produces a video. The user watches and reviews it in the app.
 
@@ -146,9 +146,9 @@ Interaction ideas under consideration (author's proposals):
 - The screen brightness is set to 0 to save battery.
 - The user can wake the screen to see status and stop the trip.
 
-### 5.1a Wearing the Phone (Proposed)
+### 5.1a Wearing the Phone (Decided: chest mount; orientation rule Proposed)
 
-**FR-007a.** The phone is worn with the back camera facing forward, in a chest mount or a strap clip. Onboarding shows how to wear it. The video style sets the orientation so the final video needs no crop: portrait for Reels (9:16), landscape for Cinematic, Documentary and Vlog (16:9). The app checks the orientation from motion sensors at Start Recording and while recording, and asks the user to fix it (with a haptic) if it is wrong.
+**FR-007a.** The phone is worn with the back camera facing forward, in a regular chest mount (Decided). No custom hardware. Onboarding shows how to wear it. The video style sets the orientation so the final video needs no crop: portrait for Reels (9:16), landscape for Cinematic, Documentary and Vlog (16:9). The app checks the orientation from motion sensors at Start Recording and while recording, and asks the user to fix it (with a haptic) if it is wrong.
 
 ### 5.1b Trips and Recording Sessions (Proposed)
 
@@ -321,8 +321,8 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 | 9 | Sample style clips: who produces them? | Need four representative clips. |
 | 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
 | 11 | Hackathon schedule and team roles for the new scope. | The v1.0 36-hour plan no longer applies. |
-| 12 | Which chest mount or clip do we use for the demo, and does it hold the phone in both orientations? | FR-007a assumes it can. |
-| 13 | What is the live demo? | A real walk cannot happen on stage. TRD §12.4 proposes recording a walk beforehand and replaying it through the app. |
+| 12 | Does our chest mount's phone clamp hold the phone in both portrait and landscape? | Decided: a regular chest mount. Standard clamps usually rotate; check ours. If it cannot, all styles record in the one orientation it holds. |
+| 13 | ~~What is the live demo?~~ | Decided: the demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). |
 
 ---
 
