@@ -1,6 +1,12 @@
 # Roamory (AI Travel Videographer)
 
-Hackathon MVP: camera glasses with a rolling buffer, an AI backend that picks meaningful moments, and an auto-edited highlight video.
+Hackathon MVP: an iPhone app that learns your video style and trip, films with the screen dark and an adaptive frame rate, keeps the moments that matter (a Bluetooth button guarantees one), and auto-edits a highlight video. Cloud AI selects the moments.
+
+![Roamory iPhone mockups](docs/mockups/iphone-screens.png)
+
+*Rough mockups: style picker, map destination, trip type, recording mode. Source: [docs/mockups/iphone-screens.html](docs/mockups/iphone-screens.html).*
+
+> The PRD is updated for the iPhone pivot. The TRD and the repo layout below still describe the old glasses design and are being rewritten.
 
 Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). The TRD is the source of truth for architecture.
 

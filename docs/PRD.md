@@ -2,1301 +2,310 @@
 
 ## 1. Product Overview
 
-**Working Name:** AI Travel Videographer  
-**Version:** 1.0 — Hackathon MVP  
-**Development Timeline:** 36 Hours  
-**Platform:** Camera-equipped wearable glasses + companion smartphone application + AI backend  
-**Status:** Initial PRD
+**Working Name:** Roamory (AI Travel Videographer)
+**Version:** 2.0 — iPhone pivot
+**Platform:** iPhone app (camera, on-device UI) + AI processing
+**Status:** Draft. Replaces v1.0 (camera glasses + Raspberry Pi), which is discarded entirely.
+
+> **How to read this document.** Items marked **(Decided)** came directly from the product owner. Items marked **(Proposed)** are the author's guesses to be confirmed or changed. Section 12 lists what is still open.
 
 ### 1.1 Product Summary
 
-AI Travel Videographer is an intelligent wearable recording system that automatically captures, identifies, and edits meaningful moments from a user's travel experiences.
+Roamory is an iPhone app that films a trip for the user and turns it into a finished video.
 
-The system combines camera-equipped glasses, a rolling video buffer, AI-powered event detection, and an automated video-editing pipeline.
-
-Before starting a trip, users configure their destination, itinerary, content preferences, and desired video style through a smartphone application.
-
-During the trip, the wearable continuously records into a temporary rolling buffer. A hierarchical AI pipeline analyzes sampled visual and contextual information to identify moments worth preserving.
-
-When an important moment is detected, the system retains the relevant footage from the buffer while allowing unimportant footage to be automatically overwritten.
-
-At the end of the trip, an AI-assisted editing pipeline selects, organizes, and assembles the saved footage into a personalized travel highlight video without requiring manual editing.
+The user first tells the app what kind of video they like, where they are going, what kind of trip it is and how long it will take. The app learns these preferences and keeps them. When the user taps Start Recording, the iPhone camera films the trip. The screen goes dark to save battery, and the camera lowers its frame rate when nothing important is happening, like an iPhone's ProMotion display. A Bluetooth button lets the user force a moment into the final video. After the trip, the app processes the footage into a final video, and the user reviews it in the app.
 
 ### 1.2 Problem Statement
 
-Travelers face three major problems when documenting their experiences:
-
-1. **Recording interrupts the experience.** Travelers frequently take out their phones to capture moments instead of fully enjoying them.
-2. **Important moments are missed.** Unexpected, spontaneous, or emotionally meaningful events often occur before users begin recording.
-3. **Editing requires significant effort.** Travelers accumulate large amounts of footage but rarely convert it into polished highlight videos.
-
-Existing manual recording workflows require users to decide when to record, what to capture, and how to edit the final result.
+1. **Filming interrupts the experience.** Travelers take their phones out to capture moments instead of enjoying them.
+2. **Editing takes effort.** Travelers collect footage but rarely turn it into a finished video.
+3. **Generic results.** A honeymoon, a school trip and a friends' trip should not produce the same video.
 
 ### 1.3 Product Vision
 
-Enable travelers to experience their journeys naturally while an intelligent wearable system automatically creates personalized visual memories.
-
-**Core value proposition:**
-
 *Live the moment. Let AI capture the memory.*
 
-### 1.4 Primary Product Differentiators
+### 1.4 Differentiators
 
-- Hands-free, first-person travel recording.
-- Automatic identification of important moments.
-- Pre-event capture through rolling-buffer technology.
-- Personalized moment selection based on user preferences.
-- Selective use of computationally expensive AI models.
-- Fully automated highlight-video generation.
-- Integration of wearable hardware and AI software into a single end-to-end workflow.
+- An interactive, animated setup that learns the user's taste instead of showing a form.
+- Video style and trip type shape what gets filmed and how the video is cut.
+- Battery-aware capture: dark screen while recording, and an adaptive frame rate that drops when nothing is happening.
+- A Bluetooth button that guarantees an important moment is kept.
+- No hardware beyond the user's iPhone.
 
 ---
 
 ## 2. Target Users and Use Cases
 
-### 2.1 Primary Target Users
+### 2.1 Primary Users (Proposed)
 
-**Casual Travelers**
-
-Travelers who want high-quality trip memories without actively filming or editing videos.
-
-**Solo Travelers**
-
-Individuals who want to document experiences naturally without repeatedly positioning cameras or asking others to film.
-
-**Travel Content Creators**
-
-Users who want an automatic first-pass highlight video or collection of meaningful clips.
+- **Casual travelers** who want a good trip video without filming or editing.
+- **Couples, families and friend groups** on a specific kind of trip (honeymoon, family, friends, school).
 
 ### 2.2 Primary Use Case
 
-A user plans a day trip to San Francisco.
-
-Before leaving, they open the app and enter:
-
-- Destination: San Francisco
-- Planned activities: Golden Gate Bridge, sightseeing, restaurants
-- Preferred subjects: Beautiful landscapes, memorable experiences, friends
-- Video style: Cinematic travel montage
-
-The user starts the trip through the app.
-
-Throughout the day, the glasses maintain a rolling video buffer.
-
-When the user approaches a scenic viewpoint, encounters an interesting activity, or experiences a memorable interaction, the AI system identifies the event and saves the relevant footage.
-
-The user does not need to manually initiate video recording.
-
-After the trip ends, the application automatically produces a travel highlight video containing selected moments in a cohesive sequence.
-
-### 2.3 Secondary Use Cases
-
-- City exploration and sightseeing
-- Hiking and outdoor adventures
-- Group travel and shared experiences
-- Theme parks and tourist attractions
-- Short personal travel vlogs
+1. A first-time user opens the app and picks the video style that fits them from four sample clips.
+2. They choose a destination on an interactive map: continent, then country, then city.
+3. They say what kind of trip it is and how long it will last.
+4. They tap Start Recording and put the phone away (for example, in a pocket or mount).
+5. During the trip, the app films scenes its model finds worth keeping. When the user presses the Bluetooth button, that moment is kept no matter what.
+6. When the trip ends, the app produces a video. The user watches and reviews it in the app.
 
 ---
 
-## 3. Product Goals and Success Metrics
+## 3. Goals and Success Metrics
 
 ### 3.1 MVP Goals
 
-The hackathon MVP must demonstrate three core capabilities:
+- **Goal A — Personalized setup.** A new user completes style, destination, trip type and trip length through an interactive flow, and the choices are saved.
+- **Goal B — Battery-aware capture.** The app records from the iPhone camera with the screen at zero brightness, and lowers the camera frame rate between interesting scenes.
+- **Goal C — Guaranteed moments.** A Bluetooth button press always puts that scene into the final video.
+- **Goal D — Finished video.** The app turns captured footage into a playable video, which the user can review in the app.
 
-**Goal A — Functional wearable capture**
+### 3.2 Success Metrics (Proposed, to be tuned)
 
-Build a working camera-equipped wearable prototype capable of recording footage into a rolling buffer and responding to trip-control commands.
-
-**Goal B — Intelligent moment detection**
-
-Demonstrate that an AI pipeline can identify and preserve interesting footage based on visual content and user preferences.
-
-**Goal C — Automated video generation**
-
-Automatically produce a complete travel highlight video using detected and saved clips.
-
-### 3.2 Proposed Hackathon Success Metrics
-
-| Metric | MVP Target |
+| Metric | MVP target |
 |---|---|
-| Wearable camera | Functional live capture |
-| Trip configuration | Destination, preferences, style |
-| Recording control | Start and stop from companion app |
-| Rolling buffer | 60-second retention window |
-| Event detection | At least 2–3 correctly detected moments in a scripted demonstration |
-| Pre-event preservation | At least 15 seconds of footage before a trigger, where available |
-| AI personalization | Different preferences can affect selection or ranking |
-| Video generation | Automatic playable MP4 |
-| Final output | 30–60-second highlight video |
-| Editing time | Target under 2 minutes for a short demo trip, excluding lengthy transfers |
-| End-to-end demo | Complete workflow without manually selecting clips |
+| Setup | A new user reaches Start Recording in under 2 minutes |
+| Style choice | Saved and applied to the final video |
+| Recording | Camera films with screen at 0% brightness |
+| Adaptive frame rate | Battery drain lower than constant full-rate recording (measured) |
+| Bluetooth button | 100% of presses end up in the final video |
+| Detection | At least 2–3 correctly detected moments in a scripted demo |
+| Personalization | Different style or trip type visibly changes the output |
+| Final output | Playable video of 30–60 seconds |
 
-These are engineering targets, not guaranteed performance benchmarks.
+These are engineering targets, not guaranteed benchmarks.
 
-### 3.3 Non-Goals for the Hackathon
+### 3.3 Non-Goals
 
-The initial prototype will not attempt to deliver:
-
-- True 24-hour battery-powered operation.
-- Fully miniaturized commercial smart glasses.
-- Guaranteed detection of every meaningful event.
-- Fully autonomous offline frontier-model inference.
-- Advanced timeline editing.
+- Any hardware other than the iPhone and a Bluetooth button.
+- All-day battery life guarantees.
+- Guaranteed detection of every meaningful moment.
+- Manual timeline editing.
 - Multi-user collaboration.
-- Production-grade native mobile background execution.
-- Commercial manufacturing, certification, or weather resistance.
+- Android.
+- Recording while the app is in the background (iOS does not allow camera capture there; see Section 9).
 
 ---
 
-## 4. System Architecture
+## 4. Onboarding and Trip Setup
 
-### 4.1 Recommended Architecture
+All steps use animation and direct manipulation. None is a plain list of buttons.
 
-The system will use a **hybrid edge–cloud architecture** consisting of four functional layers.
+### 4.1 Video Style Picker (Decided)
 
-#### Layer A — Wearable Capture Device
+**FR-001.** On first launch, the app shows four sample video clips side by side on one screen, one per style. Candidate styles: Reels, Cinematic (movie), Documentary, Vlog.
 
-Responsibilities:
+- The user picks the one that fits best.
+- The choice is stored as part of the user's **personal preference data** and reused for later trips.
+- (Proposed) Clips loop silently; tapping one expands it with sound while the others fade.
 
-- Capture first-person video.
-- Encode video efficiently.
-- Maintain a continuously updating rolling buffer.
-- Provide sampled frames for AI analysis.
-- Preserve selected video segments.
-- Support manual capture triggers.
-- Communicate with the backend over Wi-Fi.
+### 4.2 Destination (Decided)
 
-The wearable must retain recording functionality independently of whether the phone interface is visible.
+**FR-002.** The user selects a destination as continent, then country, then city, using an interactive map visualization with animation.
 
-#### Layer B — Companion Smartphone Application
+- (Proposed) A globe spins; tapping a continent zooms into it; countries highlight under the finger; city pins appear and pulse when selected.
 
-Responsibilities:
+### 4.3 Trip Type (Decided, interaction Proposed)
 
-- Create and configure travel sessions.
-- Manage user content preferences.
-- Start and stop trips.
-- Display wearable connection and recording status.
-- Show detected moments.
-- Display and play completed highlight videos.
+**FR-003.** The user selects the kind of trip: honeymoon, family, friends, school, and similar. The interaction must be animated and not a plain button row.
 
-The phone acts primarily as the user-facing control interface rather than the main continuous video-processing device.
+Interaction ideas under consideration (author's proposals):
 
-#### Layer C — AI Orchestration Backend
+- **Companion cards:** swipe through illustrated cards. Leading idea.
+- **Drag your people:** drop avatars onto a scene; the trip type is inferred.
+- **Vibe sliders:** drag between poles such as calm and adventurous.
+- **Short AI chat:** natural-language questions about who is coming and why.
 
-Responsibilities:
+### 4.4 Trip Length (Decided)
 
-- Receive sampled visual/contextual data.
-- Identify candidate moments.
-- Escalate selected candidates to a more capable vision model.
-- Evaluate clips against user preferences.
-- Send retention decisions to the wearable.
-- Store event metadata.
-- Coordinate media transfer and post-trip processing.
+**FR-004.** The user says how long the trip will take, asked during setup before recording starts. It is used to pace the app (for example, how selective to be) and to size the final video. How exactly it is used is open (Section 12).
 
-For the hackathon, this backend can run on a developer laptop or a cloud-hosted server.
+### 4.5 Start Recording (Decided)
 
-#### Layer D — Automatic Video Editing Engine
+**FR-005.** After setup, a Start Recording button begins the session.
 
-Responsibilities:
+### 4.6 Personal Preference Data (Decided)
 
-- Retrieve selected footage.
-- Rank and deduplicate clips.
-- Organize clips into a coherent sequence.
-- Determine clip boundaries and transitions.
-- Add basic titles and music.
-- Render a final MP4.
-- Return the result to the companion application.
+**FR-006.** The app stores the user's style choice and may store trip-type and destination history. Stored preferences prefill future trips and inform moment selection and editing.
 
-### 4.2 End-to-End Data Flow
+---
 
-```text
-User Configures Trip
-         |
-         v
-Companion App
-         |
-         v
-Start Trip Command
-         |
-         v
-Wearable Camera
-         |
-         v
-Video Encoder
-         |
-         +--------------------+
-         |                    |
-         v                    v
-Rolling Video Buffer    Sampled Frames
-         |                    |
-         |                    v
-         |             AI Backend
-         |                    |
-         |             Candidate Filtering
-         |                    |
-         |              Vision Model
-         |                    |
-         |             Event Decision
-         |                    |
-         <--------------------+
-         |
-         v
-Preserve Selected Video
-         |
-         v
-Transfer Saved Clips
-         |
-         v
-Clip Ranking & Sequencing
-         |
-         v
-FFmpeg Rendering
-         |
-         v
-Final Travel Video
-         |
-         v
-Companion App
-```
+## 5. Recording
 
-### 4.3 Hardware Recommendation
+### 5.1 Recording Session (Decided)
 
-**Primary prototype controller: Raspberry Pi Zero 2 W**
+**FR-007.** While a trip is active:
 
-Recommended hardware:
+- The app uses the iPhone camera to film.
+- The screen brightness is set to 0 to save battery.
+- The user can wake the screen to see status and stop the trip.
 
-| Component | Purpose |
+### 5.2 Adaptive Frame Rate (Decided concept, details Proposed)
+
+**FR-008 (Decided).** Like an iPhone's ProMotion display, which drops from 120 Hz toward 1 Hz when nothing is moving, the app lowers the camera frame rate when nothing important is happening and raises it when something is. The goal is to save battery and heat.
+
+- (Proposed) Several tiers, for example 30 fps, 10 fps and 2 fps.
+- (Proposed) A cheap check on the phone raises the frame rate: frame difference between samples, motion sensors, or a button press. No cloud call is needed to wake up.
+- (Proposed) The cloud model decides which footage is kept (Section 6), not when the frame rate changes.
+- Trade-off: footage recorded before the ramp-up is low frame rate and looks like time-lapse. The following reduce this (all Proposed):
+  - **Raised floor.** The lowest tier is about 10 fps, not 1–2 fps, so the footage still plays as video. The exact floor is set by battery measurements on a real iPhone (see the spike in Section 12).
+  - **Early ramp-up.** Signals that come before a good moment raise the rate: the user slows or stops walking (motion sensors), the phone is raised or tilted, the user nears a landmark in the chosen city, or sound gets louder.
+  - **Fast up, slow down.** The rate rises to full within about a second and stays high for roughly 20–30 seconds after the last activity, so the end of a moment is always full quality.
+  - **Speed-ramp in the edit.** Any remaining low-fps lead-in is edited as a deliberate time-lapse that accelerates into normal speed at the moment, where the video style allows it.
+  - **Button override.** A Bluetooth press goes straight to full frame rate, and the buffer protects the footage before the press, so a slightly late press still works.
+
+### 5.2a Rolling Buffer (Decided)
+
+**FR-008a (Decided).** The app takes in the video stream and holds it in a buffer for a set amount of time, then deletes it, like a queue (first in, first out).
+
+- When a moment is selected (by the AI or the Bluetooth button), the buffered footage around it is protected from deletion and kept for the final video. This allows keeping the seconds before the moment.
+- (Proposed) The buffer must be longer than the cloud decision delay plus the pre-roll, so a late decision still finds its footage. Exact length is open.
+- (Proposed) The buffer is stored on the phone. Unselected footage is deleted when it leaves the buffer.
+
+### 5.3 Bluetooth Button (Decided)
+
+**FR-009.** A Bluetooth button connects to the app. When the user presses it, the current scene is guaranteed to appear in the final video, overriding the AI's selection and any budget or cooldown limits.
+
+- (Proposed) The press also raises the camera to full frame rate and protects the buffered footage around the press.
+- (Proposed) The app confirms the press with a haptic or sound, since the screen is dark.
+
+### 5.4 Moment Metadata (Proposed)
+
+**FR-010.** Each saved moment records: id, trip, start and end time, source (AI or button), category, score, a short description, and a file reference.
+
+---
+
+## 6. Moment Selection and AI
+
+### 6.1 Principle
+
+Cheap checks first; expensive models only when needed. Most of the time the app does little work, which saves battery and cost.
+
+### 6.2 Selection Signals (Proposed)
+
+- Visual interest and scene change.
+- Match with the user's style, trip type and destination.
+- Image quality (blur, exposure).
+- Novelty relative to already saved moments.
+
+### 6.3 Personalization (Proposed)
+
+**FR-011.** Trip type, style and preferences influence which moments are chosen. For example, a honeymoon prioritizes couple and scenic moments; a school trip prioritizes group moments.
+
+### 6.4 Where the Model Runs (Decided)
+
+**FR-011a (Decided).** AI selection runs in the cloud, using a frontier model API.
+
+- (Proposed) The phone uploads small sample frames, not full video, and the cloud model returns keep or skip decisions.
+- (Proposed) Cheap on-phone checks reduce how many frames are sent, to limit cost and battery.
+- Requires user consent (Section 10). Without a network, the app keeps recording, and button-pressed moments are still kept.
+
+---
+
+## 7. Video Generation
+
+**FR-012.** After the trip, the app processes the footage into a final video without manual editing.
+
+**FR-013.** The video follows the style picked in setup (Reels, Cinematic, Documentary, Vlog), which controls clip length, pacing, transitions, music and aspect ratio.
+
+**FR-014.** Clips are selected, ordered (generally chronologically) and trimmed automatically. Duplicate or near-identical moments are reduced.
+
+**FR-015.** Titles and captions may only use information the user provided (destination, trip type) or what is visible in the footage. The video must not claim events that did not happen.
+
+**FR-016 (Proposed).** Output is MP4/H.264, 30–60 seconds for the MVP, with vertical aspect for Reels and horizontal for the others.
+
+**Where processing runs** (on the phone or on a server) is open (Section 12).
+
+---
+
+## 8. Review Experience
+
+**FR-017 (Decided).** The user can review the final video in the app.
+
+**FR-018 (Proposed).** Review includes: playback, saving or sharing the video, and a list of the moments used, with the button-pressed ones marked.
+
+**FR-019 (Proposed, may be P1).** The user can give feedback on the result (for example, too long, wrong style, missing a moment), which improves their saved preferences.
+
+---
+
+## 9. Platform and Constraints
+
+- **iPhone app** (native iOS is assumed; the framework is not yet chosen).
+- **Camera:** recording requires the app in the foreground. With brightness at 0 the screen is still on, so the app must disable auto-lock during a trip. iOS does not allow camera capture while the app is in the background.
+- **Heat and battery:** continuous recording is thermally and battery costly; the adaptive frame rate exists to reduce both.
+- **Bluetooth button (Proposed assumption):** a BLE button that the app can read while in the foreground with the screen dark. The model of button and how it pairs is open.
+- **Storage:** footage is bounded; unselected footage is discarded.
+- **Connectivity:** capture must work without a network. Anything that needs the network (cloud analysis, cloud rendering) must degrade gracefully.
+
+---
+
+## 10. Privacy and Safety
+
+- Recording begins only after an explicit tap on Start Recording.
+- When the screen is dark, the user must still be able to tell the app is recording (for example, the iOS camera indicator, plus an in-app indicator on wake). The product must not be a covert recorder.
+- Cloud analysis or rendering requires clear user consent, with a setting to turn it off.
+- Unselected footage is discarded automatically.
+- Audio recording and filming identifiable bystanders may require consent depending on local law; audio can be turned off.
+- Preference data stays on the user's device unless the user opts in to sync (Proposed).
+
+---
+
+## 11. Scope and Priorities
+
+### P0 — Must have
+
+| Feature | Acceptance |
 |---|---|
-| Raspberry Pi Zero 2 W | Camera control, encoding, buffering |
-| Raspberry Pi-compatible camera module | First-person video capture |
-| Camera ribbon cable / adapter | Camera-to-controller connection |
-| Glasses frame or mounted camera frame | Wearable camera positioning |
-| MicroSD card | Temporary and preserved footage |
-| External USB power bank | Device power |
-| Physical button | Manual moment capture |
-| Recording indicator LED | Visible recording state |
-| Compatible microphone (optional) | Audio-based moment detection |
-| Wi-Fi connection | Device communication and clip transfer |
+| Style picker | Four-clip picker saves the choice |
+| Destination | Interactive map: continent, country, city |
+| Trip type and length | Animated selection and length input |
+| Start Recording | Begins an iPhone camera session |
+| Dark-screen recording | Brightness 0 during the trip |
+| Rolling buffer | Stream held in a queue buffer; selected moments are protected |
+| Moment selection | Cloud AI picks moments; style and trip type matter |
+| Bluetooth button | Press always lands in the final video |
+| Final video | Automatic playable video |
+| Review | In-app playback |
 
-The camera should be mounted to the glasses frame. The compute board and battery may remain in a pocket or external enclosure for the MVP, connected by appropriate cables.
+### P1 — Should have
 
-The system should prioritize a reliable demonstration over complete hardware miniaturization.
+- Adaptive frame rate with tiers and an on-phone ramp-up trigger.
+- Persisted preference data used across trips.
+- Moment list in the review screen.
+- Feedback on the result.
+- Haptic confirmation for button presses.
 
-**Initial capture settings:**
+### P2 — Future
 
-- Resolution: 720p
-- Frame rate: 24–30 FPS
-- Video encoding: H.264
-- Capture window: Active trip only
-
-A higher resolution may be enabled after successful end-to-end testing.
-
-### 4.4 Connectivity Design
-
-**Wi-Fi is the primary MVP communication channel.**
-
-Bluetooth is reserved for future pairing, low-bandwidth commands, or status communication.
-
-For the demo, the wearable, backend, and phone should connect through a known working local network.
-
-Large video files should not depend on Bluetooth transfer.
+- Natural-language re-editing.
+- Manual timeline editing.
+- Multi-day trip storytelling.
+- Audio-aware detection.
+- Sharing to social networks.
 
 ---
 
-## 5. Functional Requirements
+## 12. Open Questions
 
-### 5.1 Trip Setup and Management
-
-**FR-001 — Create Trip**
-
-Users must be able to create a new travel session.
-
-Required inputs:
-
-- Trip name or destination
-- Content preferences
-- Preferred video style
-
-Optional inputs:
-
-- Travel dates
-- Planned attractions or itinerary
-
-**FR-002 — Start Trip**
-
-The user must be able to explicitly start a trip through the application.
-
-Starting a trip must:
-
-1. Associate the session with the wearable device.
-2. Initialize the video buffer.
-3. Begin camera recording.
-4. Activate AI detection.
-5. Display recording status.
-
-**FR-003 — End Trip**
-
-The user must be able to terminate recording through the application.
-
-Ending a trip must:
-
-1. Stop continuous capture.
-2. Finalize pending saved clips.
-3. Stop detection tasks.
-4. Begin transfer of retained footage.
-5. Initiate automated video generation when required media is available.
-
-### 5.2 Rolling Video Buffer
-
-**FR-004 — Continuous Temporary Recording**
-
-While a trip is active, the wearable continuously encodes video into a bounded rolling buffer.
-
-The buffer must operate as a first-in, first-out structure.
-
-The oldest unprotected footage is automatically overwritten as new footage arrives.
-
-**Recommended MVP configuration:**
-
-- Total rolling retention: 60 seconds
-- Segment length: approximately 2 seconds
-- Target pre-event preservation: 15 seconds
-- Target post-event preservation: 15 seconds
-- Local storage: MicroSD
-- Buffer implementation: Segmented circular recording
-
-A file-based segmented buffer is preferred for the MVP because it provides straightforward timestamp-based retention and clip extraction.
-
-**FR-005 — Event-Based Preservation**
-
-When the system identifies a meaningful event at time T, it must preserve footage covering approximately:
-
-`T − 15 seconds` through `T + 15 seconds`
-
-Subject to actual footage availability.
-
-For example:
-
-- Event detected at 10:05:30.
-- Requested interval: 10:05:15–10:05:45.
-- Relevant buffered segments are protected from deletion.
-- Recording continues until the post-event interval is complete.
-- The selected footage is finalized as a retained clip.
-
-Detection latency must be accounted for so that footage is not overwritten before preservation begins.
-
-**FR-006 — Buffer Cleanup**
-
-Unselected footage must be automatically overwritten or removed.
-
-Protected or retained segments must not be deleted by routine buffer cleanup.
-
-If multiple events overlap, the system should merge or share the overlapping footage rather than unnecessarily duplicating it.
-
-**FR-007 — Manual Capture**
-
-The wearable should provide a manual capture mechanism, preferably through a physical button.
-
-This serves both as a user feature and a reliable demonstration fallback.
-
-### 5.3 AI-Powered Important-Moment Detection
-
-**FR-008 — Candidate Identification**
-
-The system must periodically evaluate sampled frames to identify potentially interesting events.
-
-Signals may include:
-
-- Visually distinctive scenery
-- Recognizable attractions or landmarks
-- Human activities
-- Scene changes and novelty
-- Visual composition and image quality
-- User-defined preferences
-- Optional audio events
-- Optional location context
-
-Detection must not rely exclusively on motion, because stationary landscapes may be highly valuable.
-
-**FR-009 — Hierarchical AI Analysis**
-
-The system must support multiple levels of computational analysis.
-
-Stage 1: Inexpensive visual or metadata filtering.
-
-Stage 2: Selective multimodal model evaluation.
-
-Stage 3: Context-aware clip ranking and editing decisions.
-
-**FR-010 — Personalized Event Evaluation**
-
-When scoring an event, the AI system must consider trip configuration and user content preferences.
-
-For example, a user who prioritizes architecture should receive different moment rankings from a user who prioritizes food or social experiences.
-
-**FR-011 — Event Metadata**
-
-Each preserved event must include:
-
-- Event identifier
-- Associated trip
-- Start and end timestamps
-- Event category
-- Confidence or relevance score
-- Short natural-language description
-- Source of detection
-- File reference
-
-### 5.4 Automatic Video Generation
-
-**FR-012 — Automatic Clip Selection**
-
-The system must select suitable footage from the saved event collection without requiring users to manually choose clips.
-
-**FR-013 — Automated Sequencing**
-
-The editing engine must determine the presentation order, generally using chronological ordering with optional narrative improvements.
-
-**FR-014 — Video Style Application**
-
-The system should support configurable editing styles, including:
-
-- Cinematic Travel Montage
-- Social Media Reel
-- Travel Vlog
-
-The MVP may initially support one complete preset, with additional presets added if time permits.
-
-**FR-015 — Video Rendering**
-
-The system must export a playable MP4 containing selected footage and basic editing effects.
-
-**FR-016 — Video Delivery**
-
-The application must provide a completed-video preview and a download function.
-
----
-
-## 6. AI Model Architecture and Orchestration
-
-### 6.1 Design Principle
-
-The system should not process every recorded video frame using an expensive frontier model.
-
-Instead, it should allocate computational resources according to the importance and uncertainty of the current input.
-
-**Proposed strategy:**
-
-*Cheap detection first. Expensive reasoning only when necessary.*
-
-This is a hierarchical model-routing system, not a requirement for multiple autonomous agents communicating freely.
-
-### 6.2 Stage 0 — Sampling and Lightweight Signals
-
-**Location:** Wearable and/or backend
-
-The wearable continuously records video but only exports a small subset of frames for analysis.
-
-Suggested initial sampling rate:
-
-- Approximately one frame every 2–5 seconds.
-- Reduced image resolution for transmission.
-- Additional sampling when a potential event occurs.
-
-Cheap candidate signals may include:
-
-- Scene difference
-- Motion magnitude
-- Image sharpness
-- Brightness/exposure
-- Periodic sampling for static scenes
-- Manual capture events
-
-The purpose is to reduce unnecessary model calls, not make the final importance decision.
-
-### 6.3 Stage 1 — Candidate Filtering
-
-**Location:** Backend
-
-A lightweight computer vision model or a combination of inexpensive heuristics evaluates whether sampled content merits deeper analysis.
-
-Possible implementation approaches:
-
-- OpenCV for image analysis
-- Lightweight image classifiers
-- Image-text embedding similarity
-- Rule-based scoring using user preferences
-
-The candidate filter returns:
-
-```text
-Candidate Score: 0.0–1.0
-Candidate Category: scenery / activity / food / other
-Escalation Recommended: true / false
-```
-
-Thresholds should be configurable and tuned with demonstration footage.
-
-### 6.4 Stage 2 — Multimodal Semantic Evaluation
-
-**Location:** Cloud model API or sufficiently capable backend
-
-Potentially important frames are sent to a more capable vision-language model.
-
-The model receives:
-
-- Selected frame or short frame sequence
-- Destination
-- User preferences
-- Available trip context
-- Candidate metadata
-
-The model estimates:
-
-- Is this moment worth saving?
-- What makes it meaningful?
-- Which user preference does it match?
-- How visually interesting is it?
-- How relevant is it to the trip?
-- Should it be retained?
-
-**Illustrative model input:**
-
-```text
-Destination: San Francisco
-Preferences: Scenery, architecture
-Current candidate: 3 sampled frames
-
-Evaluate this moment for inclusion in
-a personalized travel highlight video.
-
-Return structured JSON containing:
-event_type, relevance_score,
-visual_quality_score, save_decision,
-and a short explanation.
-```
-
-The model should return structured output, validated by the backend.
-
-**Important:** The system must limit expensive calls using candidate thresholds, cooldowns, batching, and per-trip request budgets.
-
-### 6.5 Stage 3 — Clip Ranking and Editing Planning
-
-After the trip, the system performs a separate analysis of saved events.
-
-This stage is responsible for video-level storytelling rather than real-time event detection.
-
-Inputs:
-
-- Saved clips
-- Event descriptions
-- Event scores
-- User video preferences
-- Clip timestamps and durations
-
-Outputs:
-
-- Selected clips
-- Clip order
-- Start/end trim points
-- Target durations
-- Transition choices
-- Optional title text
-
-The planner should emit a structured edit specification.
-
-The actual rendered video should be created by a deterministic video-processing engine.
-
-### 6.6 Illustrative Event Scoring
-
-An initial configurable score may combine:
-
-| Criterion | Suggested Weight |
-|---|---:|
-| User preference alignment | 35% |
-| Visual interest | 25% |
-| Event significance | 20% |
-| Visual quality | 10% |
-| Scene novelty | 10% |
-
-These weights are starting assumptions, not scientifically validated ranking parameters.
-
-Manual capture must override the normal automatic rejection threshold.
-
-### 6.7 Optional Additional Signals
-
-**Audio detection**
-
-Potentially useful audio cues include laughter, cheering, music, and excited speech.
-
-Requires appropriate microphone hardware, user consent, and synchronization with the video pipeline.
-
-For the MVP, this is secondary to visual detection.
-
-**GPS context**
-
-The companion phone may provide location information with permission.
-
-Location can improve detection of landmarks or meaningful itinerary stops.
-
-The initial app should not assume uninterrupted background GPS collection.
-
-**Motion detection**
-
-Motion and camera movement can help identify activities, but motion alone is not evidence that footage is worth saving.
-
-A dedicated IMU is not required for the MVP.
-
-**Voice commands**
-
-Possible future commands include:
-
-- "Save that moment."
-- "This is important."
-- "Start recording."
-
-A physical button is a simpler and more reliable initial implementation.
-
----
-
-## 7. Automatic Video Editing Pipeline
-
-### 7.1 Editing Workflow
-
-At the end of a trip:
-
-1. Finalize all retained event clips.
-2. Transfer required footage to the editing backend.
-3. Remove duplicate or highly overlapping moments.
-4. Rank clips according to relevance and quality.
-5. Select moments within the target video length.
-6. Determine clip order and trim boundaries.
-7. Generate an editing plan.
-8. Apply transitions, titles, and optional music.
-9. Render the video.
-10. Store and deliver the final output.
-
-### 7.2 Recommended Editing Engine
-
-Use **FFmpeg** for programmatic video processing.
-
-The application backend will control FFmpeg using a generated edit specification.
-
-For the hackathon, the editing engine should prioritize reliable operations:
-
-- Clip trimming
-- Clip concatenation
-- Consistent encoding
-- Basic transitions
-- Text overlay
-- Music overlay
-- Aspect-ratio conversion
-
-Complex visual effects and generative video transformations are out of scope.
-
-### 7.3 Style Presets
-
-**Cinematic**
-
-- Scenic shot prioritization
-- Longer clip durations
-- Smooth transitions
-- Atmospheric music
-- Minimal text
-
-**Social Reel**
-
-- Shorter clip durations
-- Faster pacing
-- Vertical output
-- High-energy music
-- Concise titles
-
-**Travel Vlog**
-
-- Mostly chronological structure
-- Activity-focused selection
-- Longer contextual segments
-- Natural audio where available
-
-If these cannot all be implemented in 36 hours, prioritize Social Reel or Cinematic and preserve the architecture for additional styles.
-
-### 7.4 Proposed MVP Output
-
-- File type: MP4
-- Duration: 30–60 seconds
-- Default resolution: 720p
-- Aspect ratio: 16:9 or 9:16, according to the selected style
-- Music: Licensed, royalty-free, or user-provided
-- Editing: Fully automatic
-- Manual editing: Not required
-
-Video content must come from actual captured footage. AI-generated descriptions and titles must not imply that unverified events occurred.
-
----
-
-## 8. Companion App Requirements
-
-### 8.1 Platform Recommendation
-
-Build a mobile-responsive web application for the hackathon.
-
-Recommended technologies:
-
-- React or Next.js frontend
-- FastAPI or Node.js backend
-- REST APIs for configuration and commands
-- WebSocket or polling for status updates
-
-A native application is not required for the MVP.
-
-The web application should be functional on a smartphone while the capture and AI services operate independently.
-
-### 8.2 Required Screens
-
-**Screen 1 — Home**
-
-Displays:
-
-- Create Trip
-- Previous Trips
-- Device Connection Status
-
-**Screen 2 — Trip Configuration**
-
-Displays:
-
-- Destination
-- Trip Name
-- Optional itinerary
-- Content preferences
-- Video style selection
-- Start Trip button
-
-**Screen 3 — Active Trip**
-
-Displays:
-
-- Trip name
-- Recording indicator
-- Device connection status
-- Number of saved moments
-- Manual Save Moment action
-- End Trip button
-
-Optional enhancement: Live camera preview.
-
-**Screen 4 — Processing**
-
-Displays:
-
-- Number of selected clips
-- Editing status
-- Render status
-- Progress messages
-
-**Screen 5 — Completed Video**
-
-Displays:
-
-- Video player
-- Download button
-- Trip metadata
-- Saved moments summary
-
-### 8.3 UX Requirements
-
-Users should be able to start a trip after completing a small number of configuration steps.
-
-Trip status must remain understandable even if the connection is interrupted.
-
-The app must distinguish:
-
-- Recording active
-- Device disconnected
-- AI analysis unavailable
-- Video processing
-- Video ready
-- Error requiring user action
-
-The application must not display a successful completion state until the associated operation has actually completed.
-
----
-
-## 9. System State and Data Design
-
-### 9.1 Trip States
-
-```text
-CREATED
-   |
-   v
-ACTIVE
-   |
-   v
-FINALIZING
-   |
-   v
-PROCESSING
-   |
-   v
-COMPLETED
-```
-
-Error states may occur during recording, media transfer, or processing.
-
-A trip should remain recoverable when possible.
-
-### 9.2 Primary Data Entities
-
-**Trip**
-
-- `trip_id`
-- `user_id`
-- `destination`
-- `itinerary`
-- `preferences`
-- `video_style`
-- `start_time`
-- `end_time`
-- `status`
-
-**Moment**
-
-- `moment_id`
-- `trip_id`
-- `start_timestamp`
-- `end_timestamp`
-- `event_type`
-- `description`
-- `relevance_score`
-- `capture_source`
-- `media_path`
-
-**GeneratedVideo**
-
-- `video_id`
-- `trip_id`
-- `status`
-- `output_path`
-- `duration`
-- `style`
-- `created_at`
-
-### 9.3 Suggested API Operations
-
-| Operation | Description |
-|---|---|
-| `POST /trips` | Create a trip |
-| `POST /trips/{id}/start` | Begin the recording session |
-| `POST /trips/{id}/stop` | End recording and trigger finalization |
-| `GET /trips/{id}` | Retrieve trip status |
-| `POST /trips/{id}/moments` | Register a saved event |
-| `POST /trips/{id}/manual-capture` | Request preservation of a moment |
-| `GET /trips/{id}/moments` | Retrieve preserved moments |
-| `GET /trips/{id}/video` | Retrieve generated video status and location |
-
-Wearable-specific APIs should additionally support device health, sampled-frame submission, retention commands, and media transfer.
-
-### 9.4 Timestamp and Reliability Requirements
-
-The system must associate each video segment and AI decision with a consistent trip-relative timestamp.
-
-The backend must translate model decisions into correct camera-side retention intervals.
-
-Segment deletion must not occur until protection decisions and clip finalization are safely handled.
-
-Overlapping events should be deduplicated.
-
----
-
-## 10. Privacy, Data Retention, and Safety
-
-### 10.1 Design Principles
-
-The product captures first-person footage in public and potentially private environments.
-
-Privacy and user control must be core design constraints.
-
-### 10.2 Recording Controls
-
-- Recording begins only after an explicit user action.
-- A visible recording indicator should remain active while capturing.
-- Users must be able to stop recording.
-- The wearable must not silently begin recording without an active session.
-- The system must provide clear device and recording status.
-
-### 10.3 Data Handling
-
-- The rolling buffer is temporary.
-- Unselected footage is automatically removed.
-- Selected footage is retained for video creation.
-- Cloud processing requires informed user permission.
-- Unnecessary raw footage should not be uploaded.
-- Temporary cloud copies should be deleted according to a clearly defined retention policy.
-
-### 10.4 Audio and Bystander Considerations
-
-Audio recording and recording identifiable individuals may require additional consent depending on local laws and circumstances.
-
-The product should support disabling audio and recording in privacy-sensitive environments.
-
-The prototype must not be marketed as a covert recording device.
-
----
-
-## 11. MVP Scope and Feature Priorities
-
-### P0 — Must Have
-
-These define the successful hackathon product.
-
-| Feature | Acceptance Condition |
-|---|---|
-| Wearable camera | Camera captures real footage |
-| Trip creation | User can configure and save a trip |
-| Start/stop control | App controls capture session |
-| Rolling buffer | Older footage is automatically overwritten |
-| Automatic detection | Visual AI identifies meaningful events |
-| Event preservation | Selected pre/post-event footage is retained |
-| AI personalization | Preferences influence moment selection |
-| Automatic editing | Saved clips become a finished MP4 |
-| Video preview | User can view and download result |
-| End-to-end integration | Live demonstration works |
-
-### P1 — Should Have
-
-Implement after P0 functionality is stable.
-
-- Manual capture button
-- AI-generated event descriptions
-- Multiple video styles
-- Basic location-aware ranking
-- Automatic duplicate suppression
-- Simple music selection
-- Detailed recording and processing status
-- Basic audio-event detection, if microphone integration is reliable
-
-### P2 — Future Versions
-
-- Advanced voice commands
-- Manual timeline editing
-- AI-assisted clip replacement
-- Natural-language re-editing
-- Advanced video stabilization
-- On-device semantic vision models
-- Fully native background mobile integration
-- Collaborative travel albums
-- Multi-day trip storytelling
-- Commercial wearable hardware
-- Long-duration battery optimization
-
----
-
-## 12. Non-Functional Requirements
-
-### 12.1 Reliability
-
-Continuous recording must not depend on a persistent foreground phone UI.
-
-Temporary backend disconnection must not immediately terminate camera capture.
-
-If AI analysis becomes unavailable, the wearable should continue buffering while local storage permits and retain manually marked footage.
-
-### 12.2 Performance
-
-- Video capture should remain continuous during normal inference operations.
-- AI analysis must not block the recording pipeline.
-- Model calls should use bounded concurrency and timeouts.
-- Video rendering should run separately from device-control requests.
-- The MVP should handle at least several saved clips in one trip.
-
-### 12.3 Resource Efficiency
-
-- Use compressed video capture.
-- Avoid streaming full-resolution footage continuously.
-- Upload sampled frames for detection.
-- Upload retained clips for editing.
-- Restrict high-cost model calls.
-- Enforce a bounded storage budget.
-
-### 12.4 Security
-
-- Device-control endpoints must reject unauthorized commands.
-- API credentials must remain on the server, not in frontend source code.
-- Access to retained footage must be restricted to the associated user or authorized demonstration environment.
-- Cloud uploads should use secure transport where available.
-
----
-
-## 13. Recommended Technology Stack
-
-| Layer | Recommended Technologies |
-|---|---|
-| Wearable controller | Raspberry Pi Zero 2 W |
-| Camera capture | Picamera2 / libcamera |
-| Video buffer | H.264 segmented ring buffer |
-| Device software | Python |
-| Hardware communication | Wi-Fi + HTTP |
-| Frontend | React / Next.js |
-| Backend | Python + FastAPI |
-| Initial candidate filtering | OpenCV / lightweight vision model |
-| Semantic reasoning | Vision-capable model API |
-| AI orchestration | Python routing and scoring logic |
-| Video editing | FFmpeg |
-| Application data | SQLite for local demo, or managed database |
-| Media storage | Local filesystem for MVP, optional cloud storage |
-| Deployment | Developer laptop or cloud backend |
-
-The backend should use a modular pipeline rather than requiring a heavy agent framework.
-
----
-
-## 14. 36-Hour Hackathon Implementation Plan
-
-### Hours 0–4: Architecture and Hardware Bring-Up
-
-- Assemble wearable camera.
-- Configure Raspberry Pi.
-- Verify camera capture.
-- Configure Wi-Fi.
-- Establish backend repository structure.
-- Agree on interface contracts.
-
-**Milestone:** Real video can be captured and viewed.
-
-### Hours 4–10: Recording and Buffering
-
-- Implement segment-based recording.
-- Build ring-buffer cleanup.
-- Implement segment preservation.
-- Add timestamps and trip identifiers.
-- Create start/stop control API.
-- Test preservation of pre-event footage.
-
-**Milestone:** A real event can trigger retention of earlier footage.
-
-### Hours 8–16: Companion Application
-
-Parallel frontend work:
-
-- Build trip creation page.
-- Add destination and preferences.
-- Add video-style configuration.
-- Implement trip status page.
-- Connect frontend to backend APIs.
-- Implement end-trip workflow.
-
-**Milestone:** The phone app controls recording sessions.
-
-### Hours 12–23: AI Detection Pipeline
-
-- Implement frame sampling.
-- Add inexpensive candidate filtering.
-- Integrate a vision model API.
-- Create structured event evaluation.
-- Add preference-based scoring.
-- Connect detection decisions to buffer preservation.
-- Validate with varied real-world scenes.
-
-**Milestone:** AI can autonomously decide which footage to save.
-
-### Hours 18–28: Automatic Video Editing
-
-- Implement saved-clip transfer.
-- Normalize footage format.
-- Implement event ranking.
-- Generate editing timeline.
-- Render video with FFmpeg.
-- Add optional background music and titles.
-- Expose final video through the application.
-
-**Milestone:** Ending a trip produces an MP4 automatically.
-
-### Hours 28–33: Integration and Reliability
-
-- Test the complete workflow repeatedly.
-- Fix timing and buffer issues.
-- Test connection failures.
-- Optimize detection thresholds.
-- Reduce rendering failures.
-- Finalize basic UI/UX.
-
-**Milestone:** Repeatable end-to-end demonstration.
-
-### Hours 33–36: Demo Preparation
-
-- Record and rehearse the demonstration.
-- Prepare a short sample trip.
-- Validate important-moment detection.
-- Verify final output quality.
-- Prepare presentation and architecture visuals.
-- Capture a backup demonstration video.
-
-**Milestone:** A concise, reliable hackathon demonstration.
-
-### Team Organization
-
-For a team of approximately four engineers:
-
-| Role | Responsibilities |
-|---|---|
-| Hardware / Edge Engineer | Camera, Pi, buffer, device APIs |
-| AI Engineer | Detection pipeline, model routing, scoring |
-| Backend / Video Engineer | API integration, media processing, FFmpeg |
-| Frontend / Integration Engineer | Mobile app, trip UX, end-to-end testing |
-
-Responsibilities may overlap depending on the team's strengths.
-
----
-
-## 15. Demonstration Plan
-
-### 15.1 Demo Scenario
-
-**Scenario:** A short sightseeing trip with different types of visual moments.
-
-1. Open the companion application.
-2. Create a trip.
-3. Enter destination and preferred content categories.
-4. Select a video style.
-5. Start the trip.
-6. Show the wearable camera capturing footage.
-7. Walk through ordinary scenes.
-8. Introduce a visually interesting event.
-9. Demonstrate the AI detecting and saving the event.
-10. Show that ordinary footage continues to be overwritten.
-11. Repeat for additional meaningful moments.
-12. End the trip.
-13. Show automatic video assembly.
-14. Play the completed highlight video.
-
-### 15.2 What the Demonstration Must Prove
-
-The key technical demonstration is not simply that AI can edit a video.
-
-It must prove that:
-
-1. Footage was captured using the wearable prototype.
-2. The recording pipeline preserved events without manual clip selection.
-3. AI influenced which moments were saved.
-4. The saved footage was automatically transformed into a complete video.
-
-### 15.3 Demo Fallbacks
-
-The primary demonstration must use real hardware.
-
-A previously captured device recording can serve as a labeled fallback if live hardware fails.
-
-However, the fallback must use the same AI analysis and automatic editing pipeline rather than a manually pre-edited final video.
-
----
-
-## 16. Risks and Mitigations
-
-| Risk | Impact | Mitigation |
+| # | Question | Notes |
 |---|---|---|
-| Camera setup delays | High | Validate hardware before AI integration |
-| Buffer timing errors | High | Use timestamped segments and protected retention |
-| Slow cloud inference | High | Maintain sufficient prebuffer; use timeouts and asynchronous calls |
-| Weak AI accuracy | Medium | Tune thresholds; use controlled but genuine demo scenarios |
-| Device connectivity loss | High | Keep recording local; provide manual capture fallback |
-| Battery limitations | Medium | Use an external battery for MVP |
-| Poor recorded audio | Low–Medium | Make audio optional for the MVP |
-| Video format incompatibility | High | Standardize codec, resolution, frame rate, and timestamps |
-| FFmpeg failures | High | Begin with simple deterministic editing operations |
-| Excessive feature scope | High | Freeze P0 early and defer optional integrations |
-| Privacy concerns | High | Visible recording indicator, consent, and temporary retention |
+| 1 | Which on-phone signal raises the frame rate, and what are the tiers? | Frame difference and motion sensors are proposed. Needs testing. |
+| 2 | How long is the buffer, and how long is the pre-roll? | Must exceed cloud decision delay. |
+| 3 | Where is the video rendered: on the phone or on a server? | Affects processing time and consent. |
+| 4 | How is trip length used? | Pacing, selectivity, video length, or all three. |
+| 5 | Which trip-type interaction do we build? | Card deck is the current lead. |
+| 6 | Which Bluetooth button hardware, and how does it pair? | Must work with the screen at 0 brightness. |
+| 7 | What are the battery and heat costs at 30, 15, 10 and 2 fps? | Spike: a small throwaway iPhone test app that records at each rate for 10 minutes with the screen at 0 brightness, on a real device. Sets the floor in FR-008. |
+| 8 | Native Swift or a cross-platform framework? | Not yet decided. |
+| 9 | Sample style clips: who produces them? | Need four representative clips. |
+| 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
+| 11 | Hackathon schedule and team roles for the new scope. | The v1.0 36-hour plan no longer applies. |
 
 ---
 
-## 17. Future Product Roadmap
+## 13. Related Documents
 
-### Version 1 — Hackathon Prototype
-
-Primary focus:
-
-- Functional wearable capture
-- Intelligent detection
-- Rolling buffer
-- Automatic highlights
-- Basic mobile interface
-
-### Version 2 — Consumer-Oriented Prototype
-
-Potential improvements:
-
-- Native smartphone application
-- Better hardware packaging
-- Improved battery life
-- Background synchronization
-- Audio-aware event detection
-- GPS-aware trip context
-- Multiple edit presets
-- Manual editing and clip replacement
-- Natural-language video revision
-
-Example:
-
-"Make the video shorter, focus more on the sunset, and remove the restaurant scene."
-
-### Version 3 — Advanced AI Travel Companion
-
-Long-term possibilities:
-
-- Advanced on-device multimodal intelligence
-- Personalized long-term content preferences
-- Proactive recognition of memorable experiences
-- Automated multi-day travel documentaries
-- Shared group-travel highlights
-- Production-quality wearable hardware
-- Adaptive recording and battery management
-
----
-
-## 18. Final MVP Definition
-
-The hackathon MVP is considered successful when a user can:
-
-1. Wear or demonstrate a functional camera-equipped glasses prototype.
-2. Configure a trip and content preferences through a phone-accessible app.
-3. Begin recording with a single explicit action.
-4. Experience an AI-assisted capture session in which important moments are automatically selected.
-5. Rely on a rolling buffer to preserve footage from before detected events.
-6. End the recording session.
-7. Receive a complete automatically edited travel highlight video.
-8. Play and download the final result without manually selecting or editing individual clips.
-
-**MVP Success Statement**
-
-*The team has demonstrated a working AI-powered wearable travel videographer that captures real-world footage, intelligently preserves meaningful moments, and automatically transforms them into a personalized travel video.*
-
----
-
-## 19. Open Technical Decisions
-
-The following decisions should be finalized during initial implementation:
-
-| Decision | Recommended Default |
-|---|---|
-| Camera/controller placement | Camera on glasses; controller and battery externally mounted |
-| Rolling-buffer storage | Local segmented H.264 files |
-| Buffer duration | 60 seconds |
-| Event retention | 15 seconds before + 15 seconds after |
-| Frame sampling | Every 2–5 seconds |
-| AI processing | Backend-hosted gated model cascade |
-| Communication | Wi-Fi |
-| Capture quality | 720p, 24–30 FPS |
-| First video style | Cinematic or Social Reel |
-| Audio detection | Optional, contingent on hardware |
-| GPS detection | Optional contextual signal |
-| Editing approach | Structured plan + FFmpeg |
-| Manual editing | Future version |
-| Cloud media processing | Only with explicit user consent |
-| Continuous recording | Only during an active trip |
-
-These choices are designed to maximize the probability of delivering a compelling end-to-end prototype within 36 hours while preserving a scalable architectural foundation.
-
-**End of PRD — Version 1.0**
+- `docs/TRD.md` still describes the discarded glasses design and must be rewritten to match this PRD.
+- `contracts/` is not yet populated; its schemas should be defined after the TRD is rewritten.
