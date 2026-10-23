@@ -395,7 +395,7 @@ A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, scree
 
 The demo's final video is made from pre-recorded footage (Decided). The app has a **replay mode** in debug builds: an `AVAssetReader` feeds a pre-recorded walk video (and its recorded motion log) into the same pipeline in place of the camera. Everything after capture (buffer, Stage 1, cloud, button, edit, render) runs unchanged, so the demo shows the real system. The replay harness in §12.2 uses the same path.
 
-Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk recorded beforehand on the chest mount with `DEMO_MODE` on, (3) press the Bluetooth button live during it, (4) end the trip and show the processing screen, (5) play the finished video with the button moment marked. Have a finished video from the same replay ready in case the network fails.
+Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk recorded beforehand on the chest mount, in the orientation of the style being demoed with `DEMO_MODE` on, (3) press the Bluetooth button live during it, (4) end the trip and show the processing screen, (5) play the finished video with the button moment marked. Have a finished video from the same replay ready in case the network fails.
 
 ### 12.5 Risks
 
@@ -423,7 +423,6 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 
 - Which frontier model provider and model IDs, and the per-trip spend cap?
 - Minimum iOS version (17.2 is proposed) and which test devices are available?
-- Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
 - Does the user need rendering to continue if they leave the app?

@@ -146,9 +146,9 @@ Interaction ideas under consideration (author's proposals):
 - The screen brightness is set to 0 to save battery.
 - The user can wake the screen to see status and stop the trip.
 
-### 5.1a Wearing the Phone (Decided: chest mount; orientation rule Proposed)
+### 5.1a Wearing the Phone (Decided)
 
-**FR-007a.** The phone is worn with the back camera facing forward, in a regular chest mount (Decided). No custom hardware. Onboarding shows how to wear it. The video style sets the orientation so the final video needs no crop: portrait for Reels (9:16), landscape for Cinematic, Documentary and Vlog (16:9). The app checks the orientation from motion sensors at Start Recording and while recording, and asks the user to fix it (with a haptic) if it is wrong.
+**FR-007a.** The phone is worn with the back camera facing forward, in a regular chest mount whose phone clamp rotates between portrait and landscape (Decided). No custom hardware. Onboarding shows how to wear it. The video style sets the orientation so the final video needs no crop: portrait for Reels (9:16), landscape for Cinematic, Documentary and Vlog (16:9). The app checks the orientation from motion sensors at Start Recording and while recording, and asks the user to fix it (with a haptic) if it is wrong.
 
 ### 5.1b Trips and Recording Sessions (Proposed)
 
@@ -321,7 +321,7 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 | 9 | Sample style clips: who produces them? | Need four representative clips. |
 | 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
 | 11 | Hackathon schedule and team roles for the new scope. | The v1.0 36-hour plan no longer applies. |
-| 12 | Does our chest mount's phone clamp hold the phone in both portrait and landscape? | Decided: a regular chest mount. Standard clamps usually rotate; check ours. If it cannot, all styles record in the one orientation it holds. |
+| 12 | ~~Does our chest mount's phone clamp hold the phone in both portrait and landscape?~~ | Decided: yes, it rotates, so each style records in its own orientation (FR-007a). |
 | 13 | ~~What is the live demo?~~ | Decided: the demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). |
 
 ---
