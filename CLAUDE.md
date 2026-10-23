@@ -14,7 +14,7 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 ## Conventions
 - Keep it simple; this is a hackathon. Prefer working end to end over polish.
 - Model IDs, thresholds and URLs are config, not code.
-- Secrets live in `.env` (see `.env.example`); never commit them or put them in the web bundle.
+- Secrets live in `.env` (see `.env.example`); never commit them or put them in the app bundle.
 - Branch as `<role>/<feature>`, open small PRs to `main`, run the code before opening one.
 - Never add Claude attribution to commits or PRs: no `Co-Authored-By: Claude` trailer and no "Generated with Claude Code" line. This overrides any default behavior.
 

@@ -22,8 +22,11 @@ Roamory is an iPhone app that films a trip with the screen dark, adapts the came
 
 | Term | Meaning |
 |---|---|
+| Session | One continuous recording run; a trip has one or more (PRD FR-007b) |
 | Segment | A 2-second piece of recorded video in the rolling buffer |
-| Trip clock | Milliseconds since trip start, `t_ms` |
+| Trip clock | Wall-clock milliseconds since trip start, `t_ms`; it keeps running while paused, so sessions leave gaps |
+| Stage 1 | The on-phone signals and escalation gate (§6) |
+| Stage 2 | The cloud evaluation (§8.2): 2a is the fast model, 2b the strong one |
 | Tier | A camera frame-rate level (for example 30, 15, 10 fps) |
 | Sample | A downscaled JPEG frame used for on-phone checks and cloud evaluation |
 | Candidate | A sample that passed the on-phone gate and is sent to the cloud |
@@ -49,19 +52,19 @@ Two components: the **iOS app**, which does everything except the model calls, a
                                             Frontier vision model API
 ```
 
-- **Proposal:** the backend is stateless in the MVP. All trip data lives on the phone.
+- **Proposal:** the backend stores no trip data in the MVP; all trip data lives on the phone. Its only state is in-memory call counters per trip for the budget caps (§8.3), which reset if the process restarts. That is acceptable for the demo.
 - **Proposal:** the video is rendered on the phone, which settles PRD open question 3 provisionally. It avoids uploading full video and keeps footage private. Revisit if render time misses the 2-minute target.
 - Backend repo folder: `backend/`. App folder: `ios/`.
 
 ## 3. iOS app
 
-**Proposal:** native Swift and SwiftUI, minimum iOS 17, distributed by TestFlight or a development build for the hackathon. (PRD open question 8.)
+**Proposal:** native Swift and SwiftUI, minimum iOS 17.2 (the first release with `AVCaptureEventInteraction`, §7), distributed by TestFlight or a development build for the hackathon. (PRD open question 8.)
 
 ### 3.1 Modules
 
 | Module | Responsibility |
 |---|---|
-| `Onboarding/` | Style picker, destination globe, trip-type deck, trip length, Start button |
+| `Onboarding/` | Style picker, destination globe, trip-type deck, trip length, permissions and consent, mounting guide, Start button |
 | `Preferences/` | Persist personal preference data |
 | `Capture/` | Camera session, segment writer, tier controller |
 | `Buffer/` | Segment index, protection set, cleanup, clip extraction |
@@ -78,7 +81,9 @@ Two components: the **iOS app**, which does everything except the model calls, a
 - **Destination (FR-002):** an interactive 3D globe (SceneKit or RealityKit) with country polygons from a bundled Natural Earth GeoJSON for tap hit-testing, and a bundled city list for pins. Zoom, glow and pulse animations as in the mockup. MapKit is the fallback if the globe takes too long.
 - **Trip type (FR-003):** a SwiftUI gesture-driven card deck (the PRD's leading idea). The set of types is a config list.
 - **Trip length (FR-004):** a day-count picker.
-- **Output:** a `TripSetup` value `{style, destination{continent,country,city}, tripType, lengthDays, allowCloudAnalysis}`.
+- **Permissions and consent (FR-005a):** request each permission just before the step that needs it, not all at launch. The cloud consent screen sets `allowCloudAnalysis`.
+- **Mounting guide (FR-007a):** an illustration of the chest mount in the orientation the style needs.
+- **Output:** a `TripSetup` value `{style, destination{continent,country,city}, tripType, lengthDays, allowCloudAnalysis}`. Capture orientation is derived from `style`.
 
 ### 3.3 Persistence
 
@@ -88,7 +93,8 @@ Two components: the **iOS app**, which does everything except the model calls, a
 |---|---|
 | `UserPreferences` | `style`, `tripTypeHistory[]`, `destinationHistory[]`, `allowCloudAnalysis` |
 | `Trip` | `id`, `style`, `destination`, `tripType`, `lengthDays`, `status`, `startedAt`, `endedAt` |
-| `Moment` | `id`, `tripId`, `triggerMs`, `fromMs`, `toMs`, `status` (held / kept / released / finalized), `source` (ai / button / local_fallback), `eventType`, `description`, `score`, `clipPath`, `bestFrameDhash` |
+| `RecordingSession` | `id`, `tripId`, `startedMs`, `endedMs`, `endReason` (user / interruption / background / low_battery / thermal) |
+| `Moment` | `id`, `tripId`, `sessionId`, `triggerMs`, `fromMs`, `toMs`, `status` (held / kept / released / finalized), `source` (ai / button / local_fallback), `eventType`, `description`, `score`, `clipPath`, `bestFrameDhash` |
 | `Evaluation` | `id`, `momentId`, `tier` (2a/2b), `latencyMs`, `response` (JSON), `s2`, `error` |
 | `GeneratedVideo` | `id`, `tripId`, `status`, `editSpec` (JSON), `outputPath`, `durationS`, `style`, `createdAt`, `error` |
 
@@ -98,15 +104,16 @@ The segment index is stored separately in a small JSON file, rewritten every 5 s
 
 ### 4.1 Camera session (FR-007)
 
-- `AVCaptureSession` with the back wide camera; **proposal:** 1920×1080, HEVC, 30 fps maximum.
+- `AVCaptureSession` with the back wide camera; **proposal:** 1080p HEVC, 30 fps maximum. Landscape (1920×1080) for 16:9 styles, portrait (1080×1920) for Reels, matching how the phone is worn (PRD FR-007a), so the edit never crops to a different aspect.
+- An orientation check from `CMMotionManager` gravity runs at Start Recording and every few seconds after; a wrong orientation gives a haptic and a spoken prompt.
 - Video frames feed an `AVAssetWriter` for the buffer (§5) and a low-rate sampler for signals (§6).
 - Audio is off by default. If enabled by the user, it is written into the same segments.
 
 ### 4.2 Dark screen
 
-- On trip start: store `UIScreen.main.brightness`, set it to 0, set `UIApplication.shared.isIdleTimerDisabled = true`.
+- On session start: store the window scene screen's `brightness` (`UIScreen.main` is deprecated), set it to 0, set `UIApplication.shared.isIdleTimerDisabled = true`.
 - The recording UI is pure black (black OLED pixels draw almost no power) with a minimal status layer. Tap-and-hold wakes the status view and the End Trip control.
-- On trip end, on leaving the app, and on a crash restart, restore the stored brightness. Always restore it.
+- On pause, on trip end, on leaving the app, and on a crash restart, restore the stored brightness. Always restore it.
 - A visible recording indicator is required whenever the status view is shown (PRD §10).
 
 ### 4.3 Adaptive frame rate (FR-008)
@@ -128,38 +135,45 @@ Frame rate is changed at run time by locking the device and setting `activeVideo
 |---|---|
 | User slows or stops (dwell) | `CMMotionActivityManager` / `CMMotionManager` |
 | Phone raised or tilted | `CMMotionManager` attitude change |
-| Scene change spike | `change` signal from §6 |
+| Scene change spike | A cheap frame difference on a 64×36 grayscale copy every 0.5 s, separate from the 2 s sampler in §6, so ramp-up meets the PRD's "within about a second" |
 | Bluetooth button | §7 |
 | Near a landmark (optional) | `CLLocationManager` vs. bundled landmark list for the chosen city |
 | Loud sound (optional) | Microphone level, only if the user allowed audio |
 
-**Safety caps:** `ProcessInfo.thermalState` of `.serious` caps the tier at the floor; `.critical` stops capture and finalizes the trip. Battery under 10% finalizes the trip with a notice.
+**Safety caps:** `ProcessInfo.thermalState` of `.serious` caps the tier at the floor; `.critical` pauses the trip (§4.4). Battery under 10% pauses the trip with a notice, so the user can charge and resume.
 
 Timestamps stay in real time, so low-fps footage plays at normal speed with fewer frames. The edit stage can turn low-fps lead-ins into a speed-ramp (§9).
 
-### 4.4 Interruptions
+### 4.4 Pauses and interruptions (PRD FR-007b)
 
-The app handles `AVCaptureSession` interruption notifications (calls, other apps) and backgrounding by stopping capture, finalizing the open segment, protecting any pending moments, and posting a local notification that recording stopped. It resumes only on user action.
+The trip **pauses** (state `PAUSED`, §10) on the Pause control, `AVCaptureSession` interruption notifications (calls, other apps), backgrounding, low battery, or thermal `.critical`. Pausing:
+
+1. Stops capture and closes the open segment, ending the `RecordingSession` with its `endReason`.
+2. Finalizes every pending moment with the footage recorded so far (§5.3). Moments never span sessions.
+3. Deletes unprotected segments, so a paused trip holds only clips.
+4. Restores brightness and posts a local notification that recording stopped.
+
+Resuming takes a user action and starts a new `RecordingSession` on the same trip clock. Only End Trip moves the trip to `FINALIZING`. When `lengthDays` has passed, the app reminds the user to end the trip; it does not end it on its own.
 
 ## 5. Rolling buffer (FR-008a)
 
 ### 5.1 Segments
 
-**Proposal:** `AVAssetWriter` with an HLS-style fragmented-MP4 output profile and a segment interval of 2 s. The writer's delegate returns an initialization segment and one media segment per interval; each is written to disk. Joining the initialization segment with consecutive media segments yields a playable file. The video keyframe interval is set to 2 s so segments split by time. **Fallback if this fails in the spike:** rotate a new writer every 2 s on a keyframe.
+**Proposal:** `AVAssetWriter` with an HLS-style fragmented-MP4 output profile and a segment interval of 2 s. The writer's delegate returns an initialization segment and one media segment per interval; each is written to disk. Joining the initialization segment with consecutive media segments yields a playable file. The video keyframe interval is set to 2 s by duration (`AVVideoMaxKeyFrameIntervalDurationKey`), not by frame count, because the frame rate changes; segments then split by time. **Fallback if this fails in the spike:** rotate a new writer every 2 s on a keyframe.
 
-Each segment has `idx`, `path`, `tStartMs`, `tEndMs`, `bytes` and `protectedBy: Set<MomentID>`. Span is `[idx·2000, (idx+1)·2000) ms` from trip start.
+Each segment has `idx`, `sessionId`, `path`, `tStartMs`, `tEndMs`, `bytes` and `protectedBy: Set<MomentID>`. Times are on the trip clock; because sessions leave gaps, use `tStartMs`/`tEndMs`, not `idx`, to find a segment's span.
 
 ### 5.2 Cleanup rule (runs every second)
 
 Delete segment `i` only if `protectedBy` is empty and `nowMs − tEndMs > BUFFER_RETENTION_S`.
 
-**Proposal:** `BUFFER_RETENTION_S = 45`, about 50 MB at 8–10 Mbps. This covers the 15 s pre-roll plus the sample interval plus the on-phone gate delay with generous headroom. It can be small because the hold is placed locally at trigger time and the cloud can only release it.
+**Proposal:** `BUFFER_RETENTION_S = 45`, about 50 MB at 8–10 Mbps. This covers the 15 s pre-roll plus the Stage 1 delay (about 4 s, §11.1) with generous headroom. It can be small because the hold is placed locally at trigger time and the cloud can only release it.
 
 ### 5.3 Protecting a moment
 
-1. Trigger at time T creates `Moment{fromMs = max(0, T − PRE_S·1000), toMs = T + POST_S·1000}`, default `PRE_S = POST_S = 15`.
+1. Trigger at time T creates `Moment{fromMs = max(sessionStartMs, T − PRE_S·1000), toMs = T + POST_S·1000}`, default `PRE_S = POST_S = 15`.
 2. Mark every existing overlapping segment protected, and register a pending protection for segments created later inside the window.
-3. When `now > toMs + 2000`, join the protected segments into `clips/{momentId}.mp4`, write a sidecar JSON, and release the protection.
+3. When `now > toMs + 2000`, or when the session pauses, join the protected segments into `clips/{momentId}.mp4`, write a sidecar JSON, and release the protection. If the cloud has not answered by then (slow, dropped from the queue, or failed), apply the local fallback rule (§6) to decide keep or release.
 4. Overlapping moments share segments. A new moment overlapping an existing one by more than 5 s extends it, up to a 60 s cap.
 5. Cuts land on 2 s boundaries, so a clip may run up to 2 s long on each side; the planner trims it.
 
@@ -168,7 +182,7 @@ Delete segment `i` only if `protectedBy` is empty and `nowMs − tEndMs > BUFFER
 - On launch, reconcile the segment index against files on disk before any deletion.
 - If free space is under 2 GB, stop AI-driven moments, keep button moments, and show a warning.
 
-## 6. On-phone signals and the escalation gate
+## 6. Stage 1: on-phone signals and the escalation gate
 
 A sampler takes a frame about every 2 s from the video stream, downscales to 640×360, and computes (no ML required):
 
@@ -179,7 +193,7 @@ A sampler takes a frame about every 2 s from the video stream, downscales to 640
 | `change` | Mean absolute difference vs. the previous sample |
 | `motion` | Mean of the last 3 `change` values, plus motion-sensor state |
 | `dhash` | 64-bit difference hash |
-| `forced` | True every 10th sample so static scenery is still evaluated |
+| `forced` | True every 30th sample (about once a minute) so static scenery is still evaluated |
 
 **Local score** `L = 0.4·changeSpike + 0.3·dwell + 0.2·quality + 0.1·novelty`, where `novelty` is the Hamming distance of `dhash` from recent escalated frames, normalized. Weights live in config. **Proposal.**
 
@@ -190,6 +204,8 @@ A sampler takes a frame about every 2 s from the video stream, downscales to 640
 3. At least `COOLDOWN_S` (10) since the last escalation.
 4. `dhash` Hamming distance ≥ 10 from the last escalated frame.
 5. The cloud budget allows it (§8.3), and the user allowed cloud analysis.
+
+A `forced` sample skips rules 1 and 2 but must pass 3 to 5, and counts as an escalation for cooldown, budget and the gate test (§12.1). Rule 2 needs the next sample to confirm a peak, so a candidate is known one sample interval (2 s) after its frame.
 
 When a candidate passes the gate, the phone immediately **protects the moment window (speculative hold)** and sends the packet to the cloud. A "skip" answer releases the hold.
 
@@ -242,17 +258,17 @@ Output, enforced with tool use or a JSON schema and validated with Pydantic:
 
 **Prompt rules:** score only what is visible; never name a place unless recognizable or in the destination; prefer `skip` for transit, screens, and redundant views of a saved moment; return `uncertain` rather than guessing; never identify people ("a person", "friends"). Trip type and style shape what counts as interesting (a honeymoon favors couple and scenic moments).
 
-**Final score** uses the PRD weights, with novelty from the phone:
+**Final score** uses these weights (config), with novelty from the phone:
 
 `S2 = 0.35·pref + 0.25·interest + 0.20·significance + 0.10·quality + 0.10·novelty`
 
 Save when `save_decision = save` and `S2 ≥ 0.60`, or `S2 ≥ 0.75` regardless. Weights and thresholds are config.
 
-**Failure handling:** the phone times out at 8 s, retries once on invalid JSON, then uses the local fallback (§6). Maximum 2 evaluations in flight; the queue holds 3 and drops the oldest, since its hold already protects the footage.
+**Failure handling:** the phone times out at 8 s, retries once on invalid JSON, then uses the local fallback (§6). Maximum 2 evaluations in flight; the queue holds 3 and drops the oldest. A dropped request's hold stays in place and is resolved by the local fallback when the moment finalizes (§5.3).
 
 ### 8.3 Budget and pacing
 
-A token bucket per trip: capacity 5, refill 1 per 20 s, with hard caps per trip of 200 fast and 30 strong calls. **Proposal:** the caps scale with `lengthDays`. As the bucket drains, the gate tightens: `τ_escalate = τ_base + 0.20·(1 − tokens/capacity)`. The backend enforces the caps too, so a modified app cannot overspend. A `DEMO_MODE` profile shortens cooldowns to 5 s and lowers `τ_base` to 0.45.
+A token bucket per trip: capacity 5, refill 1 per 30 s, with hard caps per recording hour of 100 fast and 15 strong calls. **Proposal:** caps count recording hours, not `lengthDays`, because a multi-day trip may record only a few hours a day; a per-trip spend cap sits on top (open, §14). As the bucket drains, the gate tightens: `τ_escalate = τ_base + 0.20·(1 − tokens/capacity)`. The backend enforces the caps too, so a modified app cannot overspend. A `DEMO_MODE` profile shortens cooldowns to 5 s and lowers `τ_base` to 0.45.
 
 ## 9. Post-trip editing
 
@@ -280,9 +296,9 @@ Triggered when the trip ends and all clips are finalized.
 }
 ```
 
-3. **Validate on the phone:** every clip id exists, trims fall inside clip bounds, total duration is within ±10 % of the target, every button moment is included, and captions use only the destination, trip type, or Stage 2 descriptions (PRD FR-015). On failure, a greedy fallback planner takes the top-scored clips (button moments first) until the duration is filled, orders them chronologically, and applies the preset defaults.
+3. **Validate on the phone:** every clip id exists, trims fall inside clip bounds, every button moment is included, total duration is within ±10 % of the effective target (below), and captions use only the destination, trip type, or Stage 2 descriptions (PRD FR-015). On failure, a greedy fallback planner takes the top-scored clips (button moments first) until the duration is filled, orders them chronologically, and applies the preset defaults.
 
-**Target duration (Proposal):** 30–60 s in the MVP regardless of trip length.
+**Target duration (Proposal):** 30–60 s in the MVP regardless of trip length. Button moments win over the target (PRD FR-009): the **effective target** is the larger of the preset target and (button moments × the preset's shortest clip length + title + end card). The planner and the fallback both fill button moments first, cut them toward the shortest clip length when space is short, and add AI moments only into the time left.
 
 ### 9.2 Rendering (on the phone)
 
@@ -301,19 +317,21 @@ Music tracks are bundled with the app. Licensing is open.
 
 ## 10. App-facing states and screens
 
-**Trip states:** `CREATED → RECORDING → FINALIZING → PLANNING → RENDERING → COMPLETED`, with `ERROR` reachable from any state with an `errorStage` and a retry action.
+**Trip states:** `CREATED → RECORDING ⇄ PAUSED → FINALIZING → PLANNING → RENDERING → COMPLETED`, with `ERROR` reachable from any state with an `errorStage` and a retry action.
 
 | Transition | Trigger | Guard |
 |---|---|---|
-| CREATED → RECORDING | Start Recording | Camera permission granted; brightness and idle timer set |
-| RECORDING → FINALIZING | End Trip, thermal critical, low battery, interruption | Open segments closed; pending moments finalized |
+| CREATED → RECORDING | Start Recording | Camera permission granted; orientation correct; brightness and idle timer set |
+| RECORDING → PAUSED | Pause, interruption, backgrounding, thermal critical, low battery | Session closed as in §4.4 |
+| PAUSED → RECORDING | Resume (user action only) | Same guards as Start Recording |
+| RECORDING or PAUSED → FINALIZING | End Trip | Open segments closed; pending moments finalized |
 | FINALIZING → PLANNING | All moments finalized | At least 1 clip, else ERROR(no_moments) |
 | PLANNING → RENDERING | Valid edit spec or fallback plan | |
 | RENDERING → COMPLETED | Export succeeds and the file plays | "Video ready" only after this check |
 
-**Screens:** Onboarding (style, destination, trip type, length), Recording (black, status on wake), Processing (finalizing, planning, rendering progress), Review (player, save or share, moment list with button moments marked, optional feedback). Review feedback adjusts saved preferences.
+**Screens:** Onboarding (style, destination, trip type, length, permissions, mounting guide), Recording (black, status on wake with Pause and End Trip), Paused (Resume, End Trip), Processing (finalizing, planning, rendering progress), Review (player, save or share, moment list with button moments marked, optional feedback). Review feedback adjusts saved preferences.
 
-**Status banner (on wake):** Recording; Thermal limit reached; Cloud analysis limited, button still works; Processing; Video ready; Error with retry.
+**Status banner (on wake):** Recording; Paused (with reason); Thermal limit reached; Cloud analysis limited, button still works; Processing; Video ready; Error with retry.
 
 ## 11. Non-functional requirements
 
@@ -322,12 +340,13 @@ Music tracks are bundled with the app. Licensing is open.
 | Step | Target | Worst case |
 |---|---|---|
 | Sample interval | 2 s | 2 s |
+| Peak confirmation (next sample, §6 rule 2) | 2 s | 2 s |
 | On-phone gate | 30 ms | 100 ms |
 | Hold placed | immediate | immediate |
-| **Time to protection** | **~2 s** | **~2.1 s** |
+| **Time to protection** | **~4 s** | **~4.1 s** |
 | Cloud decision (off critical path) | 2–4 s | 8 s, then local fallback |
 
-Required buffer is the 15 s pre-roll plus about 2 s, so 45 s gives wide headroom.
+Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom.
 
 ### 11.2 Reliability
 
@@ -353,13 +372,15 @@ Required buffer is the 15 s pre-roll plus about 2 s, so 45 s gives wide headroom
 3. **Buffer:** a button press at T yields a clip spanning at least `T−15 s` to `T+15 s`, checked with a burned-in clock; unprotected segments older than 45 s are gone.
 4. **Button:** a Bluetooth remote press is received with the screen at 0 brightness, in the foreground, with the haptic.
 5. **Setup flow:** a new user reaches Start Recording in under 2 minutes; choices persist.
-6. **Detection:** on a replayed 10-minute walk, the gate escalates at most 10 % of samples and the cascade saves 3 of 3 scripted moments.
+6. **Detection:** on a replayed 10-minute walk, the gate escalates at most 10 % of samples (forced samples included) and the cascade saves 3 of 3 scripted moments.
+9. **Pause and resume:** a phone call mid-trip pauses it; resuming continues the same trip, and the final video includes moments from both sessions.
+10. **Button over budget:** 12 button presses on a Reels trip all appear in the video, which runs past 30 s.
 7. **Video:** ending a trip yields a valid 30–60 s video with no manual step, in under 2 minutes.
 8. **Repeatability:** three consecutive end-to-end runs succeed.
 
 ### 12.2 Test plan
 
-- **Unit (XCTest):** tier state machine, gate logic, budget bucket, buffer protection and cleanup (overlapping and pending protections), edit-spec validator, merging.
+- **Unit (XCTest):** tier state machine, trip state machine (pause and resume), gate logic, budget bucket, buffer protection and cleanup (overlapping and pending protections, finalize on pause), edit-spec validator (effective target), merging.
 - **Backend (pytest):** schema validation, budget enforcement, error paths.
 - **Replay harness:** recorded sample folders with labeled "should save" timestamps; reports precision, recall and calls per minute per threshold set.
 - **Personalization check:** the same replay with "honeymoon" vs. "school" produces different top moments.
@@ -370,7 +391,13 @@ Required buffer is the 15 s pre-roll plus about 2 s, so 45 s gives wide headroom
 
 A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, screen at 0 brightness, logging battery level and thermal state, and changes the rate mid-session while writing segments. Run on a real iPhone. It answers the PRD battery question and the §4.3 and §5.1 assumptions.
 
-### 12.4 Risks
+### 12.4 Replay mode and the demo (Proposal)
+
+A real walk cannot happen on stage, so the app has a **replay mode** in debug builds: an `AVAssetReader` feeds a pre-recorded walk video (and its recorded motion log) into the same pipeline in place of the camera. Everything after capture (buffer, Stage 1, cloud, button, edit, render) runs unchanged, so the demo shows the real system. The replay harness in §12.2 uses the same path.
+
+Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute recorded walk with `DEMO_MODE` on, (3) press the Bluetooth button live during it, (4) end the trip and show the processing screen, (5) play the finished video with the button moment marked. Have a finished video from the same replay ready in case the network fails.
+
+### 12.5 Risks
 
 | Risk | Mitigation |
 |---|---|
@@ -378,7 +405,9 @@ A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, scree
 | Low-fps lead-ins look choppy | Raised floor, early ramp-up, slow ramp-down, speed-ramp in the edit |
 | Segment output is not joinable | Rotating-writer fallback |
 | Bluetooth remote not received with a dark screen | Test early; custom BLE fallback |
-| User backgrounds or locks the app | Foreground-only design, notification on stop, clear onboarding message |
+| User backgrounds or locks the app | Foreground-only design, pause with a notification, clear onboarding message |
+| Phone worn wrong (pocket, wrong orientation) | Mounting guide in onboarding, orientation check with a haptic prompt |
+| Live demo fails (network, venue) | Replay mode and a pre-rendered backup video (§12.4) |
 | Phone overheats | Thermal caps and finalize |
 | Cloud latency or outage | Speculative hold and local fallback |
 | Over-escalation drains budget | Peaks, cooldowns, adaptive threshold, server caps |
@@ -388,12 +417,13 @@ A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, scree
 
 ## 13. Contracts
 
-`contracts/` must be defined before the app and backend are built in parallel, in its own PR. Messages to define: evaluate request (context) and response (Stage 2 output), plan request, edit spec, and error shape. The earlier contracts plan for the glasses design is obsolete.
+`contracts/` must be defined before the app and backend are built in parallel, in its own PR. Messages to define: evaluate request (context) and response (Stage 2 output), plan request, edit spec, style presets, error shape (code, message, retryable), and the auth header. The JSON in §8.2 and §9.1 is the starting point. The earlier contracts plan for the glasses design is obsolete.
 
 ## 14. Open questions
 
 - Which frontier model provider and model IDs, and the per-trip spend cap?
-- Minimum iOS version (17 is proposed) and which test devices are available?
+- Minimum iOS version (17.2 is proposed) and which test devices are available?
+- Which chest mount, and does the demo walk get recorded in both orientations?
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
 - Does the user need rendering to continue if they leave the app?

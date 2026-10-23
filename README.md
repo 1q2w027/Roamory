@@ -19,10 +19,10 @@ Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are update
 
 ## Workflow
 
-1. Never push to `main`. Branch as `<role>/<feature>` (e.g. `backend/stage1-filter`).
+1. Never push to `main`. Branch as `<role>/<feature>` (e.g. `ios/rolling-buffer`).
 2. Open a small PR at least every 1-2 hours. Run your code before asking for review.
 3. Change `contracts/` only in its own PR so everyone sees it.
-4. Work from the board's issues; one owner each.
+4. Work from GitHub issues, one owner each (none yet; the TRD §12.1 gates are a good first list).
 5. Secrets go in `.env` (copy `.env.example`). Never commit them.
 
 ## Getting started

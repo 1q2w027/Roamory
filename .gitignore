@@ -13,6 +13,13 @@ buffer/
 clips/
 samples/
 *.mp4
+# bundled style sample clips are allowed
+!ios/**/*.mp4
 *.sqlite
 *.db
 .superpowers/
+# Xcode
+xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
