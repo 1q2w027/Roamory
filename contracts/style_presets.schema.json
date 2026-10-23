@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roamory.app/contracts/style_presets.schema.json",
+  "title": "StylePresets",
+  "description": "Shape of style_presets.json (TRD 9.2). The planner prompt and the phone read the same file verbatim.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "presets"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1},
+    "presets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cinematic", "reels", "documentary", "vlog"],
+      "properties": {
+        "cinematic": {"$ref": "#/$defs/preset"},
+        "reels": {"$ref": "#/$defs/preset"},
+        "documentary": {"$ref": "#/$defs/preset"},
+        "vlog": {"$ref": "#/$defs/preset"}
+      }
+    }
+  },
+  "$defs": {
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max", "default"],
+      "properties": {
+        "min": {"type": "number", "minimum": 0},
+        "max": {"type": "number", "minimum": 0},
+        "default": {"type": "number", "minimum": 0}
+      }
+    },
+    "preset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_s",
+        "clip_s",
+        "transition",
+        "transition_s",
+        "aspect",
+        "output",
+        "title_s",
+        "end_card_s",
+        "music_track",
+        "music_gain_db",
+        "keep_original_audio",
+        "captions",
+        "allow_speed_ramp"
+      ],
+      "properties": {
+        "target_s": {
+          "$ref": "#/$defs/range",
+          "description": "Video length. default is what target_s in the plan request carries."
+        },
+        "clip_s": {
+          "$ref": "#/$defs/range",
+          "description": "Per-clip source length (out_s - in_s). default is the fallback planner's length."
+        },
+        "transition": {"type": "string", "enum": ["cut", "fade", "dissolve"]},
+        "transition_s": {"$ref": "#/$defs/range"},
+        "aspect": {"type": "string", "enum": ["16:9", "9:16"]},
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height", "fps"],
+          "properties": {
+            "width": {"type": "integer", "minimum": 1},
+            "height": {"type": "integer", "minimum": 1},
+            "fps": {"type": "integer", "minimum": 1}
+          }
+        },
+        "title_s": {"type": "number", "exclusiveMinimum": 0},
+        "end_card_s": {"type": "number", "exclusiveMinimum": 0},
+        "music_track": {"type": "string", "minLength": 1},
+        "music_gain_db": {"type": "number", "maximum": 0},
+        "keep_original_audio": {
+          "type": "boolean",
+          "description": "Edit spec music.duck_original_audio is the negation of this."
+        },
+        "captions": {
+          "type": "boolean",
+          "description": "False means every edit-spec caption must be null."
+        },
+        "allow_speed_ramp": {
+          "type": "boolean",
+          "description": "False means every edit-spec speed_ramp must be null."
+        }
+      }
+    }
+  }
+}

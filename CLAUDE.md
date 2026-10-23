@@ -21,3 +21,5 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 
 ## Commands
 Add run and test commands here as each part is built.
+
+- Contracts: `pip install jsonschema && python contracts/check.py` validates the presets and examples against the schemas.
