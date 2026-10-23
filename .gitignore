@@ -15,3 +15,4 @@ samples/
 *.mp4
 *.sqlite
 *.db
+.superpowers/

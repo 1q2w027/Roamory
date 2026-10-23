@@ -13,7 +13,7 @@
 
 Roamory is an iPhone app that films a trip for the user and turns it into a finished video.
 
-The user first tells the app what kind of video they like, where they are going, what kind of trip it is and how long it will take. The app learns these preferences and keeps them. When the user taps Start Recording, the iPhone camera films the trip. The screen goes dark to save battery, and the app records only when its model decides a scene is worth filming. A Bluetooth button lets the user force a moment into the final video. After the trip, the app processes the footage into a final video, and the user reviews it in the app.
+The user first tells the app what kind of video they like, where they are going, what kind of trip it is and how long it will take. The app learns these preferences and keeps them. When the user taps Start Recording, the iPhone camera films the trip. The screen goes dark to save battery, and the camera lowers its frame rate when nothing important is happening, like an iPhone's ProMotion display. A Bluetooth button lets the user force a moment into the final video. After the trip, the app processes the footage into a final video, and the user reviews it in the app.
 
 ### 1.2 Problem Statement
 
@@ -29,7 +29,7 @@ The user first tells the app what kind of video they like, where they are going,
 
 - An interactive, animated setup that learns the user's taste instead of showing a form.
 - Video style and trip type shape what gets filmed and how the video is cut.
-- Battery-aware capture: dark screen while recording, standby when nothing is worth filming.
+- Battery-aware capture: dark screen while recording, and an adaptive frame rate that drops when nothing is happening.
 - A Bluetooth button that guarantees an important moment is kept.
 - No hardware beyond the user's iPhone.
 
@@ -58,7 +58,7 @@ The user first tells the app what kind of video they like, where they are going,
 ### 3.1 MVP Goals
 
 - **Goal A — Personalized setup.** A new user completes style, destination, trip type and trip length through an interactive flow, and the choices are saved.
-- **Goal B — Battery-aware capture.** The app records from the iPhone camera with the screen at zero brightness, and uses standby between filmed scenes.
+- **Goal B — Battery-aware capture.** The app records from the iPhone camera with the screen at zero brightness, and lowers the camera frame rate between interesting scenes.
 - **Goal C — Guaranteed moments.** A Bluetooth button press always puts that scene into the final video.
 - **Goal D — Finished video.** The app turns captured footage into a playable video, which the user can review in the app.
 
@@ -69,7 +69,7 @@ The user first tells the app what kind of video they like, where they are going,
 | Setup | A new user reaches Start Recording in under 2 minutes |
 | Style choice | Saved and applied to the final video |
 | Recording | Camera films with screen at 0% brightness |
-| Standby | Camera is off between scenes; battery drain lower than continuous recording (measured) |
+| Adaptive frame rate | Battery drain lower than constant full-rate recording (measured) |
 | Bluetooth button | 100% of presses end up in the final video |
 | Detection | At least 2–3 correctly detected moments in a scripted demo |
 | Personalization | Different style or trip type visibly changes the output |
@@ -142,17 +142,28 @@ Interaction ideas under consideration (author's proposals):
 - The screen brightness is set to 0 to save battery.
 - The user can wake the screen to see status and stop the trip.
 
-### 5.2 Standby Mode (Decided, trigger undecided)
+### 5.2 Adaptive Frame Rate (Decided concept, details Proposed)
 
-**FR-008.** When no scene is worth filming, the app enters a standby mode that saves battery. It leaves standby when the model decides a scene should be filmed.
+**FR-008 (Decided).** Like an iPhone's ProMotion display, which drops from 120 Hz toward 1 Hz when nothing is moving, the app lowers the camera frame rate when nothing important is happening and raises it when something is. The goal is to save battery and heat.
 
-**Open problem:** with the camera off, the model cannot see the scene. What wakes the camera is undecided (Section 12). Candidate cheap signals (Proposed): motion sensors, location change, microphone level, or a brief low-rate camera peek.
+- (Proposed) Several tiers, for example 30 fps, 10 fps and 2 fps.
+- (Proposed) A cheap check on the phone raises the frame rate: frame difference between samples, motion sensors, or a button press. No cloud call is needed to wake up.
+- (Proposed) The cloud model decides which footage is kept (Section 6), not when the frame rate changes.
+- Trade-off: footage recorded before the ramp-up is low frame rate and looks like time-lapse. The trigger should be sensitive enough to keep this short.
+
+### 5.2a Rolling Buffer (Decided)
+
+**FR-008a (Decided).** The app takes in the video stream and holds it in a buffer for a set amount of time, then deletes it, like a queue (first in, first out).
+
+- When a moment is selected (by the AI or the Bluetooth button), the buffered footage around it is protected from deletion and kept for the final video. This allows keeping the seconds before the moment.
+- (Proposed) The buffer must be longer than the cloud decision delay plus the pre-roll, so a late decision still finds its footage. Exact length is open.
+- (Proposed) The buffer is stored on the phone. Unselected footage is deleted when it leaves the buffer.
 
 ### 5.3 Bluetooth Button (Decided)
 
 **FR-009.** A Bluetooth button connects to the app. When the user presses it, the current scene is guaranteed to appear in the final video, overriding the AI's selection and any budget or cooldown limits.
 
-- (Proposed) The press also wakes the camera from standby and captures footage around the press.
+- (Proposed) The press also raises the camera to full frame rate and protects the buffered footage around the press.
 - (Proposed) The app confirms the press with a haptic or sound, since the screen is dark.
 
 ### 5.4 Moment Metadata (Proposed)
@@ -178,9 +189,13 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 
 **FR-011.** Trip type, style and preferences influence which moments are chosen. For example, a honeymoon prioritizes couple and scenic moments; a school trip prioritizes group moments.
 
-### 6.4 Where the Model Runs
+### 6.4 Where the Model Runs (Decided)
 
-Open. On-device only, cloud only, or hybrid (Section 12). Whichever is chosen must respect the user's consent for cloud analysis (Section 10).
+**FR-011a (Decided).** AI selection runs in the cloud, using a frontier model API.
+
+- (Proposed) The phone uploads small sample frames, not full video, and the cloud model returns keep or skip decisions.
+- (Proposed) Cheap on-phone checks reduce how many frames are sent, to limit cost and battery.
+- Requires user consent (Section 10). Without a network, the app keeps recording, and button-pressed moments are still kept.
 
 ---
 
@@ -214,7 +229,7 @@ Open. On-device only, cloud only, or hybrid (Section 12). Whichever is chosen mu
 
 - **iPhone app** (native iOS is assumed; the framework is not yet chosen).
 - **Camera:** recording requires the app in the foreground. With brightness at 0 the screen is still on, so the app must disable auto-lock during a trip. iOS does not allow camera capture while the app is in the background.
-- **Heat and battery:** continuous recording is thermally and battery costly; standby exists to reduce both.
+- **Heat and battery:** continuous recording is thermally and battery costly; the adaptive frame rate exists to reduce both.
 - **Bluetooth button (Proposed assumption):** a BLE button that the app can read while in the foreground with the screen dark. The model of button and how it pairs is open.
 - **Storage:** footage is bounded; unselected footage is discarded.
 - **Connectivity:** capture must work without a network. Anything that needs the network (cloud analysis, cloud rendering) must degrade gracefully.
@@ -243,14 +258,15 @@ Open. On-device only, cloud only, or hybrid (Section 12). Whichever is chosen mu
 | Trip type and length | Animated selection and length input |
 | Start Recording | Begins an iPhone camera session |
 | Dark-screen recording | Brightness 0 during the trip |
-| Moment selection | AI picks moments; style and trip type matter |
+| Rolling buffer | Stream held in a queue buffer; selected moments are protected |
+| Moment selection | Cloud AI picks moments; style and trip type matter |
 | Bluetooth button | Press always lands in the final video |
 | Final video | Automatic playable video |
 | Review | In-app playback |
 
 ### P1 — Should have
 
-- Standby mode with a working wake trigger.
+- Adaptive frame rate with tiers and an on-phone ramp-up trigger.
 - Persisted preference data used across trips.
 - Moment list in the review screen.
 - Feedback on the result.
@@ -270,13 +286,13 @@ Open. On-device only, cloud only, or hybrid (Section 12). Whichever is chosen mu
 
 | # | Question | Notes |
 |---|---|---|
-| 1 | What wakes the camera from standby? | The camera is off, so the model cannot see. Candidates: motion, location, microphone, periodic camera peek. |
-| 2 | Where does AI selection run: phone, cloud or hybrid? | Affects battery, cost, privacy and latency. |
+| 1 | Which on-phone signal raises the frame rate, and what are the tiers? | Frame difference and motion sensors are proposed. Needs testing. |
+| 2 | How long is the buffer, and how long is the pre-roll? | Must exceed cloud decision delay. |
 | 3 | Where is the video rendered: on the phone or on a server? | Affects processing time and consent. |
 | 4 | How is trip length used? | Pacing, selectivity, video length, or all three. |
 | 5 | Which trip-type interaction do we build? | Card deck is the current lead. |
 | 6 | Which Bluetooth button hardware, and how does it pair? | Must work with the screen at 0 brightness. |
-| 7 | Does recording keep a rolling pre-roll buffer? | Standby (camera off) conflicts with capturing the seconds before an event. |
+| 7 | Is low-frame-rate footage before a moment acceptable? | It looks like time-lapse. Needs the product owner's call. |
 | 8 | Native Swift or a cross-platform framework? | Not yet decided. |
 | 9 | Sample style clips: who produces them? | Need four representative clips. |
 | 10 | Final list of video styles. | Reels, Cinematic, Documentary and Vlog are proposals. |
