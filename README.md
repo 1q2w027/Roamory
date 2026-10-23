@@ -6,19 +6,16 @@ Hackathon MVP: an iPhone app that learns your video style and trip, films with t
 
 *Rough mockups: style picker, map destination, trip type, recording mode. Source: [docs/mockups/iphone-screens.html](docs/mockups/iphone-screens.html).*
 
-> The PRD is updated for the iPhone pivot. The TRD and the repo layout below still describe the old glasses design and are being rewritten.
-
-Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). The TRD is the source of truth for architecture.
+Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are updated for the iPhone pivot.
 
 ## Repo layout
 
 | Folder | What | Owner |
 | --- | --- | --- |
-| `glasses-agent/` | Raspberry Pi recorder, ring buffer, control server | TBD (hardware/edge) |
-| `backend/` | FastAPI, detection cascade, FFmpeg render | TBD (AI) / TBD (backend+video) |
-| `web/` | Next.js mobile web app | TBD (frontend) |
-| `contracts/` | Shared JSON schemas and API shapes | Everyone, via PR |
-| `docs/` | PRD, TRD, `DECISIONS.md` | Lead |
+| `ios/` | iPhone app: onboarding, camera capture with adaptive frame rate, rolling buffer, Bluetooth button, review screen (native Swift assumed; not yet decided) | TBD (iOS) |
+| `backend/` | Cloud service: frontier-model moment selection (keeps API keys off the phone); video rendering if it runs in the cloud (not yet decided) | TBD (AI / backend) |
+| `contracts/` | Shared JSON schemas and API shapes between the app and the backend | Everyone, via PR |
+| `docs/` | PRD, TRD, `DECISIONS.md`, mockups | Lead |
 
 ## Workflow
 

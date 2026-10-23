@@ -1,15 +1,14 @@
 # Roamory
 
-Hackathon project (36 hours): AI Travel Videographer. Camera glasses (Raspberry Pi Zero 2 W) keep a rolling video buffer, a FastAPI backend runs a gated model cascade to pick moments, FFmpeg renders a highlight MP4, and a Next.js mobile web app controls it.
+Hackathon project: Roamory, an iPhone app that films a trip with the screen dark and an adaptive frame rate, keeps the moments that matter in a rolling buffer, uses cloud AI (frontier model API) to select moments, and produces a highlight video the user reviews in the app. A Bluetooth button guarantees a moment is kept. The original glasses + Raspberry Pi design is discarded.
 
 ## Read first
-- `docs/TRD.md` is the technical source of truth; `docs/PRD.md` has product requirements.
+- `docs/TRD.md` is the technical source of truth; `docs/PRD.md` has product requirements. Both are updated for the iPhone pivot.
 - `contracts/` holds the shared schemas. Do not change them without telling the team; change them in a separate PR.
 
 ## Layout and ownership
-- `glasses-agent/`: Python 3.11, Picamera2, ring buffer, port 8081 control server
-- `backend/`: Python 3.11, FastAPI, SQLite, OpenCLIP, FFmpeg
-- `web/`: Next.js (App Router) + Tailwind
+- `ios/`: iPhone app (native Swift assumed, not yet decided)
+- `backend/`: Python 3.11, FastAPI; cloud moment selection via a frontier model API (render location not yet decided)
 - Only edit files in the folder you were asked to work on.
 
 ## Conventions

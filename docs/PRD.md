@@ -307,5 +307,5 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 
 ## 13. Related Documents
 
-- `docs/TRD.md` still describes the discarded glasses design and must be rewritten to match this PRD.
-- `contracts/` is not yet populated; its schemas should be defined after the TRD is rewritten.
+- `docs/TRD.md` is rewritten for this PRD (v2.0). Its choices are proposals until confirmed.
+- `contracts/` is not yet populated; its schemas should be defined next, in their own PR.
