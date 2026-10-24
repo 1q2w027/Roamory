@@ -4,7 +4,7 @@ The iPhone app sends a trip's saved clips here over the local Wi-Fi, and Claude 
 
 ## Setup
 
-1. `brew install ffmpeg` and Xcode command-line tools (the title cards are drawn by `card.swift`).
+1. `brew install ffmpeg` and Xcode command-line tools (the Swift helpers below are compiled on first use).
 2. Log in to Claude Code on this Mac (`claude`, then `/login`). The edit runs on that account.
 3. `uv venv studio/.venv --python 3.13 && uv pip install --python studio/.venv/bin/python -r studio/requirements.txt`
 
@@ -16,16 +16,22 @@ On the iPhone, on the same Wi-Fi: open the camera screen, tap the film button, p
 
 ## How a job runs
 
-`job.py` makes `studio/.jobs/<job_id>/` with `clips/`, `brief.json` (style preset, trip context, effective target, title), `cards/` (title and end card PNGs) and empty `frames/`, `work/`, `out/`. Then it runs:
+`job.py` makes `studio/.jobs/<job_id>/` with `clips/`, `brief.json` (style preset, trip context, effective target, title), `style.md` (the style's creative direction from `styles/`), `cards/` (default title and end card PNGs) and empty `frames/`, `work/`, `out/`. Then it runs:
 
 ```
 claude -p <prompt.md> --model … --max-turns … --max-budget-usd … --output-format stream-json --verbose
   --no-session-persistence --restricted --strict-mcp-config
   --tools Read Write Edit Glob Bash --allowedTools Read Write Edit Glob "Bash(ffmpeg:*)" "Bash(ffprobe:*)"
-  --permission-mode dontAsk
+  "Bash(roamory-text:*)" "Bash(roamory-music:*)" --permission-mode dontAsk
 ```
 
-Claude watches the clips through extracted frames, plans in `out/plan.md`, renders `out/video.mp4` and writes `out/result.json`. The bridge checks the result (`rules.py`) before the phone can download it, and deletes the workspace after the download or after `job_ttl_min`.
+Claude watches the clips through extracted frames, plans in `out/plan.md`, draws its text and composes its music with the helpers, renders `out/video.mp4` and writes `out/result.json`. The style preset and `styles/<style>.md` are guidance: Claude picks any transitions, effects, text and music that suit the footage.
+
+The helpers are compiled into `studio/.jobs/_bin/` (outside every workspace, on Claude's `PATH`), each again when its source changes. Their spec formats are documented in `prompt.md`.
+
+- `card.swift`: the default title and end cards, drawn before the run.
+- `text.swift` (`roamory-text <spec.json>`): text and shape layers in any installed font to transparent PNGs, because Homebrew's ffmpeg has no `drawtext`. `--fonts` lists the fonts.
+- `music.swift` (`roamory-music <score.json>`): renders a score Claude writes (tempo, tracks of notes, 26 synthesised instruments and drums, envelopes, filters, pan, reverb) to a 48 kHz stereo WAV. No music files are used. The bridge checks the result (`rules.py`) before the phone can download it, and deletes the workspace after the download or after `job_ttl_min`.
 
 `--restricted` confines the file tools to the workspace and ignores user settings, but `ffmpeg` itself can write anywhere this Mac user can. That is fine on a dev Mac; don't run the bridge on a shared machine.
 

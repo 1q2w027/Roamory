@@ -3,10 +3,10 @@ port = 8787
 # Claude Code CLI and the model it runs the edit with.
 claude = "claude"
 model = "claude-opus-5-5"
-max_turns = 80
+max_turns = 150
 max_budget_usd = 5.0
 # Wall-clock limit for one edit, from /start.
-timeout_s = 900
+timeout_s = 1500
 # Full renders of the video Claude may do (it previews with single frames in between).
 max_renders = 3
 max_clip_mb = 1000
