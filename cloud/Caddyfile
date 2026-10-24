@@ -1,0 +1,22 @@
+# One port for both services, the one Fly's proxy forwards to. See cloud/start.sh for the ports.
+{
+	admin off
+}
+
+:{$PORT}
+
+# Proxied requests arrive from loopback, so keep the renderer's clip route private.
+handle /internal/* {
+	respond 404
+}
+handle /v1/render* {
+	reverse_proxy 127.0.0.1:3001
+}
+handle /render/healthz {
+	rewrite * /healthz
+	reverse_proxy 127.0.0.1:3001
+}
+# /v1/plan, /v1/evaluate, /healthz
+handle {
+	reverse_proxy 127.0.0.1:8001
+}
