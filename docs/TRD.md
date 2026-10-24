@@ -10,7 +10,7 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 
 **In scope:** interactive onboarding, camera capture at a fixed 30 fps, in-memory ring buffer and moment saving, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
 
-**Deferred:** adaptive frame rate (§4.3, PRD FR-008).
+**Deferred:** adaptive frame rate (§4.3, PRD FR-008); per-window holds and partial clips (§5.3).
 
 **Out of scope (PRD §3.3):** extra hardware, Android, background camera capture, manual timeline editing, multi-user features.
 
@@ -188,7 +188,9 @@ Drop samples older than `BUFFER_RETENTION_S`.
 
 **Proposal:** `BUFFER_RETENTION_S = 45`, about 50 MB at 8-10 Mbps. This covers the 15 s pre-roll, the Stage 1 delay (about 4 s, §11.1) and up to 2 s back to the previous keyframe, with generous headroom. It can be small because a hold (§5.3) is placed locally at trigger time and the cloud can only release it. On a memory warning, shorten retention, down to a floor of 25 s.
 
-### 5.3 Holding and saving a moment
+### 5.3 Holding and saving a moment — Deferred
+
+> **Deferred.** For now a kept moment's window is cut out of the ring buffer in one pass when it is decided (§5.5). Per-window holds (sample references), writing live samples, extension and overlap sharing are not built. The design below is kept for when the decision can come too late for the buffer's retention.
 
 1. Trigger at time T creates `Moment{fromMs = max(sessionStartMs, T - PRE_S*1000), toMs = T + POST_S*1000}`, default `PRE_S = POST_S = 15`, with status `held`.
 2. The moment takes a **hold**: references to the buffered samples from the last keyframe at or before `fromMs` to now, plus every live sample until `toMs`. The references keep those samples alive after the ring buffer trims them. Overlapping holds share the same samples, so memory is the union of the windows, not their sum.
@@ -202,6 +204,14 @@ Drop samples older than `BUFFER_RETENTION_S`.
 - The ring buffer and the holds live in memory, so a crash or a kill loses up to 45 s of unsaved footage and any moment still held. Clips already saved are unaffected.
 - On launch, delete any clip in `clips/` that has no sidecar JSON (it was being written), and mark moments still `held` as `released`.
 - If free space is under 2 GB, stop AI-driven moments, keep button moments, and show a warning. Only saved clips use disk, so this should be rare.
+
+### 5.5 Current implementation: window save
+
+- A keep is decided at `triggerMs + POST_S + 2 s`, so `[T - PRE_S, T + POST_S]` (plus up to 2 s back to a keyframe) is inside the 45 s buffer at that moment. `PRE_S`/`POST_S` are `pre_s`/`post_s` in `detection_config.json`.
+- The app calls the recorder's `writeClip(from:to:url:)`, which copies that window, from the keyframe at or before `fromMs`, to `trips/{tripId}/clips/{momentId}.mp4` by passthrough. The buffer is not emptied, so overlapping moments each get a full clip.
+- The trip clock and the buffer share the capture session's host clock. The sidecar's `from_ms`/`to_ms` are the trip-clock times of the clip's first and last frame; it is written after the mp4.
+- A release writes nothing. The `held` status is bookkeeping only: the footage is protected by the 45 s retention, not by references.
+- If capture was interrupted mid-window and the clip no longer reaches back to its trigger, the clip is dropped and counted as a failed save. Stopping detection finalizes pending moments with the footage up to now.
 
 ## 6. Stage 1: on-phone signals and the escalation gate
 
@@ -375,7 +385,7 @@ Music tracks are bundled with the app. Licensing is open.
 | **Time to hold** | **~4 s** | **~4.1 s** |
 | Cloud decision (off critical path) | 2–4 s | 8 s, then local fallback |
 
-Required buffer is the 15 s pre-roll plus about 4 s plus up to 2 s back to a keyframe, so 45 s gives wide headroom.
+Required buffer is the 15 s pre-roll plus about 4 s plus up to 2 s back to a keyframe, so 45 s gives wide headroom. Because holds are deferred (§5.3), the cloud answer must arrive before the footage ages out of the buffer; the decision is taken at trigger + POST_S + 2 s, which is 17 s of the 45 s.
 
 ### 11.2 Reliability
 
