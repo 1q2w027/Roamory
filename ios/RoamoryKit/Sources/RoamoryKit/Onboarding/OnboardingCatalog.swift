@@ -33,6 +33,8 @@ public struct Country: Codable, Equatable, Sendable, Identifiable {
     public var name: String
     public var cities: [City]
     public var id: String { name }
+    /// Midway between the cities, where the globe looks before one is chosen.
+    public var center: GeoPoint { GeoMath.center(of: cities.map(\.location)) }
 }
 
 public struct Continent: Codable, Equatable, Sendable, Identifiable {
@@ -68,6 +70,11 @@ public struct OnboardingCatalog: Codable, Sendable {
         case continents
         case tripTypes = "trip_types"
     }
+
+    /// The destination onboarding starts at before the user has chosen one.
+    public static let defaultContinent = "North America"
+    public static let defaultCountry = "United States"
+    public static let defaultCity = "New York"
 
     public static func bundled() throws -> OnboardingCatalog {
         try BundledResources.decode(OnboardingCatalog.self, named: "onboarding_catalog")

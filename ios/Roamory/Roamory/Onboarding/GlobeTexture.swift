@@ -5,7 +5,7 @@ import UIKit
 /// SCNSphere maps u = 0.5 to +z and grows eastward, which is `GeoMath`'s convention, so no offset is needed.
 enum GlobeTexture {
     static let land = UIColor(red: 0x3d / 255, green: 0x6b / 255, blue: 0x52 / 255, alpha: 1)
-    static let highlight = UIColor(red: 0xff / 255, green: 0x7a / 255, blue: 0x45 / 255, alpha: 1)
+    static let highlight = UIColor(red: 0x03 / 255, green: 0xfc / 255, blue: 0x73 / 255, alpha: 1)
 
     static func image(catalog: OnboardingCatalog, highlighted: String?,
                       size: CGSize = CGSize(width: 2048, height: 1024)) -> UIImage {

@@ -6,12 +6,15 @@ here=$(cd "$(dirname "$0")/.." && pwd)
 sdk=$(xcrun --sdk iphoneos --show-sdk-path)
 scratch="${TMPDIR:-/tmp}/roamory-typecheck"
 
-(cd "$here/../RoamoryKit" && swift build --target RoamoryKit --triple arm64-apple-ios26.0 --sdk "$sdk" \
-    --scratch-path "$scratch" >/dev/null)
+kit() { (cd "$here/../RoamoryKit" && swift build --target RoamoryKit --triple arm64-apple-ios26.0 --sdk "$sdk" \
+    --scratch-path "$scratch" "$@"); }
+kit >/dev/null
+# Where the module lands depends on the SwiftPM build system, so ask rather than assume.
+bin=$(kit --show-bin-path)
 
 out=$(find "$here/Roamory" -name '*.swift' -print0 | xargs -0 xcrun swiftc -typecheck \
     -target arm64-apple-ios26.0 -sdk "$sdk" -swift-version 5 -default-isolation MainActor \
-    -I "$scratch/arm64-apple-ios/debug/Modules" -I "$scratch/out/Products/Debug-iphoneos" 2>&1 || true)
+    -I "$bin" -I "$bin/Modules" 2>&1 || true)
 printf '%s\n' "$out" | grep -E 'warning:|error:' | grep -v '^ *|' || true
 if printf '%s\n' "$out" | grep -q 'error:'; then
     echo "typecheck: failed"
