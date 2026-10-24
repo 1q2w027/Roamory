@@ -1,18 +1,16 @@
 {
   "name": "roamory-render",
   "private": true,
-  "description": "Roamory cloud render service: Remotion renders the highlight video from an edit spec (TRD 9.2, docs/remotion-plan.md).",
+  "description": "Roamory render service: a Claude agent edits and renders the highlight video with Remotion (TRD §9, docs/agentic-video-generation.md).",
   "type": "module",
   "engines": {
     "node": ">=22.9"
   },
   "scripts": {
     "start": "node --env-file-if-exists=../.env --env-file-if-exists=.env --import tsx src/server/index.ts",
-    "studio": "remotion studio src/remotion/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "sync-assets": "scripts/sync-assets.sh",
-    "smoke": "scripts/smoke.sh"
+    "sync-assets": "scripts/sync-assets.sh"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.296",

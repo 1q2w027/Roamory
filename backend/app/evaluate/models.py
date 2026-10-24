@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.plan.models import Style
+Style = Literal["cinematic", "reels", "documentary", "vlog"]
 
 Purpose = Literal["select", "describe"]
 EventType = Literal["scenery", "landmark", "activity", "food", "social", "other"]

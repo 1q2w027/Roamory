@@ -83,7 +83,7 @@ final class DetectionController: ObservableObject {
         self.trip = TripContext(
             tripId: trip.tripId, style: settings.style, tripType: settings.tripType,
             destination: Destination(country: settings.country, city: settings.city.isEmpty ? nil : settings.city),
-            startDate: Self.dayFormatter.string(from: Date()), allowCloudAnalysis: settings.cloudAllowed
+            startDate: Self.dayFormatter.string(from: Date())
         )
         summary = DetectionSummary(cloud: evaluator != nil)
         isRunning = true

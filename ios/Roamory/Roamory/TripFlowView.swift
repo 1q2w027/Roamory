@@ -38,7 +38,7 @@ struct ProcessingView: View {
             switch pipeline.coordinator?.phase ?? .idle {
             case .idle: return .working(step: "Starting", progress: nil)
             case let .planning(step): return .working(step: step, progress: nil)
-            case let .rendering(progress): return .working(step: "Making your video", progress: progress)
+            case let .rendering(progress): return .working(step: "Claude is editing your video", progress: progress)
             case .completed: return .working(step: "Video ready", progress: 1)
             case let .error(stage, message):
                 return .failed(stage == .noMoments ? "\(message) Keep a moment with the bookmark button, a volume key or a Bluetooth remote next time." : message)
@@ -59,7 +59,7 @@ struct ProcessingView: View {
                 }
                 Text(step)
                     .font(.headline)
-                Text("Keep Roamory open. This takes a minute or two.")
+                Text("Keep Roamory open. This takes a few minutes.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             case let .failed(message):

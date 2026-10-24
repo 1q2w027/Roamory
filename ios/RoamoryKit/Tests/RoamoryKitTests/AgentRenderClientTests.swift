@@ -19,9 +19,9 @@ final class AgentRenderClientTests: XCTestCase {
     /// An agent request for `count` sample clips after the pre-pass.
     private static func request(clips count: Int) async throws -> (AgentRequest, [String: URL]) {
         let presets = try StylePresets.bundled()
-        var trip = RenderLab.trip
+        var trip = SampleTrip.trip
         trip.style = .reels
-        let clips = PrePass.run(try await RenderLab.clips(count: count, from: BundledResources.sampleClipURLs), preset: presets[.reels],
+        let clips = PrePass.run(try await SampleTrip.clips(count: count, from: BundledResources.sampleClipURLs), preset: presets[.reels],
                                 config: Fixtures.config)
         let request = AgentRequest(trip: trip, clips: clips, preset: presets[.reels], config: Fixtures.config)
         return (request, Dictionary(uniqueKeysWithValues: clips.map { ($0.momentId, $0.clipURL) }))
@@ -30,7 +30,7 @@ final class AgentRenderClientTests: XCTestCase {
     private func client(timeoutS: Double = 60) -> AgentRenderClient {
         var config = Fixtures.config
         config.agentTimeoutS = timeoutS
-        config.remoteRenderPollS = 0.05
+        config.agentPollS = 0.05
         return AgentRenderClient(
             baseURL: URL(string: "https://render.example.test")!, appToken: "secret", config: config, session: HTTPStub.session()
         )
@@ -46,13 +46,13 @@ final class AgentRenderClientTests: XCTestCase {
 
     func testUploadsWholeClipsThenFetchesTheResultBeforeTheVideo() async throws {
         let (request, urls) = try await Self.request(clips: 2)
-        // The "server" returns a real render, and a result that matches its length.
-        let (spec, specURLs) = try await RemoteRenderClientTests.plan(clips: 2)
-        let local = try await Renderer(config: Fixtures.config).render(spec, clipURLs: specURLs, to: outputDir.appending(path: "local.mp4"))
-        let video = try Data(contentsOf: local.url)
+        // The "server" returns a real MP4, and a result that matches its length.
+        let file = try XCTUnwrap(BundledResources.sampleClipURLs.first)
+        let video = try Data(contentsOf: file)
+        let durationS = try await AVURLAsset(url: file).load(.duration).seconds
         let result = AgentResult(
-            totalS: local.durationS, title: .init(text: "Kyoto", subtitle: "October 2026"),
-            moments: [.init(momentId: "lab_00", startS: 0, endS: 2.5), .init(momentId: "lab_01", startS: 2.5, endS: local.durationS)]
+            totalS: durationS, title: .init(text: "Kyoto", subtitle: "October 2026"),
+            moments: [.init(momentId: "lab_00", startS: 0, endS: 2.5), .init(momentId: "lab_01", startS: 2.5, endS: durationS)]
         )
 
         let polls = Counter()
@@ -80,8 +80,6 @@ final class AgentRenderClientTests: XCTestCase {
         let out = outputDir.appending(path: "agent.mp4")
         let made = try await client().edit(request, clipURLs: urls, output: output, to: out) { p in progress.mutate { $0.append(p) } }
         XCTAssertEqual(made.result, result)
-        XCTAssertEqual(made.video.engine, "agent")
-        XCTAssertNil(made.video.spec)
         XCTAssertEqual(made.video.output, output)
         XCTAssertEqual(made.video.url, out)
         XCTAssertEqual(made.video.durationS, result.totalS, accuracy: 0.01)
@@ -119,7 +117,7 @@ final class AgentRenderClientTests: XCTestCase {
             _ = try await client().edit(request, clipURLs: urls, output: output, to: outputDir.appending(path: "x.mp4"))
             XCTFail("expected an error")
         } catch {
-            XCTAssertEqual(error as? RemoteRenderError,
+            XCTAssertEqual(error as? RenderServiceError,
                            .jobFailed(APIError(code: "agent_failed", message: "no valid submit", retryable: false)))
         }
     }
@@ -134,7 +132,7 @@ final class AgentRenderClientTests: XCTestCase {
             _ = try await client(timeoutS: 3).edit(request, clipURLs: urls, output: output, to: outputDir.appending(path: "x.mp4"))
             XCTFail("expected a timeout")
         } catch {
-            XCTAssertEqual(error as? RemoteRenderError, .timedOut)
+            XCTAssertEqual(error as? RenderServiceError, .timedOut)
         }
         XCTAssertLessThan(Date().timeIntervalSince(start), 6)
     }
@@ -143,11 +141,11 @@ final class AgentRenderClientTests: XCTestCase {
         var request = try Fixtures.decode(AgentRequest.self, "examples/agent_request_reels.json")
         request.clips = [request.clips[0]]  // 32 s, window 15–17
         let id = request.clips[0].momentId
-        let same = request.rebased([RenderRequest.Clip(momentId: id, durationS: 31.98, hasAudio: true)]).clips[0]
+        let same = request.rebased([ClipTrimmer.Uploaded(momentId: id, durationS: 31.98, hasAudio: true)]).clips[0]
         XCTAssertEqual([same.proposedInS, same.proposedOutS], [15, 17])
         XCTAssertEqual(same.durationS, 31.98)
         XCTAssertTrue(same.hasAudio)
-        let short = request.rebased([RenderRequest.Clip(momentId: id, durationS: 16, hasAudio: false)]).clips[0]
+        let short = request.rebased([ClipTrimmer.Uploaded(momentId: id, durationS: 16, hasAudio: false)]).clips[0]
         XCTAssertEqual([short.proposedInS, short.proposedOutS], [14, 16], "shifted earlier, same length")
     }
 

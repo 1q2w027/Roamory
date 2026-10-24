@@ -1,8 +1,8 @@
 import type React from "react";
 import { interpolate, useCurrentFrame, useVideoConfig } from "remotion";
-import type { EditSpec, TripContext } from "../types";
+import type { Title, TripContext } from "../types";
 
-export type TitleProps = { title: EditSpec["title"]; context: TripContext; durationInFrames: number };
+export type TitleProps = { title: Title; context: TripContext; durationInFrames: number };
 export type CaptionProps = { text: string; durationInFrames: number };
 export type EndCardProps = { text: string; durationInFrames: number };
 
@@ -13,7 +13,7 @@ export type StyleGraphics = {
   EndCard: React.FC<EndCardProps>;
 };
 
-/** Opacity with short fades in and (optionally) out, like the iOS TitleOverlay: min(0.4 s, a quarter). */
+/** Opacity with short fades in and (optionally) out, min(0.4 s, a quarter). */
 export function useFade(durationInFrames: number, fadeOut = true): number {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();

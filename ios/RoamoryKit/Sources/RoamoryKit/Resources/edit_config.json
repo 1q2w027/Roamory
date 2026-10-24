@@ -1,20 +1,11 @@
 {
   "dedupe_hamming": 8,
-  "plan_timeout_s": 30,
-  "max_plan_clips": 24,
-  "thumbnail_count": 4,
-  "thumbnail_long_edge_px": 384,
-  "thumbnail_jpeg_quality": 0.7,
+  "max_clips": 24,
   "full_fps_min": 29,
   "window_step_s": 0.25,
   "window_change_weight": 0.5,
-  "end_card_text": "Made with Roamory",
-  "export_preset": "AVAssetExportPresetHighestQuality",
   "render_duration_tolerance_s": 0.5,
-  "render_engine": "avfoundation",
-  "remote_render_timeout_s": 150,
-  "remote_render_poll_s": 1,
-  "remote_upload_preset": "AVAssetExportPreset1280x720",
   "agent_timeout_s": 540,
+  "agent_poll_s": 1,
   "agent_upload_preset": "AVAssetExportPreset1280x720"
 }

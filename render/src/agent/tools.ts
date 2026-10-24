@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
+import net, { type AddressInfo } from "node:net";
 import path from "node:path";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { bundle } from "@remotion/bundler";
@@ -7,7 +8,6 @@ import { makeCancelSignal, renderMedia, renderStill, selectComposition } from "@
 import type { ValidateFunction } from "ajv/dist/2020.js";
 import { z } from "zod";
 import { RENDER_ROOT } from "../server/config";
-import { freePort } from "../server/renderer";
 import { ajv, schemaErrors, schemaId } from "../server/validate";
 import { MCP_SERVER } from "./guard";
 import { extractFrame, probe, type Probe } from "./media";
@@ -281,4 +281,18 @@ function cancelOn(signal: AbortSignal) {
   if (signal.aborted) cancel();
   signal.addEventListener("abort", cancel);
   return { cancelSignal, dispose: () => signal.removeEventListener("abort", cancel) };
+}
+
+/**
+ * A free loopback port for Remotion's bundle server. Left to its own search on macOS it can bind
+ * 127.0.0.1 on our API's port (beside our wildcard listen), and Chrome then loads our API instead.
+ */
+export function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer().once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port } = probe.address() as AddressInfo;
+      probe.close(() => resolve(port));
+    });
+  });
 }

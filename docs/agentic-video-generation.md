@@ -1,5 +1,7 @@
 # Plan: Agent mode for the highlight video
 
+> **Update (2026-10-24).** Agent mode is no longer optional: the plan and render pipeline it fell back to was removed, so a failed job shows an error with Retry. The phases below are the historical plan; see `docs/DECISIONS.md`.
+
 ## Context
 
 Today the video is made in two steps. `/v1/plan` (`backend/app/plan/service.py`) has Claude return a JSON edit spec through one strict tool call. Then the spec is executed deterministically, either by AVFoundation on the phone or by the fixed Remotion `Highlight` composition (`render/src/remotion/Highlight.tsx`). The model can only express what the spec schema allows: cut, fade or dissolve, one caption per clip, and a fixed title and end card for each style.

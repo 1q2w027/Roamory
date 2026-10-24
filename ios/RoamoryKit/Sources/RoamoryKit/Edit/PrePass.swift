@@ -1,9 +1,7 @@
-import AVFoundation
-import ImageIO
-import UniformTypeIdentifiers
+import Foundation
 
-/// Phone-side pre-pass before planning (TRD 9.1 step 1): drop near-duplicates, pick each clip's best
-/// sub-window, and make the thumbnails the cloud planner sees.
+/// Phone-side pre-pass before the agent (TRD 9.1): drop near-duplicates and pick each clip's best
+/// sub-window, which the agent gets as `proposed_in_s`/`proposed_out_s`.
 public enum PrePass {
     /// Dedupe, then set each clip's proposed window to the preset's default clip length.
     public static func run(_ clips: [ClipInfo], preset: StylePreset, config: EditConfig) -> [ClipInfo] {
@@ -74,35 +72,5 @@ public enum PrePass {
             start += config.windowStepS
         }
         return (best.start, best.start + lengthS)
-    }
-
-    // MARK: Thumbnails
-
-    /// `config.thumbnailCount` JPEG frames evenly spaced through the proposed window, `thumbnailLongEdgePx` on the long edge.
-    public static func thumbnails(for clip: ClipInfo, config: EditConfig) async throws -> [Data] {
-        let generator = AVAssetImageGenerator(asset: AVURLAsset(url: clip.clipURL))
-        generator.appliesPreferredTrackTransform = true
-        let edge = CGFloat(config.thumbnailLongEdgePx)
-        generator.maximumSize = CGSize(width: edge, height: edge)
-        let tolerance = CMTime(seconds: 0.1, preferredTimescale: 600)
-        generator.requestedTimeToleranceBefore = tolerance
-        generator.requestedTimeToleranceAfter = tolerance
-
-        let count = config.thumbnailCount
-        let span = clip.proposedOutS - clip.proposedInS
-        var images: [Data] = []
-        for k in 0..<count {
-            let t = clip.proposedInS + (Double(k) + 0.5) * span / Double(count)
-            let (image, _) = try await generator.image(at: CMTime(seconds: t, preferredTimescale: 600))
-            if let jpeg = jpegData(image, quality: config.thumbnailJpegQuality) { images.append(jpeg) }
-        }
-        return images
-    }
-
-    static func jpegData(_ image: CGImage, quality: Double) -> Data? {
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else { return nil }
-        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
-        return CGImageDestinationFinalize(destination) ? data as Data : nil
     }
 }

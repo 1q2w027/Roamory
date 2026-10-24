@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copies the shared assets into public/ (git-ignored), like ios/RoamoryKit/scripts/sync-contracts.sh:
 # contracts/style_presets.json, the bundled music beds (public/music/{track}.m4a) and the sample clips
-# (public/sample/, for Studio and scripts/smoke.sh). Run after any of them change.
+# (public/sample/, for scripts/agent-smoke.sh). Run after any of them change.
 # IOS_RESOURCES overrides where the iOS bundle's Resources folder is (e.g. another checkout).
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"

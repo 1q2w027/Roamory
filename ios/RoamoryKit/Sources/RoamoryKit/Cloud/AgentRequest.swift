@@ -2,7 +2,29 @@ import Foundation
 
 /// Codable mirror of contracts/agent_request.schema.json: the `request` part of `POST /v1/agent`.
 public struct AgentRequest: Codable, Sendable, Equatable {
-    /// One uploaded whole clip; the plan request's clip fields, minus thumbnails, plus `has_audio`.
+    public struct Context: Codable, Sendable, Equatable {
+        public var destination: Destination
+        public var tripType: String
+        public var startDate: String
+
+        public init(destination: Destination, tripType: String, startDate: String) {
+            self.destination = destination
+            self.tripType = tripType
+            self.startDate = startDate
+        }
+
+        public init(trip: TripContext) {
+            self.init(destination: trip.destination, tripType: trip.tripType, startDate: trip.startDate)
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case destination
+            case tripType = "trip_type"
+            case startDate = "start_date"
+        }
+    }
+
+    /// One uploaded whole clip.
     public struct Clip: Codable, Sendable, Equatable {
         public var momentId: String
         public var source: MomentSource
@@ -69,10 +91,10 @@ public struct AgentRequest: Codable, Sendable, Equatable {
     public var targetS: Double
     /// See `EffectiveTarget`.
     public var effectiveTargetS: Double
-    public var context: RenderRequest.Context
+    public var context: Context
     public var clips: [Clip]
 
-    public init(tripId: String, style: Style, targetS: Double, effectiveTargetS: Double, context: RenderRequest.Context, clips: [Clip]) {
+    public init(tripId: String, style: Style, targetS: Double, effectiveTargetS: Double, context: Context, clips: [Clip]) {
         self.tripId = tripId
         self.style = style
         self.targetS = targetS
@@ -87,7 +109,7 @@ public struct AgentRequest: Codable, Sendable, Equatable {
         self.init(
             tripId: trip.tripId, style: trip.style, targetS: preset.targetS.default,
             effectiveTargetS: EffectiveTarget.seconds(buttonCount: clips.count(where: \.isButton), preset: preset),
-            context: RenderRequest.Context(trip: trip),
+            context: Context(trip: trip),
             clips: clips.map { clip in
                 Clip(
                     momentId: clip.momentId, source: clip.source, eventType: clip.eventType, description: clip.description,
@@ -101,7 +123,7 @@ public struct AgentRequest: Codable, Sendable, Equatable {
 
     /// Onto the re-encoded files (agent request rule 2): their duration and audio, and the proposed window
     /// kept inside the file, shifted earlier rather than shortened if the export came out short.
-    public func rebased(_ uploaded: [RenderRequest.Clip]) -> AgentRequest {
+    public func rebased(_ uploaded: [ClipTrimmer.Uploaded]) -> AgentRequest {
         let byId = Dictionary(uploaded.map { ($0.momentId, $0) }, uniquingKeysWith: { first, _ in first })
         var rebased = self
         for i in rebased.clips.indices {

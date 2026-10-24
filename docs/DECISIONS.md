@@ -2,6 +2,7 @@
 
 Short record of team decisions. Newest first. Format: date, decision, why.
 
+- 2026-10-24: The agent is the only way the app makes the video. The on-phone AVFoundation renderer, the Remotion `/v1/render` engine, the `/v1/plan` planner and the fallback planner are removed, with their contracts (plan request, edit spec, render request, golden timelines). With no fallback, a failed agent job shows an error with Retry, and the video is made in the cloud even with "Allow cloud analysis" off (that setting now covers detection only). Why: one path to build, test and demo; the agent makes the better video.
 - 2026-10-24: Agent mode (optional): a Claude agent in the render service selects, edits and renders the video with Remotion; the deterministic plan and render pipeline is the fallback (TRD §1, §9.3, §11.3; plan in `docs/agentic-video-generation.md`). It is an exception to "the LLM only produces JSON and rendering is deterministic". Why: the edit spec limits the model to cuts, fades and one caption per clip; an agent that watches the clips and writes its own composition can make a better video, and any failure still produces one through the normal path.
 
 - 2026-10-23: The rolling buffer is an in-memory ring buffer of encoded (HEVC) samples; a moment is written to disk only when kept, by passthrough (TRD §5). Replaces 2-second segment files on disk. Why: unselected footage never touches storage, and there is no segment index or cleanup to maintain.
@@ -19,4 +20,4 @@ Short record of team decisions. Newest first. Format: date, decision, why.
 - Who owns each folder (fill in README)
 - The proposals added in the docs review PR: capture orientation set by style (PRD FR-007a), trips with pause and resume (FR-007b), button moments beating the length target (FR-009), and how replay mode works (TRD §12.4)
 - Does our chest mount's clamp rotate to both orientations?
-- Where the Remotion render service is hosted, and whether we need a Remotion company license (TRD §14)
+- Whether we need a Remotion company license (TRD §14)

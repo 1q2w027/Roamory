@@ -87,15 +87,8 @@ struct ReviewView: View {
     }
 
     private var summary: String {
-        guard let c = pipeline.coordinator, let result = c.renderResult else { return "" }
-        let plan = switch c.planOutcome?.source {
-        case .cloud: "planned in the cloud"
-        case .fallback: "planned on the phone"
-        case nil: c.agentResult != nil ? "edited by Claude" : "planned on the phone"
-        }
-        let short = c.planOutcome.map { EditSpecValidator.onlyTooShort($0.violations) } == true
-            ? " Shorter than the style's target: not enough moments." : ""
-        return String(format: "%@, %.0f s, %@.", pipeline.trip.style.rawValue.capitalized, result.durationS, plan) + short
+        guard let result = pipeline.coordinator?.renderResult else { return "" }
+        return String(format: "%@, %.0f s, edited by Claude.", pipeline.trip.style.rawValue.capitalized, result.durationS)
     }
 
     private func play(from seconds: Double) {

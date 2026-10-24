@@ -10,18 +10,6 @@ final class ContractsTests: XCTestCase {
         XCTAssertEqual(try jsonObject(encoded), try jsonObject(original), "\(path) changed in a round trip", file: file, line: line)
     }
 
-    func testPlanRequestExamplesRoundTrip() throws {
-        for style in Style.allCases {
-            try assertRoundTrip(PlanRequest.self, "examples/plan_request_\(style.rawValue).json")
-        }
-    }
-
-    func testEditSpecExamplesRoundTrip() throws {
-        for style in Style.allCases {
-            try assertRoundTrip(EditSpec.self, "examples/edit_spec_\(style.rawValue).json")
-        }
-    }
-
     func testPresetsAndSidecarRoundTrip() throws {
         try assertRoundTrip(StylePresets.self, "style_presets.json")
         try assertRoundTrip(ClipSidecar.self, "examples/clip_sidecar_m_03.json")
@@ -34,10 +22,7 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(Evaluation.self, "examples/evaluation_skip.json")
     }
 
-    func testRenderExamplesRoundTrip() throws {
-        for style in Style.allCases {
-            try assertRoundTrip(RenderRequest.self, "examples/render_request_\(style.rawValue).json")
-        }
+    func testRenderJobExamplesRoundTrip() throws {
         try assertRoundTrip(RenderJob.self, "examples/render_job_rendering.json")
         try assertRoundTrip(RenderJob.self, "examples/render_job_failed.json")
     }
@@ -49,51 +34,6 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(AgentResult.self, "examples/agent_result_reels.json")
     }
 
-    /// The agent request carries the plan request's clip fields, so both examples agree for the same trip.
-    func testAgentRequestMatchesThePlanRequest() throws {
-        for style in Style.allCases {
-            let agent = try Fixtures.decode(AgentRequest.self, "examples/agent_request_\(style.rawValue).json")
-            let plan = try Fixtures.planRequest(style)
-            XCTAssertEqual(agent.effectiveTargetS, plan.effectiveTargetS, "\(style)")
-            XCTAssertEqual(agent.context, RenderRequest.Context(destination: plan.destination, tripType: plan.tripType, startDate: plan.startDate))
-            XCTAssertEqual(agent.clips.map(\.momentId), plan.clips.map(\.momentId))
-            for (a, p) in zip(agent.clips, plan.clips) {
-                XCTAssertEqual([a.proposedInS, a.proposedOutS, a.lowFpsLeadInS], [p.proposedInS, p.proposedOutS, p.lowFpsLeadInS], a.momentId)
-                XCTAssertEqual(a.source, p.source)
-            }
-        }
-    }
-
-    /// Golden timelines (contracts README): both engines place every clip at the same time, within 1 ms.
-    func testEditTimelineMatchesTheGoldenTimelines() throws {
-        struct Golden: Decodable {
-            struct Slot: Decodable {
-                var moment_id: String
-                var start_s: Double
-                var end_s: Double
-            }
-            var slots: [Slot]
-            var end_card_start_s: Double
-            var total_s: Double
-        }
-        for style in Style.allCases {
-            let golden = try Fixtures.decode(Golden.self, "examples/timeline_\(style.rawValue).json")
-            let spec = try Fixtures.editSpec(style)
-            let slots = EditTimeline.slots(spec)
-            XCTAssertEqual(slots.map(\.momentId), golden.slots.map(\.moment_id), "\(style)")
-            for (slot, want) in zip(slots, golden.slots) {
-                XCTAssertEqual(slot.startS, want.start_s, accuracy: 0.001, "\(style) \(slot.momentId)")
-                XCTAssertEqual(slot.endS, want.end_s, accuracy: 0.001, "\(style) \(slot.momentId)")
-            }
-            XCTAssertEqual(slots.last?.endS ?? 0, golden.end_card_start_s, accuracy: 0.001, "\(style)")
-            XCTAssertEqual(EditTimeline.totalDurationS(spec), golden.total_s, accuracy: 0.001, "\(style)")
-
-            // The rebased spec in the render request keeps the same timeline.
-            let rebased = try Fixtures.decode(RenderRequest.self, "examples/render_request_\(style.rawValue).json").editSpec
-            XCTAssertEqual(EditTimeline.totalDurationS(rebased), golden.total_s, accuracy: 0.001, "\(style) rebased")
-        }
-    }
-
     func testEvaluateDestinationEncodesExplicitNull() throws {
         let d = EvaluateContext.Destination(continent: nil, country: "Japan", city: nil)
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(d)) as! [String: Any]
@@ -102,11 +42,6 @@ final class ContractsTests: XCTestCase {
     }
 
     func testNullableFieldsEncodeAsExplicitNull() throws {
-        let clip = EditSpec.Clip(momentId: "m_01", inS: 0, outS: 2, transitionIn: .cut, transitionS: 0, speedRamp: nil, caption: nil)
-        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(clip)) as! [String: Any]
-        XCTAssertTrue(object["speed_ramp"] is NSNull)
-        XCTAssertTrue(object["caption"] is NSNull)
-
         let destination = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Destination(country: "Japan", city: nil))) as! [String: Any]
         XCTAssertTrue(destination["city"] is NSNull)
     }
@@ -123,8 +58,6 @@ final class ContractsTests: XCTestCase {
             let track = try! StylePresets.bundled()[style].musicTrack
             XCTAssertNotNil(BundledResources.musicURL(track: track), "no music for \(track)")
         }
-        XCTAssertNotNil(BundledResources.blackClipURL(portrait: false))
-        XCTAssertNotNil(BundledResources.blackClipURL(portrait: true))
         XCTAssertFalse(BundledResources.sampleClipURLs.isEmpty)
     }
 

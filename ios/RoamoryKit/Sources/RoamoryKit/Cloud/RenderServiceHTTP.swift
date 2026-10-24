@@ -1,7 +1,47 @@
 import Foundation
 
-/// The render service's job API, shared by `RemoteRenderClient` (`/v1/render`) and `AgentRenderClient` (`/v1/agent`):
-/// auth, the multipart upload, polling the job and downloading the video. Errors are `RemoteRenderError`.
+/// Body of every non-2xx backend or render service response (contracts/error.schema.json).
+public struct APIError: Codable, Sendable, Equatable {
+    public var code: String
+    public var message: String
+    public var retryable: Bool
+}
+
+public enum RenderServiceError: Error, Equatable, Sendable {
+    case server(status: Int, error: APIError?)
+    /// The job ended `failed` (normally `agent_failed` or `agent_timeout`).
+    case jobFailed(APIError?)
+    case timedOut
+    case invalidResponse
+}
+
+/// Codable mirror of contracts/render_job.schema.json: the body of `GET /v1/agent/{job_id}`.
+public struct RenderJob: Codable, Sendable, Equatable {
+    public enum Status: String, Codable, Sendable {
+        case queued, rendering, completed, failed
+    }
+
+    public var jobId: String
+    public var status: Status
+    public var progress: Double
+    public var error: APIError?
+
+    enum CodingKeys: String, CodingKey {
+        case jobId = "job_id"
+        case status, progress, error
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(jobId, forKey: .jobId)
+        try c.encode(status, forKey: .status)
+        try c.encode(progress, forKey: .progress)
+        try c.encode(error, forKey: .error)
+    }
+}
+
+/// The render service's job API for `AgentRenderClient` (`/v1/agent`): auth, the multipart upload, polling the job
+/// and downloading the video. Errors are `RenderServiceError`.
 struct RenderServiceHTTP: Sendable {
     var baseURL: URL
     var appToken: String
@@ -40,7 +80,7 @@ struct RenderServiceHTTP: Sendable {
     func waitForJob(_ jobPath: String, progress: @Sendable (Double) -> Void) async throws {
         var job = try await self.job(jobPath)
         while job.status != .completed {
-            if job.status == .failed { throw RemoteRenderError.jobFailed(job.error) }
+            if job.status == .failed { throw RenderServiceError.jobFailed(job.error) }
             progress(job.progress)
             try await Task.sleep(for: .seconds(pollS))
             job = try await self.job(jobPath)
@@ -69,9 +109,9 @@ struct RenderServiceHTTP: Sendable {
     }
 
     private static func check(_ response: URLResponse, _ data: @autoclosure () -> Data, expected: Int) throws {
-        guard let status = (response as? HTTPURLResponse)?.statusCode else { throw RemoteRenderError.invalidResponse }
+        guard let status = (response as? HTTPURLResponse)?.statusCode else { throw RenderServiceError.invalidResponse }
         guard status == expected else {
-            throw RemoteRenderError.server(status: status, error: try? JSONDecoder().decode(APIError.self, from: data()))
+            throw RenderServiceError.server(status: status, error: try? JSONDecoder().decode(APIError.self, from: data()))
         }
     }
 }
@@ -89,5 +129,45 @@ private final class UploadProgress: NSObject, URLSessionTaskDelegate, Sendable {
     ) {
         guard totalBytesExpectedToSend > 0 else { return }
         onProgress(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
+    }
+}
+
+/// A `multipart/form-data` body.
+struct MultipartBody {
+    let boundary: String
+    private var data = Data()
+
+    init(boundary: String) {
+        self.boundary = boundary
+    }
+
+    var contentType: String { "multipart/form-data; boundary=\(boundary)" }
+
+    mutating func part(name: String, filename: String? = nil, type: String, data part: Data) {
+        data.append(Data("--\(boundary)\r\n".utf8))
+        let file = filename.map { "; filename=\"\($0)\"" } ?? ""
+        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"\(file)\r\n".utf8))
+        data.append(Data("Content-Type: \(type)\r\n\r\n".utf8))
+        data.append(part)
+        data.append(Data("\r\n".utf8))
+    }
+
+    func finished() -> Data {
+        data + Data("--\(boundary)--\r\n".utf8)
+    }
+}
+
+/// Runs `operation`, throwing `timeoutError` if it takes longer than `seconds`.
+func withTimeout<T: Sendable>(
+    _ seconds: Double, error timeoutError: any Error = RenderServiceError.timedOut, _ operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask { try await operation() }
+        group.addTask {
+            try await Task.sleep(for: .seconds(seconds))
+            throw timeoutError
+        }
+        defer { group.cancelAll() }
+        return try await group.next()!
     }
 }

@@ -4,57 +4,32 @@ import Foundation
 public struct EditConfig: Codable, Sendable, Equatable {
     /// Two clips whose best-frame dHashes differ in at most this many bits are near-duplicates.
     public var dedupeHamming: Int
-    /// Whole-request timeout for `POST /v1/plan`.
-    public var planTimeoutS: Double
-    /// Clips sent to the planner at most; button clips always go, the rest by score.
-    public var maxPlanClips: Int
-    public var thumbnailCount: Int
-    public var thumbnailLongEdgePx: Int
-    public var thumbnailJpegQuality: Double
+    /// Clips sent to the agent at most; button clips always go, the rest by score.
+    public var maxClips: Int
     /// Footage below this frame rate counts as low-fps lead-in (TRD 4.3).
     public var fullFpsMin: Double
     /// Step between candidate windows in the pre-pass.
     public var windowStepS: Double
     /// How much frame change (shake) counts against sharpness when picking a window.
     public var windowChangeWeight: Double
-    public var endCardText: String
-    /// `AVAssetExportSession` preset name.
-    public var exportPreset: String
-    /// Allowed difference between the exported and the planned duration.
+    /// Allowed difference between the downloaded video and the agent's `total_s`.
     public var renderDurationToleranceS: Double
-    /// "avfoundation" (on the phone, the default), "remotion" (the render service, TRD 9.2) or "agent"
-    /// (a Claude agent in the render service edits and renders the whole video, TRD 9.3).
-    public var renderEngine: String
-    /// Whole remote render, from trimming to download; past it the phone renders locally.
-    public var remoteRenderTimeoutS: Double
-    /// How often to poll the render job.
-    public var remoteRenderPollS: Double
-    /// `AVAssetExportSession` preset for the trimmed clips uploaded to the render service.
-    public var remoteUploadPreset: String
-    /// Whole agent job, from re-encoding to download; above the server's `AGENT_TIMEOUT_S`, so its own
-    /// timeout reports first. Past it the phone plans and renders as usual.
+    /// Whole agent call, from re-encoding to download (above the server's `AGENT_TIMEOUT_S`).
     public var agentTimeoutS: Double
-    /// `AVAssetExportSession` preset for the whole clips uploaded in agent mode.
+    /// How often to poll the agent job.
+    public var agentPollS: Double
+    /// `AVAssetExportSession` preset for the whole clips uploaded to the agent.
     public var agentUploadPreset: String
 
     enum CodingKeys: String, CodingKey {
         case dedupeHamming = "dedupe_hamming"
-        case planTimeoutS = "plan_timeout_s"
-        case maxPlanClips = "max_plan_clips"
-        case thumbnailCount = "thumbnail_count"
-        case thumbnailLongEdgePx = "thumbnail_long_edge_px"
-        case thumbnailJpegQuality = "thumbnail_jpeg_quality"
+        case maxClips = "max_clips"
         case fullFpsMin = "full_fps_min"
         case windowStepS = "window_step_s"
         case windowChangeWeight = "window_change_weight"
-        case endCardText = "end_card_text"
-        case exportPreset = "export_preset"
         case renderDurationToleranceS = "render_duration_tolerance_s"
-        case renderEngine = "render_engine"
-        case remoteRenderTimeoutS = "remote_render_timeout_s"
-        case remoteRenderPollS = "remote_render_poll_s"
-        case remoteUploadPreset = "remote_upload_preset"
         case agentTimeoutS = "agent_timeout_s"
+        case agentPollS = "agent_poll_s"
         case agentUploadPreset = "agent_upload_preset"
     }
 
@@ -78,9 +53,6 @@ public enum BundledResources {
     }
 
     public static func musicURL(track: String) -> URL? { url(track, ext: "m4a", subdirectory: "Music") }
-
-    /// The 2 s black clip the end card plays over.
-    public static func blackClipURL(portrait: Bool) -> URL? { url(portrait ? "black_9x16" : "black_16x9", ext: "mp4") }
 
     public static var sampleClipURLs: [URL] {
         (Bundle.module.urls(forResourcesWithExtension: "mp4", subdirectory: "Resources/SampleClips") ?? [])

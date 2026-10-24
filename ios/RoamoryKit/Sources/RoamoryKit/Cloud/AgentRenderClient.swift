@@ -3,13 +3,12 @@ import os
 
 /// A finished agent-mode video.
 public struct AgentRender: Sendable {
-    /// Engine "agent", no edit spec.
     public var video: RenderResult
     /// What the agent put in the video; Review's moments are `result.moments`.
     public var result: AgentResult
 }
 
-/// Agent mode (TRD 9.3): a Claude agent in the render service selects, edits and renders the whole video.
+/// The video agent (TRD §9): a Claude agent in the render service selects, edits and renders the whole video.
 public protocol AgentRendering: Sendable {
     /// - Parameters:
     ///   - request: every candidate clip, with the phone's file durations (`AgentRequest(trip:clips:preset:config:)`).
@@ -23,8 +22,8 @@ public protocol AgentRendering: Sendable {
 }
 
 /// Talks to `/v1/agent` (contracts README, "Agent mode"): re-encodes each clip whole, uploads them, polls the job,
-/// fetches the result and then the MP4, and checks the file against the result. The phone never retries; the
-/// coordinator plans and renders as usual on any error.
+/// fetches the result and then the MP4, and checks the file against the result. The phone never retries; on any
+/// error the Processing screen offers Retry.
 public struct AgentRenderClient: AgentRendering {
     public var baseURL: URL
     public var appToken: String
@@ -40,7 +39,8 @@ public struct AgentRenderClient: AgentRendering {
         self.session = session
     }
 
-    /// The render service from Info.plist, as `RemoteRenderClient.fromBundle`; nil when it is not configured.
+    /// Reads `RoamoryRenderBaseURL` and `RoamoryAppToken` from Info.plist (set from build settings, never committed).
+    /// Nil when either is missing.
     public static func fromBundle(_ bundle: Bundle = .main, config: EditConfig) -> AgentRenderClient? {
         guard let base = bundle.object(forInfoDictionaryKey: "RoamoryRenderBaseURL") as? String, let url = URL(string: base),
               let token = bundle.object(forInfoDictionaryKey: "RoamoryAppToken") as? String, !token.isEmpty
@@ -56,17 +56,17 @@ public struct AgentRenderClient: AgentRendering {
     ) async throws -> AgentRender {
         let clock = ContinuousClock()
         let start = clock.now
-        let (duration, result) = try await withTimeout(config.agentTimeoutS, error: RemoteRenderError.timedOut) {
+        let (duration, result) = try await withTimeout(config.agentTimeoutS, error: RenderServiceError.timedOut) {
             try await editOnce(request, clipURLs: clipURLs, to: outputURL, progress: progress)
         }
         let elapsed = (clock.now - start) / .seconds(1)
         Self.log.info("Agent made \(request.style.rawValue) from \(request.clips.count) clips, \(result.moments.count) used, \(duration)s video in \(elapsed)s")
-        let video = RenderResult(url: outputURL, durationS: duration, elapsedS: elapsed, output: output, engine: "agent")
+        let video = RenderResult(url: outputURL, durationS: duration, elapsedS: elapsed, output: output)
         return AgentRender(video: video, result: result)
     }
 
     private var http: RenderServiceHTTP {
-        RenderServiceHTTP(baseURL: baseURL, appToken: appToken, timeoutS: config.agentTimeoutS, pollS: config.remoteRenderPollS, session: session)
+        RenderServiceHTTP(baseURL: baseURL, appToken: appToken, timeoutS: config.agentTimeoutS, pollS: config.agentPollS, session: session)
     }
 
     private func editOnce(
@@ -92,7 +92,7 @@ public struct AgentRenderClient: AgentRendering {
         progress(0.9)
         try await http.download("v1/agent/\(jobId)/video", to: outputURL)
         progress(1)
-        let duration = try await Renderer.verify(outputURL, expectedS: result.totalS, toleranceS: config.renderDurationToleranceS)
+        let duration = try await RenderResult.verify(outputURL, expectedS: result.totalS, toleranceS: config.renderDurationToleranceS)
         return (duration, result)
     }
 }

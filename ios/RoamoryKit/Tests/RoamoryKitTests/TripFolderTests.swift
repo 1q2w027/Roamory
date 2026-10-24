@@ -60,7 +60,7 @@ final class TripFolderTests: XCTestCase {
 
     /// The handoff to the editor: clips read back from a trip folder are valid `EditCoordinator` input.
     @MainActor
-    func testLoadedTripRendersWithoutCloud() async throws {
+    func testLoadedTripMakesAVideo() async throws {
         let clips = folder.appending(path: "clips")
         try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
         for (k, source) in BundledResources.sampleClipURLs.prefix(2).enumerated() {
@@ -74,12 +74,14 @@ final class TripFolderTests: XCTestCase {
 
         var trip = SampleTrip.trip
         trip.style = .reels
-        trip.allowCloudAnalysis = false
+        let agent = FakeAgent()
         let c = EditCoordinator(trip: trip, clips: TripFolder.loadClips(in: folder),
                                 outputDirectory: folder.appending(path: "video"),
-                                presets: try StylePresets.bundled(), config: Fixtures.config, service: nil)
+                                presets: try StylePresets.bundled(), config: Fixtures.config, agent: agent)
         await c.run()
         XCTAssertEqual(c.phase, .completed)
-        XCTAssertTrue(c.reviewMoments.contains { $0.momentId == "m_1" && $0.isButton })
+        let sent = try XCTUnwrap(agent.requests.first)
+        XCTAssertEqual(sent.clips.map(\.momentId), ["m_1", "m_2"])
+        XCTAssertEqual(sent.clips.first?.source, .button)
     }
 }

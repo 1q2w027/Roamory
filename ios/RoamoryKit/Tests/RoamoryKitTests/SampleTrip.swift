@@ -6,7 +6,7 @@ import Foundation
 enum SampleTrip {
     static let trip = TripContext(
         tripId: "t_sample", style: .cinematic, tripType: "friends", destination: Destination(country: "Japan", city: "Kyoto"),
-        startDate: "2026-10-12", allowCloudAnalysis: false
+        startDate: "2026-10-12"
     )
 
     /// A clip for a file without a sidecar: trigger in the middle, full frame rate, no Stage 1 samples.
