@@ -31,7 +31,7 @@ struct ContentView: View {
                 )
 
             VStack {
-                if let start = camera.recordingStart {
+                if let start = camera.savingStart {
                     TimelineView(.periodic(from: start, by: 1)) { context in
                         Label(timeString(context.date.timeIntervalSince(start)), systemImage: "circle.fill")
                             .foregroundStyle(.red)
@@ -52,8 +52,10 @@ struct ContentView: View {
                         .foregroundStyle(.white)
                 }
                 zoomControl
-                recordButton
+                #if DEBUG
+                debugSaveButton
                     .padding(.bottom, 32)
+                #endif
             }
         }
         .task { await camera.prepare() }
@@ -139,18 +141,20 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.15), value: activeIndex)
     }
 
-    private var recordButton: some View {
+    /// Stand-in for the trigger that will come from the agent: saves the buffer and what follows until tapped again.
+    private var debugSaveButton: some View {
         Button {
-            camera.isRecording ? camera.stopRecording() : camera.startRecording()
+            camera.isSaving ? camera.stopSaving() : camera.startSaving()
         } label: {
-            ZStack {
-                Circle().stroke(.white, lineWidth: 4).frame(width: 72, height: 72)
-                RoundedRectangle(cornerRadius: camera.isRecording ? 6 : 30)
-                    .fill(.red)
-                    .frame(width: camera.isRecording ? 30 : 60, height: camera.isRecording ? 30 : 60)
-            }
+            Label(camera.isSaving ? "Stop saving" : "Save buffer",
+                  systemImage: camera.isSaving ? "stop.fill" : "record.circle")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(camera.isSaving ? .red : .black.opacity(0.5), in: Capsule())
         }
-        .animation(.easeInOut(duration: 0.15), value: camera.isRecording)
+        .animation(.easeInOut(duration: 0.15), value: camera.isSaving)
     }
 
     private func timeString(_ seconds: TimeInterval) -> String {
