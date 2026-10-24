@@ -3,6 +3,7 @@
 //  Roamory
 //
 
+import Combine
 import CoreMotion
 import RoamoryKit
 import SwiftUI
