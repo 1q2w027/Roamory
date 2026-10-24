@@ -28,6 +28,15 @@ public struct EvaluateClient: Evaluating {
         self.session = session
     }
 
+    /// Reads `RoamoryAPIBaseURL` and `RoamoryAppToken` from Info.plist, like `PlanClient.fromBundle`.
+    /// Nil when either is missing, and moments settle by the local fallback.
+    public static func fromBundle(_ bundle: Bundle = .main, config: DetectionConfig) -> EvaluateClient? {
+        guard let base = bundle.object(forInfoDictionaryKey: "RoamoryAPIBaseURL") as? String, let url = URL(string: base),
+              let token = bundle.object(forInfoDictionaryKey: "RoamoryAppToken") as? String, !token.isEmpty
+        else { return nil }
+        return EvaluateClient(baseURL: url, token: token, timeoutS: config.evaluateTimeoutS)
+    }
+
     private struct ErrorBody: Decodable {
         var code: String
         var retryable: Bool
