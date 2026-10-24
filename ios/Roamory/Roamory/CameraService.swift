@@ -1,6 +1,6 @@
 //
 //  CameraService.swift
-//  Roamary
+//  Roamory
 //
 
 import AVFoundation
@@ -25,7 +25,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
     nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
     /// displayZoom = videoZoomFactor * multiplier. A virtual multi-camera starts at the ultra-wide, so this is 0.5 there.
     nonisolated(unsafe) private var zoomMultiplier: CGFloat = 1
-    nonisolated private let sessionQueue = DispatchQueue(label: "roamary.camera.session")
+    nonisolated private let sessionQueue = DispatchQueue(label: "roamory.camera.session")
     /// Digital zoom beyond this looks too soft to be useful.
     private let zoomLimit: CGFloat = 10
 

@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  Roamary
+//  Roamory
 //
 //  Created by Yifan Liu on 10/23/26.
 //
@@ -61,9 +61,9 @@ struct ContentView: View {
 
     private var guidedAccessHint: some View {
         VStack(spacing: 4) {
-            Label("Turn on Guided Access to keep Roamary in the foreground", systemImage: "lock.open")
+            Label("Turn on Guided Access to keep Roamory in the foreground", systemImage: "lock.open")
                 .font(.subheadline.bold())
-            Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamary and tap Start.")
+            Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamory and tap Start.")
                 .font(.caption)
             TripleClickGuide()
                 .padding(.top, 4)
