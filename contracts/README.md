@@ -11,14 +11,16 @@ Shared shapes between the iPhone app, the backend and the render service (`rende
 | `error.schema.json` | Body of every non-2xx response |
 | `clip_sidecar.schema.json` | `clips/{moment_id}.json`, written by Buffer and read by Edit (phone-internal) |
 | `render_request.schema.json` | `request` part of `POST /v1/render` (render service): a rebased edit spec, trip context and the uploaded clips |
-| `render_job.schema.json` | Body of `GET /v1/render/{job_id}` |
+| `render_job.schema.json` | Body of `GET /v1/render/{job_id}` and `GET /v1/agent/{job_id}` |
+| `agent_request.schema.json` | `request` part of `POST /v1/agent` (render service, agent mode): trip context and every candidate clip |
+| `agent_result.schema.json` | Body of `GET /v1/agent/{job_id}/result`: the video's length, title and where each moment lands |
 | `timeline.schema.json` | Golden timelines: where each clip of an example edit spec lands in the video |
 | `evaluate_context.schema.json` | `context` part of `POST /v1/evaluate` |
 | `evaluation.schema.json` | Response of `POST /v1/evaluate` (TRD §8.2) |
-| `examples/` | Per style (same 12-clip Kyoto trip): a plan request, an edit spec, a render request and a golden timeline. Also errors, render jobs, a sidecar, a select and a describe evaluate context, and a kept and a skipped evaluation |
+| `examples/` | Per style (same 12-clip Kyoto trip): a plan request, an edit spec, a render request, an agent request and a golden timeline. An agent result for Reels. Also errors, render jobs, a sidecar, a select and a describe evaluate context, and a kept and a skipped evaluation |
 | `check.py` | Validates `style_presets.json` and `examples/` against the schemas |
 
-Check after any change: `pip install jsonschema && python contracts/check.py`. It also checks that each render request's clips match its edit spec and that each golden timeline lines up with its edit spec.
+Check after any change: `pip install jsonschema && python contracts/check.py`. It also checks that each render request's clips match its edit spec, that each golden timeline lines up with its edit spec, and the agent request and result rules below (an agent result against the agent request of the same style).
 
 ## Auth
 
@@ -143,6 +145,62 @@ The edit spec in a render request is **rebased**: each clip's `in_s`/`out_s` are
 3. The edit spec rules that don't need the plan request: 5 (`transition_s` vs `cut`) and, for a `speed_ramp`, `over_s ≤ out_s − in_s`.
 
 The phone already validated the original spec against the plan request, so rules 1, 3, 4, 6 (lead-in), 7 and 8 are not rechecked.
+
+## Agent mode: `/v1/agent`
+
+Optional (TRD §9.3): a Claude agent in the render service picks, trims and edits the clips, writes its own Remotion composition, renders and checks it. There is no `/v1/plan` call in this mode. The normal plan and render pipeline is the fallback on **any** error, timeout or failed job; the phone never retries an agent job. Used only when `render_engine` is `agent` and "Allow cloud analysis" is on.
+
+### `POST /v1/agent`
+
+`Content-Type: multipart/form-data` with:
+
+- one part named `request`: the agent request JSON (`application/json`);
+- one part per clip named `{moment_id}.mp4` (`video/mp4`): the **whole** candidate clip, re-encoded on the phone at the upload preset (720p). Not trimmed: the agent chooses the trims.
+
+`202` returns `{"job_id": "..."}`.
+
+### `GET /v1/agent/{job_id}`
+
+`200` returns a render job (`render_job.schema.json`, same shape as `/v1/render`). Poll it until `status` is `completed` or `failed`. A failed job carries an `error` with code `agent_failed`, `agent_timeout` or `internal`; the phone then runs the normal plan and render.
+
+### `GET /v1/agent/{job_id}/result`
+
+`200` returns an agent result once the job is `completed`. `404 not_found` before then or after the job is deleted. Fetch it before the video, since downloading the video deletes the job.
+
+### `GET /v1/agent/{job_id}/video`
+
+`200` returns the MP4 (`video/mp4`) once the job is `completed`, then the server deletes the job. The phone checks the file plays and its duration matches the result's `total_s` (TRD §10).
+
+### Retention
+
+Same as `/v1/render`: the uploaded clips and the agent's workspace are deleted when the job ends, and the output after it is downloaded or `RENDER_TTL_S` after the job ends. Logs hold ids, timings, turn and render counts, cost and error codes, never video or frames.
+
+### Errors
+
+As `/v1/render` (`400`, `401`, `404`, `413`, `429 busy`, `500`), plus `429 rate_limited` (not retryable) when the trip is over the server's `AGENTS_PER_TRIP`. Agent and render jobs share the same slots, so either can get `429 busy` while the other runs. Job-level codes, reported in the job's `error`:
+
+| `code` | `retryable` | When |
+|---|---|---|
+| `agent_failed` | false | The agent ended without a valid result (no render, or `submit` never passed the rules below), or its render failed |
+| `agent_timeout` | false | The job ran past the server's `AGENT_TIMEOUT_S` |
+
+### Agent request rules
+
+1. `moment_id`s are unique, and there is exactly one `{moment_id}.mp4` part for each.
+2. `0 ≤ proposed_in_s < proposed_out_s ≤ duration_s` of the uploaded file.
+
+`effective_target_s` is computed as for the plan request (Effective target, below).
+
+### Agent result rules
+
+The server checks these before completing the job (the agent's `submit`); the phone may rely on them.
+
+1. Every `moments[].moment_id` is in the request, and none repeats.
+2. Every `source = button` clip is in `moments`.
+3. `moments` are in playback order and each `0 ≤ start_s < end_s ≤ total_s`.
+4. `total_s` is within ±10 % of `effective_target_s` and within 0.5 s of the rendered file's duration.
+
+Not enforced, but the agent is told: clips in chronological order, title text only from the destination, trip type and `start_date`, captions only from those or a clip's `description`, no invented events, no identifying people. The output size and fps come from the style preset, not the agent.
 
 ## Style presets
 

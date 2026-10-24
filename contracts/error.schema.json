@@ -22,7 +22,9 @@
         "upload_too_large",
         "busy",
         "not_found",
-        "render_failed"
+        "render_failed",
+        "agent_failed",
+        "agent_timeout"
       ]
     },
     "message": {
