@@ -5,13 +5,21 @@ final class LevelGuideTests: XCTestCase {
     private var config: LevelConfig!
     override func setUpWithError() throws { config = try LevelConfig.bundled(); config.smoothing = 1 }
 
-    func testLevelNeedsOneStillSecond() {
+    func testLevelNeedsHalfAStillSecond() {
         var d = LevelDetector(config: config)
-        XCTAssertNil(d.update(tilt: 0.5, aim: 0.5, rotationRate: 0, at: 0))
-        XCTAssertNil(d.update(tilt: 0.5, aim: 0.5, rotationRate: 0, at: 0.99))
-        XCTAssertEqual(d.update(tilt: 0.5, aim: 0.5, rotationRate: 0, at: 1.0), .reached)
-        XCTAssertNil(d.update(tilt: 0.5, aim: 0.5, rotationRate: 0, at: 1.5))
+        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0))
+        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0.49))
+        XCTAssertEqual(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0.5), .reached)
+        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 1.0))
         XCTAssertTrue(d.isLevel)
+    }
+
+    func testAimIsLooserThanTilt() {
+        var d = LevelDetector(config: config)
+        _ = d.update(tilt: 3, aim: 0, rotationRate: 0, at: 0)
+        XCTAssertNil(d.update(tilt: 3, aim: 0, rotationRate: 0, at: 1))
+        _ = d.update(tilt: 0, aim: 4.5, rotationRate: 0, at: 2)
+        XCTAssertEqual(d.update(tilt: 0, aim: 4.5, rotationRate: 0, at: 2.5), .reached)
     }
 
     func testMovingThroughLevelDoesNotCount() {
@@ -23,19 +31,20 @@ final class LevelGuideTests: XCTestCase {
     func testLeavingToleranceRestartsTheCount() {
         var d = LevelDetector(config: config)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0)
-        _ = d.update(tilt: 3, aim: 0, rotationRate: 0, at: 0.6)
-        _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0.7)
-        XCTAssertNil(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1.6))
-        XCTAssertEqual(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1.75), .reached)
+        _ = d.update(tilt: 3, aim: 0, rotationRate: 0, at: 0.4)
+        _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0.5)
+        XCTAssertNil(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0.95))
+        XCTAssertEqual(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1.0), .reached)
     }
 
     func testLeftNeedsMoreThanTheLeaveThreshold() {
         var d = LevelDetector(config: config)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1)
-        XCTAssertNil(d.update(tilt: 1.5, aim: 0, rotationRate: 0, at: 1.1))
-        XCTAssertEqual(d.update(tilt: 0, aim: -2.5, rotationRate: 0, at: 1.2), .left)
-        XCTAssertNil(d.update(tilt: 0, aim: -2.5, rotationRate: 0, at: 1.3))
+        XCTAssertNil(d.update(tilt: 3.5, aim: 0, rotationRate: 0, at: 1.1))
+        XCTAssertNil(d.update(tilt: 0, aim: -7, rotationRate: 0, at: 1.2))
+        XCTAssertEqual(d.update(tilt: 0, aim: -8.5, rotationRate: 0, at: 1.3), .left)
+        XCTAssertNil(d.update(tilt: 0, aim: -8.5, rotationRate: 0, at: 1.4))
     }
 
     func testLostWarnsOnlyWhenLevel() {

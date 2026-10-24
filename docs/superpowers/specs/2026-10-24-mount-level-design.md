@@ -48,7 +48,7 @@ the app is portrait-only on iPhone. They should be laid out for a sideways phone
 
 ### Calls I made (the user can override)
 - **Target is 0° tilt and 0° aim** (camera looking straight ahead; a chest mount is already at a useful height).
-- **Level = both axes within ±1° with the phone still, held for 1 s** (see "Success needs a settled phone"). Then: success haptic (a sharp double tap, clearly
+- **Level = tilt within ±2.5° and aim within ±5° with the phone still, held for 0.5 s** (loosened from ±1° on both axes for 1 s, which was too strict on a chest mount; aim is looser because a crooked horizon shows far more) (see "Success needs a settled phone"). Then: success haptic (a sharp double tap, clearly
   different from the ticks), bubble and ring turn the key color `#03fc73` (`Theme.accent`), and the overlay
   fades out about 1 s later.
 - **Ticks:** a light tick each time either angle crosses a whole degree. Ticks get stronger and crisper the
@@ -66,7 +66,7 @@ the app is portrait-only on iPhone. They should be laid out for a sideways phone
     upright", the same text as today's `formatLine`.
   - Right orientation but upside down from the recorded side: "Turn the phone the other way round".
 - **Success needs a settled phone:** counting starts only once the phone is the right way round. Level means
-  both axes within ±1° **and** the phone still (low rotation rate) for 1 s, so passing through level while
+  tilt within ±2.5° and aim within ±5° **and** the phone still (low rotation rate) for 0.5 s, so passing through level while
   clipping the phone in does not count.
 - **Haptics while recording:** iOS mutes haptics while the audio session records unless
   `AVAudioSession.setAllowHapticsAndSystemSoundsDuringRecording(true)` is set. Turn it on while the level
@@ -80,7 +80,7 @@ the app is portrait-only on iPhone. They should be laid out for a sideways phone
 - **Dark curtain** (`RecordingView.curtainEnabled`, currently `false` for debugging): if enabled, the curtain
   does not cover the screen while the level overlay is showing.
 - **Tech:** CoreMotion device motion (`gravity`) at ~30–60 Hz, lightly smoothed. The gravity → (tilt, aim)
-  math, the ±1° / still for 1 s level detector and the degree-crossing tick logic are pure code in RoamoryKit with
+  math, the level detector (tolerances, still for 0.5 s) and the degree-crossing tick logic are pure code in RoamoryKit with
   XCTest; the motion source, haptics engine and SwiftUI overlay live in the app (`ios/Roamory/Roamory/Recording/`).
   Core Haptics for ticks (intensity/sharpness per tick) and the success pattern.
 
@@ -131,7 +131,7 @@ the app is portrait-only on iPhone. They should be laid out for a sideways phone
 ## Verification
 
 - RoamoryKit XCTest covers the pure logic: gravity → tilt/aim for portrait and both landscape sides, the
-  upside-down case, the ±1° + still for 1 s detector (incl. passing through level while moving does not
+  upside-down case, the level detector (incl. passing through level while moving does not
   count), and degree-crossing ticks.
 - `ios/Roamory/scripts/typecheck.sh` prints `typecheck: ok`.
 - On an iPhone, for one Reels trip and one 16:9 trip:

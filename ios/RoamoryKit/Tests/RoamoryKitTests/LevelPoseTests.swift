@@ -53,9 +53,11 @@ final class LevelPoseTests: XCTestCase {
 
     func testBundledConfigMatchesSpec() throws {
         let config = try LevelConfig.bundled()
-        XCTAssertEqual(config.toleranceDeg, 1)
-        XCTAssertEqual(config.leaveDeg, 2)
-        XCTAssertEqual(config.settleS, 1)
-        XCTAssertEqual(config.stillRadS, 0.15)
+        XCTAssertEqual(config.toleranceDeg, 2.5)
+        XCTAssertEqual(config.leaveDeg, 4)
+        XCTAssertEqual(config.aimToleranceDeg, 5)
+        XCTAssertEqual(config.aimLeaveDeg, 8)
+        XCTAssertEqual(config.settleS, 0.5)
+        XCTAssertEqual(config.stillRadS, 0.3)
     }
 }

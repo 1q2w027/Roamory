@@ -2,10 +2,14 @@ import Foundation
 
 /// Tuning for the mount level from the bundled `level_config.json` (config, not code).
 public struct LevelConfig: Codable, Sendable, Equatable {
-    /// Both axes within this many degrees count as level.
+    /// Tilt within this many degrees counts as level.
     public var toleranceDeg: Double
-    /// Once level, either axis beyond this many degrees counts as leaving it.
+    /// Once level, tilt beyond this many degrees counts as leaving it.
     public var leaveDeg: Double
+    /// Aim within this many degrees counts as level; looser than tilt, since a crooked horizon shows far more.
+    public var aimToleranceDeg: Double
+    /// Once level, aim beyond this many degrees counts as leaving it.
+    public var aimLeaveDeg: Double
     /// How long the phone must stay level and still before it counts.
     public var settleS: Double
     /// Rotation rate (rad/s) at or below which the phone counts as still.
@@ -24,7 +28,7 @@ public struct LevelConfig: Codable, Sendable, Equatable {
     public var smoothing: Double
     /// Motion samples per second.
     public var updateHz: Double
-    /// Degrees off level at which the bubble reaches the ring.
+    /// Degrees of aim at which the horizon line reaches its farthest drift.
     public var bubbleRangeDeg: Double
     /// How long the level stays on screen after the phone is level.
     public var fadeDelayS: Double
@@ -32,6 +36,8 @@ public struct LevelConfig: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case toleranceDeg = "tolerance_deg"
         case leaveDeg = "leave_deg"
+        case aimToleranceDeg = "aim_tolerance_deg"
+        case aimLeaveDeg = "aim_leave_deg"
         case settleS = "settle_s"
         case stillRadS = "still_rad_s"
         case flatGravity = "flat_gravity"
