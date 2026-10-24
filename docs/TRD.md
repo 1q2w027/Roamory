@@ -72,7 +72,7 @@ Two components: the **iOS app**, which records, saves clips and keeps them for t
 | `Capture/` | Camera session, HEVC encoder |
 | `RingBuffer/` | Ring buffer, holds, clip writer |
 | `Signals/` | On-phone sample signals and the escalation gate |
-| `Studio` | Bonjour browsing, pairing and the `/v1/studio` client (`StudioClient`, `StudioSheet`, `TripClips`) |
+| `Studio/` | Bonjour browsing, pairing and the `/v1/studio` client (`StudioClient`, `StudioSheet`, `TripClips`) |
 | `Button/` | Bluetooth button input and confirmation haptic |
 | `Config/` | Thresholds, model-independent settings (loaded from a bundled file, not hard-coded) |
 
