@@ -340,10 +340,10 @@ Triggered when the trip ends and all clips are finalized.
 |---|---|---|---|---|---|
 | Cinematic | 45–60 s | 4–8 s | 0.5–0.8 s fade | 16:9 | Ambient, −14 dB |
 | Reels | 30 s | 1.5–3 s | Hard cuts | 9:16 | Upbeat, −10 dB |
-| Documentary | 60 s | 5–10 s | Dissolve | 16:9 | Low bed, −20 dB, captions |
+| Documentary | 60 s | 5–10 s | Dissolve | 16:9 | Low bed, −20 dB |
 | Vlog | 45–60 s | 3–8 s | Hard cuts | 16:9 | Light, original audio kept |
 
-Presets are config files sent to the planner verbatim. If rendering with transitions fails, retry once with hard cuts. Rendering needs the app in the foreground, so the processing screen keeps the screen awake. **Performance target:** a 30–60 s video in under 2 minutes on a recent iPhone, to be measured.
+All four presets allow captions; each style draws them its own way. Presets are config files sent to the planner verbatim. If rendering with transitions fails, retry once with hard cuts. Rendering needs the app in the foreground, so the processing screen keeps the screen awake. **Performance target:** a 30–60 s video in under 2 minutes on a recent iPhone, to be measured.
 
 Music tracks are bundled with the app. Licensing is open.
 
