@@ -45,8 +45,8 @@ final class DetectionController: ObservableObject {
     private var store: MomentClipStore?
     /// The trip being recorded, for the editor at End trip.
     private var trip: TripContext?
-    /// Clip saves started on this trip; `endTrip()` waits for them.
-    private var saves: [Task<Void, Never>] = []
+    /// Clip saves in progress, by trip folder; `endTrip()` waits for its trip's.
+    private var saves: [URL: [Task<Void, Never>]] = [:]
     private var consumer: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var clock = TripClock(originS: 0)
@@ -82,7 +82,6 @@ final class DetectionController: ObservableObject {
             destination: Destination(country: settings.country, city: settings.city.isEmpty ? nil : settings.city),
             startDate: Self.dayFormatter.string(from: Date()), allowCloudAnalysis: settings.cloudAllowed
         )
-        saves = []
         summary = DetectionSummary(cloud: evaluator != nil)
         isRunning = true
         log.info("start trip=\(trip.tripId, privacy: .public) cloud=\(evaluator != nil) demo=\(settings.demoMode)")
@@ -104,23 +103,25 @@ final class DetectionController: ObservableObject {
 
     /// Recording stopped: every pending moment is decided now with what is known (TRD §4.4).
     func stop() async {
-        guard let detector, let holder else { return }
+        guard let detector, let holder, let store else { return }
+        // Claim the trip before any await: a second stop, a button press or the ticker then finds nothing running,
+        // and a `start()` during the awaits below keeps its own tasks.
+        let ticker = self.ticker, consumer = self.consumer
+        self.detector = nil
+        self.holder = nil
+        self.store = nil
+        self.ticker = nil
+        self.consumer = nil
+        isRunning = false
         sink.end()
         ticker?.cancel()
-        // A finalizeDue already running would otherwise finalize (and save) the same moments as the loop below.
         await ticker?.value
         await consumer?.value
         for id in await holder.pending() {
-            await finalize(id, detector: detector, holder: holder)
+            await finalize(id, detector: detector, holder: holder, store: store)
         }
         motion.stop()
         log.info("stop holds=\(self.summary.holds) kept=\(self.summary.keptAI + self.summary.keptButton + self.summary.keptFallback) released=\(self.summary.released)")
-        self.detector = nil
-        self.holder = nil
-        store = nil
-        consumer = nil
-        ticker = nil
-        isRunning = false
     }
 
     /// End Trip (TRD §10): stops detection, finalizes pending moments and waits until every clip is written.
@@ -128,9 +129,8 @@ final class DetectionController: ObservableObject {
     func endTrip() async -> (trip: TripContext, folder: URL)? {
         guard let trip, let folder = store?.folder else { return nil }
         await stop()
-        for save in saves { await save.value }
-        saves = []
-        self.trip = nil
+        for save in saves.removeValue(forKey: folder) ?? [] { await save.value }
+        if self.trip?.tripId == trip.tripId { self.trip = nil }
         log.info("end trip=\(trip.tripId, privacy: .public) saved=\(self.summary.saved) failed=\(self.summary.saveFailed)")
         return (trip, folder)
     }
@@ -156,22 +156,23 @@ final class DetectionController: ObservableObject {
     }
 
     private func finalizeDue() async {
-        guard let detector, let holder else { return }
+        guard let detector, let holder, let store else { return }
         await refreshHolds()
         for id in await holder.due(atMs: nowMs) {
-            await finalize(id, detector: detector, holder: holder)
+            await finalize(id, detector: detector, holder: holder, store: store)
         }
     }
 
     /// Decides a moment and, when it is kept, saves its clip in the background, so stopping never waits on a write.
-    private func finalize(_ id: String, detector: MomentDetector, holder: InMemoryMomentHolder) async {
+    private func finalize(_ id: String, detector: MomentDetector, holder: InMemoryMomentHolder,
+                          store: MomentClipStore) async {
         let decision = await detector.finalDecision(for: id)
         record(decision, id: id)
-        if case .keep(let source, let eventType, let description, let score) = decision, let config, let store,
+        if case .keep(let source, let eventType, let description, let score) = decision, let config,
            let hold = await holder.holds.first(where: { $0.id == id }) {
             let window = MomentWindow(triggerMs: hold.triggerMs, preS: config.preS, postS: config.postS)
             let moment = MomentFields(eventType: eventType, description: description, score: score)
-            saves.append(Task {
+            saves[store.folder, default: []].append(Task {
                 do {
                     let url = try await store.save(momentId: id, source: source, triggerMs: hold.triggerMs,
                                                    window: window, moment: moment)

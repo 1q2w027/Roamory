@@ -72,7 +72,8 @@ struct ContentView: View {
                 #endif
             }
         }
-        .overlay(alignment: .topLeading) { detectionSettingsButton }
+        // Settings restart detection, which must not overlap End trip.
+        .overlay(alignment: .topLeading) { detectionSettingsButton.disabled(isEnding) }
         .sheet(isPresented: $showDetectionSettings, onDismiss: {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
