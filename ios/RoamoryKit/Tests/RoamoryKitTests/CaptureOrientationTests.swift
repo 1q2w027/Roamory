@@ -32,4 +32,13 @@ final class CaptureOrientationTests: XCTestCase {
         XCTAssertTrue(CaptureOrientation.portrait.isHeld(at: 90))
         XCTAssertFalse(CaptureOrientation.portrait.isHeld(at: 0))
     }
+
+    func testInterfaceSideForCaptureAngle() {
+        // Capture 0° is the phone's top to the left, which UIKit calls interface landscape right.
+        XCTAssertEqual(CaptureOrientation.interfaceSide(forCaptureAngle: 0), .landscapeRight)
+        XCTAssertEqual(CaptureOrientation.interfaceSide(forCaptureAngle: 180), .landscapeLeft)
+        XCTAssertEqual(CaptureOrientation.interfaceSide(forCaptureAngle: 175), .landscapeLeft)
+        XCTAssertEqual(CaptureOrientation.interfaceSide(forCaptureAngle: 90), .portrait)
+        XCTAssertEqual(CaptureOrientation.interfaceSide(forCaptureAngle: 270), .portrait)   // no upside-down UI on iPhone
+    }
 }
