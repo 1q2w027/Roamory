@@ -6,11 +6,15 @@ Usage: python tools/replay_eval.py DIR --token $APP_TOKEN [--server URL] [--styl
 DIR/frames/NNNNN.jpg come from `ffmpeg -i walk.mp4 -vf "fps=0.5,scale=512:-2" frames/%05d.jpg`, so frame n
 is at (n - 1) * 2000 ms. DIR/labels.json is {"should_save_ms": [...], "tolerance_ms": 10000}.
 This skips the phone's Stage 1 gate (it sends a sample every --every-s); use it to tune the prompt.
+Requests go out back to back, faster than a real trip, so start the server with the trip budget raised:
+  BUCKET_CAPACITY=1000 FAST_PER_HOUR=10000 STRONG_PER_HOUR=1000 .venv/bin/uvicorn app.main:app
+Each run uses a fresh trip_id, and error responses are reported separately, never counted as skips.
 """
 import argparse
 import json
 import statistics
 import sys
+import uuid
 from collections import Counter
 from pathlib import Path
 
@@ -37,10 +41,29 @@ def score_run(decisions: list[tuple[int, bool]], should_save_ms: list[int], tole
     }
 
 
-def context(args: argparse.Namespace, t_ms: int, recent: list[str]) -> dict:
+def new_trip_id() -> str:
+    return f"t_replay_{uuid.uuid4().hex[:8]}"
+
+
+def evaluate_one(client: httpx.Client, token: str, ctx: dict, triple: list[tuple[int, Path]]) -> dict | None:
+    """POST one sample; the evaluation body, or None (printed) when the server answers with an error."""
+    files = [("context", ("context.json", json.dumps(ctx), "application/json"))]
+    files += [(f"frame_{k}.jpg", (f"frame_{k}.jpg", path.read_bytes(), "image/jpeg")) for k, (_, path) in enumerate(triple)]
+    r = client.post("/v1/evaluate", files=files, headers={"Authorization": f"Bearer {token}"})
+    if r.status_code != 200:
+        try:
+            code = r.json().get("code")
+        except ValueError:
+            code = r.text[:80]
+        print(f"{ctx['sample_t_ms'] / 1000:7.1f}s  error {r.status_code} {code}")
+        return None
+    return r.json()
+
+
+def context(args: argparse.Namespace, trip_id: str, t_ms: int, recent: list[str]) -> dict:
     return {
         "version": 1,
-        "trip_id": "t_replay",
+        "trip_id": trip_id,
         "install_id": "i_replay",
         "purpose": "select",
         "sample_t_ms": t_ms,
@@ -73,18 +96,15 @@ def main() -> int:
     latencies: list[int] = []
     recent: list[str] = []
 
+    trip_id = new_trip_id()
+    errors = 0
     with httpx.Client(base_url=args.server, timeout=10.0) as client:
         for i in range(2, len(frames), step):  # the triple ending at frame i
             t_ms = frames[i][0]
-            files = [("context", ("context.json", json.dumps(context(args, t_ms, recent)), "application/json"))]
-            files += [(f"frame_{k}.jpg", (f"frame_{k}.jpg", path.read_bytes(), "image/jpeg"))
-                      for k, (_, path) in enumerate(frames[i - 2 : i + 1])]
-            r = client.post("/v1/evaluate", files=files, headers={"Authorization": f"Bearer {args.token}"})
-            if r.status_code != 200:
-                print(f"{t_ms / 1000:7.1f}s  error {r.status_code} {r.json().get('code')}")
-                decisions.append((t_ms, False))
+            body = evaluate_one(client, args.token, context(args, trip_id, t_ms, recent), frames[i - 2 : i + 1])
+            if body is None:
+                errors += 1
                 continue
-            body = r.json()
             decisions.append((t_ms, body["keep"]))
             tiers[body["tier"]] += 1
             latencies.append(body["latency_ms"])
@@ -94,7 +114,7 @@ def main() -> int:
                   f"{body['tier']}  {body['verdict']['description']}")
 
     m = score_run(decisions, labels["should_save_ms"], labels.get("tolerance_ms", 10_000))
-    print(f"\nprecision {m['precision']:.2f}  recall {m['recall']:.2f}  kept {m['kept']}/{m['calls']}")
+    print(f"\nprecision {m['precision']:.2f}  recall {m['recall']:.2f}  kept {m['kept']}/{m['calls']}  errors {errors}")
     if latencies:
         print(f"tiers {dict(tiers)}  mean latency {statistics.mean(latencies):.0f} ms")
     return 0
