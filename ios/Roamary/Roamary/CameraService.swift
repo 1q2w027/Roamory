@@ -6,6 +6,7 @@
 import AVFoundation
 import Combine
 import Photos
+import UIKit
 
 /// Owns the capture session; records one movie file at a time and saves it to Photos.
 final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate {
@@ -73,6 +74,8 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         }
         isRecording = true
         recordingStart = Date()
+        // Keep the screen from auto-locking, which would suspend the camera.
+        UIApplication.shared.isIdleTimerDisabled = true
     }
 
     func stopRecording() {
@@ -90,6 +93,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         Task { @MainActor in
             isRecording = false
             recordingStart = nil
+            UIApplication.shared.isIdleTimerDisabled = false
             if failed {
                 message = "Recording failed: \(error?.localizedDescription ?? "unknown error")"
                 try? FileManager.default.removeItem(at: outputFileURL)
