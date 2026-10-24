@@ -35,6 +35,8 @@ final class CameraService: NSObject, ObservableObject,
     /// Camera frames and microphone buffers arrive here, in order.
     nonisolated private let sampleQueue = DispatchQueue(label: "roamary.camera.samples")
     private var isStopping = false
+    /// Touched only on `sampleQueue`.
+    nonisolated(unsafe) private var settleGate = SettleGate()
     /// Digital zoom beyond this looks too soft to be useful.
     private let zoomLimit: CGFloat = 10
 
@@ -179,6 +181,9 @@ final class CameraService: NSObject, ObservableObject,
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
         if output === videoOutput {
+            let isAdjusting = videoDevice.map { $0.isAdjustingWhiteBalance || $0.isAdjustingExposure } ?? false
+            let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
+            guard settleGate.admit(at: time, isAdjusting: isAdjusting) else { return }
             recorder.handle(video: sampleBuffer)
         } else {
             recorder.handle(audio: sampleBuffer)
