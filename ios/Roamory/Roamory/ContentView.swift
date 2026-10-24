@@ -6,6 +6,7 @@
 //
 
 import AVKit
+import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
@@ -22,7 +23,7 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            CameraPreview(session: camera.session)
+            CameraPreview(session: camera.session, device: camera.device)
                 .ignoresSafeArea()
                 .gesture(
                     MagnifyGesture()
@@ -90,7 +91,10 @@ struct ContentView: View {
             camera.frameInterval = detection.frameInterval
             let sink = detection.sink
             camera.onFrame = { sink.handle($0) }
-            await camera.prepare()
+            // The style picks the format (Reels 9:16, the others 16:9), fixed before capture starts (TRD 4.1).
+            let style = DetectionSettings.current().style
+            let orientation = (try? StylePresets.bundled()).map { CaptureOrientation(preset: $0[style]) } ?? .portrait
+            await camera.prepare(orientation: orientation)
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
             headphones.start()
@@ -106,11 +110,20 @@ struct ContentView: View {
             if let last = s.lastDescription {
                 Text(last).font(.caption2).lineLimit(1)
             }
+            Text(formatLine).font(.caption2)
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.black.opacity(0.5), in: Capsule())
+    }
+
+    /// The recording format, and a nudge when the phone is turned the other way.
+    private var formatLine: String {
+        let landscape = camera.captureOrientation == .landscape
+        let format = landscape ? "16:9" : "9:16"
+        guard let held = camera.heldAngle, !camera.captureOrientation.isHeld(at: held) else { return format }
+        return format + (landscape ? " · Turn the phone sideways" : " · Hold the phone upright")
     }
 
     /// Keeps the current moment, like the Bluetooth button.

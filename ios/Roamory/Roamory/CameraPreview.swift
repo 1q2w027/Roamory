@@ -6,9 +6,12 @@
 import AVFoundation
 import SwiftUI
 
-/// Live camera feed backed by AVCaptureVideoPreviewLayer.
+/// Live camera feed backed by AVCaptureVideoPreviewLayer. The UI is portrait only, so the preview follows how the phone
+/// is held (a `RotationCoordinator`) and stays level when it is turned sideways for a 16:9 style.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
+    /// The camera, once configured; until then the preview is upright for a portrait phone.
+    var device: AVCaptureDevice?
 
     func makeUIView(context: Context) -> PreviewView {
         let view = PreviewView()
@@ -17,13 +20,32 @@ struct CameraPreview: UIViewRepresentable {
         if let connection = view.previewLayer.connection, connection.isVideoRotationAngleSupported(90) {
             connection.videoRotationAngle = 90
         }
+        view.follow(device)
         return view
     }
 
-    func updateUIView(_ uiView: PreviewView, context: Context) {}
+    func updateUIView(_ uiView: PreviewView, context: Context) {
+        uiView.follow(device)
+    }
 
     final class PreviewView: UIView {
         override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
         var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+        private var coordinator: AVCaptureDevice.RotationCoordinator?
+        private var observation: NSKeyValueObservation?
+
+        /// Starts keeping the preview level for `device`; once per device.
+        func follow(_ device: AVCaptureDevice?) {
+            guard let device, coordinator?.device != device else { return }
+            let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+            self.coordinator = coordinator
+            observation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]) { [weak self] c, _ in
+                let angle = c.videoRotationAngleForHorizonLevelPreview
+                Task { @MainActor [weak self] in
+                    guard let connection = self?.previewLayer.connection, connection.isVideoRotationAngleSupported(angle) else { return }
+                    connection.videoRotationAngle = angle
+                }
+            }
+        }
     }
 }
