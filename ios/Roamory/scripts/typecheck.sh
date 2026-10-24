@@ -13,7 +13,7 @@ kit >/dev/null
 bin=$(kit --show-bin-path)
 
 out=$(find "$here/Roamory" -name '*.swift' -print0 | xargs -0 xcrun swiftc -typecheck \
-    -target arm64-apple-ios26.0 -sdk "$sdk" -swift-version 5 -default-isolation MainActor \
+    -target arm64-apple-ios27.0 -sdk "$sdk" -swift-version 5 -default-isolation MainActor \
     -I "$bin" -I "$bin/Modules" 2>&1 || true)
 printf '%s\n' "$out" | grep -E 'warning:|error:' | grep -v '^ *|' || true
 if printf '%s\n' "$out" | grep -q 'error:'; then

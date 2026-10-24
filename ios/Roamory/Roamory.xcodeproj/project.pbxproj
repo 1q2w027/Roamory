@@ -272,6 +272,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Roamory finds the Mac running Roamory Studio on your Wi-Fi to send it your trip's clips.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -279,7 +280,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -310,6 +311,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Roamory finds the Mac running Roamory Studio on your Wi-Fi to send it your trip's clips.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -317,7 +319,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
