@@ -15,7 +15,7 @@ Roamory is an iPhone app that films a trip with the screen dark, adapts the came
 **Design constraints that drive most decisions**
 
 - Recording never waits on the network or AI. The phone records and protects footage locally; the cloud only says "keep" or "skip".
-- Full-resolution video stays on the phone. Only small sample frames go to the cloud.
+- Full-resolution video stays on the phone. Only small sample frames go to the cloud. The one exception is the optional cloud render engine, which uploads the trimmed selected clips and deletes them after (§9.2, §11.3).
 - The camera cannot run in the background on iOS, so the app stays in the foreground, with the screen at brightness 0 and auto-lock disabled, for the whole trip.
 - Frontier model calls are slow (1–5 s) and metered, so cheap on-phone checks decide when to ask.
 - Rendering is deterministic. The LLM produces a JSON edit spec; the phone executes it.
@@ -36,7 +36,7 @@ Roamory is an iPhone app that films a trip with the screen dark, adapts the came
 
 ## 2. System architecture
 
-Two components: the **iOS app**, which does everything except the model calls, and a thin **cloud backend** that holds the model API key and calls the frontier model.
+Two components: the **iOS app**, which does everything except the model calls, and a thin **cloud backend** that holds the model API key and calls the frontier model. A third, optional component, the **render service** (`render/`, Remotion), renders the highlight video in the cloud when that engine is chosen (§9.2).
 
 ```text
  iPhone app                                   Cloud backend (FastAPI)
@@ -49,11 +49,17 @@ Two components: the **iOS app**, which does everything except the model calls, a
  │ Edit-spec renderer (AVFound.)│            └─────────────────────┘
  │ Review UI                    │                    │
  └──────────────────────────────┘                    ▼
-                                            Frontier vision model API
+        │  trimmed clips ▲ MP4              Frontier vision model API
+        ▼  (optional)    │
+ ┌──────────────────────────────┐
+ │ Render service (Remotion)    │
+ │ POST /v1/render, poll, video │
+ └──────────────────────────────┘
 ```
 
 - **Proposal:** the backend stores no trip data in the MVP; all trip data lives on the phone. Its only state is in-memory call counters per trip for the budget caps (§8.3), which reset if the process restarts. That is acceptable for the demo.
 - **Proposal:** the video is rendered on the phone, which settles PRD open question 3 provisionally. It avoids uploading full video and keeps footage private. Revisit if render time misses the 2-minute target.
+- **Decided:** Remotion in the cloud is an optional second engine for richer motion graphics (§9.2). Only the trimmed ranges the edit spec uses are uploaded, and they are deleted when the job ends. AVFoundation on the phone stays the default and the fallback. Where the render service is hosted is open (§14).
 - Backend repo folder: `backend/`. App folder: `ios/`.
 
 ## 3. iOS app
@@ -302,7 +308,7 @@ Triggered when the trip ends and all clips are finalized.
 
 **Target duration (Proposal):** 30–60 s in the MVP regardless of trip length. Button moments win over the target (PRD FR-009): the **effective target** is the larger of the preset target and (button moments × the preset's shortest clip length + title + end card). The planner and the fallback both fill button moments first, cut them toward the shortest clip length when space is short, and add AI moments only into the time left.
 
-### 9.2 Rendering (on the phone)
+### 9.2 Rendering (on the phone; optional cloud engine)
 
 **Proposal:** `AVMutableComposition` assembles the trimmed clips; `AVMutableVideoComposition` handles scaling or cropping and cross-fades; titles and captions use the Core Animation tool; `scaleTimeRange` implements speed-ramps; `AVMutableAudioMix` applies music gain and ducking with volume ramps; `AVAssetExportSession` writes the MP4.
 
@@ -316,6 +322,14 @@ Triggered when the trip ends and all clips are finalized.
 Presets are config files sent to the planner verbatim. If rendering with transitions fails, retry once with hard cuts. Rendering needs the app in the foreground, so the processing screen keeps the screen awake. **Performance target:** a 30–60 s video in under 2 minutes on a recent iPhone, to be measured.
 
 Music tracks are bundled with the app. Licensing is open.
+
+**Cloud engine (Decided, optional): Remotion.** The render service (`render/`, Node 22, Remotion) renders the whole video from the same edit spec, for motion graphics Core Animation can't do well (kinetic titles, lower thirds, animated transitions). The LLM still only produces JSON and rendering stays deterministic.
+
+- It runs only when the edit config's `render_engine` is `remotion` and "Allow cloud analysis" is on (§11.3).
+- The phone trims each clip to `[in_s, out_s]` (re-encoded, frame-exact), uploads the trimmed files with a **rebased** edit spec to `POST /v1/render`, polls the job, downloads the MP4, and runs the same playable and duration check as a local render (§10).
+- Any error, timeout or failed job falls back to the AVFoundation renderer, so the video always completes. `generated_video.json` records which engine made it.
+- Both engines test against the golden timelines in `contracts/examples/timeline_*.json`, so Review's moment times match either render.
+- Contracts: `contracts/render_request.schema.json`, `render_job.schema.json` and the `/v1/render` section of `contracts/README.md`.
 
 ## 10. App-facing states and screens
 
@@ -360,6 +374,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 - Recording starts only after an explicit tap; a recording indicator is visible whenever the status view is shown, and iOS shows its own camera indicator.
 - Only 512 px sample frames and 384 px thumbnails leave the phone. Full video stays on the device.
+- **Exception (cloud render engine, §9.2):** when Remotion is chosen, the trimmed ranges of the selected clips are uploaded to the render service. It deletes the uploaded clips when the job ends, and the output after it is downloaded or `RENDER_TTL_S` (15 min) after the job ends, whichever comes first. Its logs hold ids, timings and error codes, never video. This needs "Allow cloud analysis" on, and the consent screen must say that selected clips are uploaded for rendering and then deleted.
 - Model API keys live in the backend `.env`. The app holds only the app token.
 - Unselected segments are deleted within `BUFFER_RETENTION_S`. Backend logs must not store frames; provider retention terms must be checked and shown to the user.
 - "Allow cloud analysis" is asked at setup. When off, only the local fallback and the button work.
@@ -428,6 +443,8 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 - Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
+- Where does the Remotion render service run: a laptop on the venue network, Fly, or Cloud Run? Is it fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
+- Does our 4-person team need a Remotion company license (free for individuals and companies of up to 3)?
 - Does the user need rendering to continue if they leave the app?
 - Are location and audio signals worth including in the MVP?
 - Who produces the four style sample clips, and which music tracks are licensed?

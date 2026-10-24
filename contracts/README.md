@@ -1,6 +1,6 @@
 # Contracts
 
-Shared shapes between the iPhone app and the backend. The JSON Schema files here are the source of truth: backend Pydantic models and iOS `Codable` types mirror them, and both sides test against `examples/`. Change them only in a separate PR and tell the team.
+Shared shapes between the iPhone app, the backend and the render service (`render/`). The JSON Schema files here are the source of truth: backend Pydantic models and iOS `Codable` types mirror them, and both sides test against `examples/`. Change them only in a separate PR and tell the team.
 
 | File | What |
 |---|---|
@@ -10,14 +10,19 @@ Shared shapes between the iPhone app and the backend. The JSON Schema files here
 | `style_presets.schema.json` | Shape of `style_presets.json` |
 | `error.schema.json` | Body of every non-2xx response |
 | `clip_sidecar.schema.json` | `clips/{moment_id}.json`, written by Buffer and read by Edit (phone-internal) |
-| `examples/` | One plan request and one edit spec per style (same 12-clip Kyoto trip), an error and a sidecar |
+| `render_request.schema.json` | `request` part of `POST /v1/render` (render service): a rebased edit spec, trip context and the uploaded clips |
+| `render_job.schema.json` | Body of `GET /v1/render/{job_id}` |
+| `timeline.schema.json` | Golden timelines: where each clip of an example edit spec lands in the video |
+| `evaluate_context.schema.json` | `context` part of `POST /v1/evaluate` |
+| `evaluation.schema.json` | Response of `POST /v1/evaluate` (TRD §8.2) |
+| `examples/` | Per style (same 12-clip Kyoto trip): a plan request, an edit spec, a render request and a golden timeline. Also errors, render jobs, a sidecar, a select and a describe evaluate context, and a kept and a skipped evaluation |
 | `check.py` | Validates `style_presets.json` and `examples/` against the schemas |
 
-Check after any change: `pip install jsonschema && python contracts/check.py`.
+Check after any change: `pip install jsonschema && python contracts/check.py`. It also checks that each render request's clips match its edit spec and that each golden timeline lines up with its edit spec.
 
 ## Auth
 
-Every request except `GET /healthz` sends `Authorization: Bearer <APP_TOKEN>`. A missing or wrong token gets `401` with `{"code": "unauthorized", "retryable": false}`.
+Same for the backend and the render service: every request except `GET /healthz` sends `Authorization: Bearer <APP_TOKEN>`. A missing or wrong token gets `401` with `{"code": "unauthorized", "retryable": false}`.
 
 ## `POST /v1/plan`
 
@@ -41,6 +46,28 @@ Every request except `GET /healthz` sends `Authorization: Bearer <APP_TOKEN>`. A
 
 On any error, timeout or network failure the phone uses its fallback planner; it never blocks on a retry.
 
+## `POST /v1/evaluate`
+
+Stage 2 moment selection (TRD §8.2). `Content-Type: multipart/form-data` with:
+
+- one part named `context`: the evaluate context JSON (`application/json`);
+- 1 to 3 parts named `frame_0.jpg` … `frame_{n-1}.jpg`, oldest first, the last one at `sample_t_ms` (normally `t−4 s`, `t−2 s`, `t`; fewer only near the start of a recording session). `image/jpeg`, 512 px long edge. No gaps and no other parts.
+
+`200` returns an evaluation. The server applies the S2 weights and thresholds (config), so `keep` is the decision: `false` releases the phone's speculative hold, `true` keeps it.
+
+`purpose = "describe"` is for button moments (TRD §7), sent off the critical path. They are already kept, so the server returns `keep: true`, uses only the fast model, and counts them against a separate cap, not the trip's select budget.
+
+| Status | `code` | `retryable` | When |
+|---|---|---|---|
+| 400 | `bad_request` | false | `context` missing or invalid, frame parts wrong, or a frame not a JPEG or over the server's `MAX_FRAME_BYTES` |
+| 401 | `unauthorized` | false | Bad token |
+| 429 | `rate_limited` | false | Over the trip's budget (TRD §8.3) |
+| 502 | `upstream_error` | true | The model API failed or returned unusable output |
+| 504 | `upstream_timeout` | true | The model API timed out |
+| 500 | `internal` | true | Anything else |
+
+On any error, the phone's 8 s timeout or a network failure, the phone applies the local fallback (TRD §6); button moments are kept regardless.
+
 ## Edit spec rules
 
 The schema checks shape. Both the backend validator and the phone's `EditSpecValidator` also check these, so a spec is valid only if all hold. `examples/` passes all of them.
@@ -62,9 +89,60 @@ Not enforced, but expected: clips in chronological order (`t_from_ms`), near-dup
 - Total = Σ clip output lengths − Σ `transition_s` of every clip after the first whose transition is not `cut` (the overlap) + `end_card.duration_s`.
 - The title is overlaid on the first clip and adds nothing. On the first clip, `fade`/`dissolve` means from black and overlaps nothing.
 
+### Golden timelines
+
+`examples/timeline_{style}.json` holds each slot's `start_s`/`end_s`, `end_card_start_s` and `total_s` (output seconds, rounded to 1 ms) for `examples/edit_spec_{style}.json`. They were generated from the iOS `EditTimeline`. The iOS renderer and the render service both test against them, within 1 ms, so Review's moment times are right whichever engine rendered the video. Regenerate them when the duration rules or the edit spec examples change.
+
 ### Effective target
 
 `effective_target_s = max(preset.target_s.default, button_count × preset.clip_s.min + preset.end_card_s)`, computed on the phone and sent in the request. Button moments win over the length target (PRD FR-009).
+
+## Render service: `/v1/render`
+
+Optional cloud engine (TRD §9.2): Remotion renders the whole video. The on-phone AVFoundation renderer stays the default and is the fallback on **any** error, timeout or failed job; the phone never retries a render. Used only when `render_engine` is `remotion` and "Allow cloud analysis" is on.
+
+### `POST /v1/render`
+
+`Content-Type: multipart/form-data` with:
+
+- one part named `request`: the render request JSON (`application/json`);
+- one part per clip named `{moment_id}.mp4` (`video/mp4`): the clip trimmed on the phone to the edit spec's `[in_s, out_s]`, re-encoded so the cut is frame-exact.
+
+`202` returns `{"job_id": "..."}`.
+
+### `GET /v1/render/{job_id}`
+
+`200` returns a render job. Poll it until `status` is `completed` or `failed`. A failed job carries an `error` with code `render_failed` (or `internal`); the phone then renders locally.
+
+### `GET /v1/render/{job_id}/video`
+
+`200` returns the MP4 (`video/mp4`) once the job is `completed`, then the server deletes the job. `404 not_found` before then or after deletion. The phone checks the file plays and its duration matches `total_s` (TRD §10) before treating it as done.
+
+### Retention
+
+The uploaded clips are deleted when the job ends (completed or failed). The output is deleted after it is downloaded, or `RENDER_TTL_S` (15 min) after the job ends, whichever comes first. Nothing is logged except ids, timings and error codes.
+
+### Errors
+
+| Status | `code` | `retryable` | When |
+|---|---|---|---|
+| 400 | `bad_request` | false | Request JSON missing or invalid, the clip parts don't match `clips[]`, or a trim falls outside its uploaded file |
+| 401 | `unauthorized` | false | Bad token |
+| 404 | `not_found` | false | Unknown or already-deleted `job_id`, or video requested before the job completed |
+| 413 | `upload_too_large` | false | The upload is over the server's `MAX_UPLOAD_MB` |
+| 429 | `busy` | true | The server is already rendering `RENDER_CONCURRENCY` jobs |
+| 500 | `internal` | true | Anything else |
+| (job) | `render_failed` | false | The render itself failed; reported in the job's `error`, not as an HTTP status |
+
+### Render request rules
+
+The edit spec in a render request is **rebased**: each clip's `in_s`/`out_s` are seconds from the start of its uploaded trimmed file (normally `in_s = 0`, `out_s` = the original `out_s − in_s`). Everything else in the spec is unchanged, so the timeline, and the golden timelines, are the same as for the original spec. The render service checks:
+
+1. `clips[]` and `edit_spec.clips` have the same `moment_id`s, none repeats, and there is exactly one `{moment_id}.mp4` part for each.
+2. `0 ≤ in_s < out_s ≤ duration_s` of the uploaded file.
+3. The edit spec rules that don't need the plan request: 5 (`transition_s` vs `cut`) and, for a `speed_ramp`, `over_s ≤ out_s − in_s`.
+
+The phone already validated the original spec against the plan request, so rules 1, 3, 4, 6 (lead-in), 7 and 8 are not rechecked.
 
 ## Style presets
 

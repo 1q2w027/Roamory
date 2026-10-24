@@ -1,0 +1,52 @@
+{
+  "edit_spec": "edit_spec_documentary.json",
+  "slots": [
+    {
+      "moment_id": "m_01",
+      "start_s": 0,
+      "end_s": 8
+    },
+    {
+      "moment_id": "m_02",
+      "start_s": 7,
+      "end_s": 14
+    },
+    {
+      "moment_id": "m_03",
+      "start_s": 13,
+      "end_s": 20
+    },
+    {
+      "moment_id": "m_04",
+      "start_s": 19,
+      "end_s": 25
+    },
+    {
+      "moment_id": "m_06",
+      "start_s": 24,
+      "end_s": 31
+    },
+    {
+      "moment_id": "m_08",
+      "start_s": 30,
+      "end_s": 38
+    },
+    {
+      "moment_id": "m_10",
+      "start_s": 37,
+      "end_s": 44
+    },
+    {
+      "moment_id": "m_11",
+      "start_s": 43,
+      "end_s": 51
+    },
+    {
+      "moment_id": "m_12",
+      "start_s": 50,
+      "end_s": 58
+    }
+  ],
+  "end_card_start_s": 58,
+  "total_s": 60
+}

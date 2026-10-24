@@ -10,12 +10,25 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
+    @State private var pinchStartZoom: CGFloat?
+    @State private var dragStartZoom: CGFloat?
+    @State private var showDial = false
+    @State private var hideDial: Task<Void, Never>?
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             CameraPreview(session: camera.session)
                 .ignoresSafeArea()
+                .gesture(
+                    MagnifyGesture()
+                        .onChanged { value in
+                            let start = pinchStartZoom ?? camera.zoomFactor
+                            pinchStartZoom = start
+                            camera.setZoom(start * value.magnification)
+                        }
+                        .onEnded { _ in pinchStartZoom = nil }
+                )
 
             VStack {
                 if let start = camera.recordingStart {
@@ -38,6 +51,7 @@ struct ContentView: View {
                         .background(.black.opacity(0.5), in: Capsule())
                         .foregroundStyle(.white)
                 }
+                zoomControl
                 recordButton
                     .padding(.bottom, 32)
             }
@@ -63,6 +77,68 @@ struct ContentView: View {
         .padding(.bottom, 8)
     }
 
+    /// Like the system Camera app: a row of lens buttons that turns into a rotary dial while you swipe on it.
+    private var zoomControl: some View {
+        let activeIndex = camera.zoomPresets.lastIndex { $0 <= camera.zoomFactor + 0.05 } ?? 0
+        return ZStack(alignment: .bottom) {
+            zoomPicker(activeIndex: activeIndex)
+                .opacity(showDial ? 0 : 1)
+                .allowsHitTesting(!showDial)
+            ZoomDial(zoom: camera.zoomFactor, minZoom: camera.minZoom, maxZoom: camera.maxZoom,
+                     presets: camera.zoomPresets)
+                .opacity(showDial ? 1 : 0)
+        }
+        .frame(height: ZoomDial.height, alignment: .bottom)
+        // Only the picker (or the whole dial while it shows) takes touches; the rest passes through to pinch.
+        .contentShape(BottomStrip(height: showDial ? ZoomDial.height : 44))
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 8)
+                .onChanged { value in
+                    hideDial?.cancel()
+                    showDial = true
+                    let start = dragStartZoom ?? camera.zoomFactor
+                    dragStartZoom = start
+                    // Swipe left to zoom in.
+                    camera.setZoom(start * pow(2, -value.translation.width / ZoomDial.pointsPerDoubling))
+                }
+                .onEnded { _ in
+                    dragStartZoom = nil
+                    hideDial = Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        if !Task.isCancelled { showDial = false }
+                    }
+                }
+        )
+        .animation(.easeInOut(duration: 0.2), value: showDial)
+        .sensoryFeedback(.selection, trigger: activeIndex)
+        .padding(.bottom, 12)
+    }
+
+    /// The active lens button stays centered and shows the live value.
+    private func zoomPicker(activeIndex: Int) -> some View {
+        let presets = camera.zoomPresets
+        let spacing: CGFloat = 8
+        let sizes: [CGFloat] = presets.indices.map { $0 == activeIndex ? 44 : 36 }
+        let total = sizes.reduce(0, +) + spacing * CGFloat(max(presets.count - 1, 0))
+        let activeCenter = sizes.isEmpty ? 0
+            : sizes.prefix(activeIndex).reduce(0, +) + spacing * CGFloat(activeIndex) + sizes[activeIndex] / 2
+        return HStack(spacing: spacing) {
+            ForEach(Array(presets.enumerated()), id: \.offset) { index, z in
+                let isActive = index == activeIndex
+                Button { camera.setZoom(z) } label: {
+                    Text(isActive ? ZoomDial.label(camera.zoomFactor) + "x" : String(format: "%g", z))
+                        .font(.footnote.bold().monospacedDigit())
+                        .foregroundStyle(isActive ? .yellow : .white)
+                        .frame(width: sizes[index], height: sizes[index])
+                        .background(.black.opacity(0.5), in: Circle())
+                }
+            }
+        }
+        .offset(x: total / 2 - activeCenter)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .animation(.easeInOut(duration: 0.15), value: activeIndex)
+    }
+
     private var recordButton: some View {
         Button {
             camera.isRecording ? camera.stopRecording() : camera.startRecording()
@@ -80,6 +156,15 @@ struct ContentView: View {
     private func timeString(_ seconds: TimeInterval) -> String {
         let s = Int(seconds)
         return String(format: "%02d:%02d", s / 60, s % 60)
+    }
+}
+
+/// A full-width strip along the bottom of its container, used to limit where a view takes touches.
+private struct BottomStrip: Shape {
+    var height: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(x: rect.minX, y: rect.maxY - height, width: rect.width, height: height))
     }
 }
 

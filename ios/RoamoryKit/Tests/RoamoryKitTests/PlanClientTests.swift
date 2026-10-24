@@ -2,13 +2,13 @@ import XCTest
 @testable import RoamoryKit
 
 /// Answers requests from `handler` and records what was sent. A nil answer never responds (for timeouts).
-final class StubProtocol: URLProtocol, @unchecked Sendable {
+final class HTTPStub: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var handler: (@Sendable (URLRequest, Data) -> (Int, Data)?)?
     nonisolated(unsafe) static var lastRequest: (URLRequest, Data)?
 
     static func session() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
-        config.protocolClasses = [StubProtocol.self]
+        config.protocolClasses = [HTTPStub.self]
         return URLSession(configuration: config)
     }
 
@@ -42,7 +42,7 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
 
 final class PlanClientTests: XCTestCase {
     private func client(timeoutS: Double = 5) -> PlanClient {
-        PlanClient(baseURL: URL(string: "https://api.example.test")!, appToken: "secret", timeoutS: timeoutS, session: StubProtocol.session())
+        PlanClient(baseURL: URL(string: "https://api.example.test")!, appToken: "secret", timeoutS: timeoutS, session: HTTPStub.session())
     }
 
     private func request() throws -> PlanRequest {
@@ -54,18 +54,18 @@ final class PlanClientTests: XCTestCase {
     }
 
     override func tearDown() {
-        StubProtocol.handler = nil
-        StubProtocol.lastRequest = nil
+        HTTPStub.handler = nil
+        HTTPStub.lastRequest = nil
     }
 
     func testSendsMultipartWithTokenAndDecodesTheSpec() async throws {
         let spec = try Fixtures.data("examples/edit_spec_reels.json")
-        StubProtocol.handler = { _, _ in (200, spec) }
+        HTTPStub.handler = { _, _ in (200, spec) }
         let thumbs = ["m_01": [Data([0xFF, 0xD8, 1]), Data([0xFF, 0xD8, 2]), Data([0xFF, 0xD8, 3])], "m_02": [Data([0xFF, 0xD8, 4])]]
         let result = try await client().plan(try request(), thumbnails: thumbs)
         XCTAssertEqual(result, try Fixtures.editSpec(.reels))
 
-        let (sent, body) = try XCTUnwrap(StubProtocol.lastRequest)
+        let (sent, body) = try XCTUnwrap(HTTPStub.lastRequest)
         XCTAssertEqual(sent.url?.absoluteString, "https://api.example.test/v1/plan")
         XCTAssertEqual(sent.httpMethod, "POST")
         XCTAssertEqual(sent.value(forHTTPHeaderField: "Authorization"), "Bearer secret")
@@ -91,7 +91,7 @@ final class PlanClientTests: XCTestCase {
     }
 
     func testErrorResponsesCarryTheErrorBody() async throws {
-        StubProtocol.handler = { _, _ in (422, Data(#"{"code":"invalid_plan","message":"failed twice","retryable":false}"#.utf8)) }
+        HTTPStub.handler = { _, _ in (422, Data(#"{"code":"invalid_plan","message":"failed twice","retryable":false}"#.utf8)) }
         do {
             _ = try await client().plan(try request(), thumbnails: [:])
             XCTFail("expected an error")
@@ -102,7 +102,7 @@ final class PlanClientTests: XCTestCase {
     }
 
     func testTimesOut() async throws {
-        StubProtocol.handler = { _, _ in nil }
+        HTTPStub.handler = { _, _ in nil }
         let start = Date()
         do {
             _ = try await client(timeoutS: 0.3).plan(try request(), thumbnails: [:])

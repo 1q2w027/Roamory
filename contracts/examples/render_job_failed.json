@@ -1,0 +1,10 @@
+{
+  "job_id": "r_7f3a9c",
+  "status": "failed",
+  "progress": 0.42,
+  "error": {
+    "code": "render_failed",
+    "message": "Chrome exited while rendering frame 812",
+    "retryable": false
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "trip_id": "t_123",
+  "install_id": "i_8f3a2c",
+  "purpose": "describe",
+  "sample_t_ms": 1515000,
+  "style": "cinematic",
+  "trip_type": "honeymoon",
+  "destination": {"continent": "Asia", "country": "Japan", "city": "Kyoto"},
+  "length_days": 5,
+  "local": {
+    "score": 0.41,
+    "novelty": 0.4,
+    "sharpness": 255.3,
+    "change": 18.2,
+    "motion": 11.4,
+    "forced": false
+  },
+  "recent_descriptions": [
+    "Orange torii gates lining a stone path",
+    "River winding between green hills"
+  ]
+}
