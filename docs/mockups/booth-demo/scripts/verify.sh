@@ -12,16 +12,15 @@ a=$(ffprobe -v error -select_streams a -show_entries stream=index -of csv=p=0 "$
 d=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$mp4")
 awk -v d="$d" 'BEGIN { exit !(d >= 29.9 && d <= 36.1) }' || { echo "✗ duration $d s, want 30–36"; fail=1; }
 
-# Seam: SSIM between the first and the last frame.
+# Seam: the first and last frames must match (scripts/seam.sh checks the whole frame, Roamy and the phone).
 tmp=$(mktemp -d)
 ffmpeg -v error -i "$mp4" -frames:v 1 "$tmp/first.png"
 ffmpeg -v error -sseof -0.5 -i "$mp4" -update 1 "$tmp/last.png"
-ssim=$(ffmpeg -i "$tmp/first.png" -i "$tmp/last.png" -lavfi ssim -f null - 2>&1 | sed -n 's/.*All:\([0-9.]*\).*/\1/p')
+bash "$(dirname "$0")/seam.sh" "$tmp/first.png" "$tmp/last.png" || fail=1
 rm -rf "$tmp"
-awk -v s="${ssim:-0}" 'BEGIN { exit !(s >= 0.97) }' || { echo "✗ loop seam SSIM ${ssim:-?}, want ≥ 0.97"; fail=1; }
 
 size=$(stat -f%z "$mp4")
-echo "size $((size / 1024 / 1024)) MB, duration $d s, seam SSIM $ssim"
+echo "size $((size / 1024 / 1024)) MB, duration $d s"
 [ "$size" -le 26214400 ] || echo "! over 25 MB: don't commit the MP4"
 [ $fail -eq 0 ] && echo "✓ $mp4"
 exit $fail
