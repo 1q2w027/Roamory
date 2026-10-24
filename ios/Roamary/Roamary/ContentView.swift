@@ -46,13 +46,17 @@ struct ContentView: View {
     }
 
     private var guidedAccessHint: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(spacing: 4) {
             Label("Turn on Guided Access to keep Roamary in the foreground", systemImage: "lock.open")
                 .font(.subheadline.bold())
             Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamary and tap Start.")
                 .font(.caption)
+            TripleClickGuide()
+                .padding(.top, 4)
         }
+        .multilineTextAlignment(.center)
         .foregroundStyle(.white)
+        .frame(maxWidth: .infinity)
         .padding(12)
         .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, 16)
