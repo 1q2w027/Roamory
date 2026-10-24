@@ -2,7 +2,7 @@ import AVFoundation
 import XCTest
 @testable import RoamoryKit
 
-/// Renders the bundled sample clips: a small slice of the TRD 12.2 render matrix. The full matrix runs on a phone through RenderLab.
+/// Renders the bundled sample clips: a small slice of the TRD 12.2 render matrix.
 final class RendererTests: XCTestCase {
     private var presets: StylePresets!
     private var outputDir: URL!
@@ -18,8 +18,8 @@ final class RendererTests: XCTestCase {
     }
 
     private func plan(_ style: Style, clips count: Int) async throws -> (EditSpec, [String: URL]) {
-        let clips = try await RenderLab.clips(count: count, from: BundledResources.sampleClipURLs)
-        var trip = RenderLab.trip
+        let clips = try await SampleTrip.clips(count: count, from: BundledResources.sampleClipURLs)
+        var trip = SampleTrip.trip
         trip.style = style
         let request = PlanRequest(trip: trip, clips: clips, preset: presets[style], config: Fixtures.config)
         let spec = FallbackPlanner.plan(request, preset: presets[style], endCardText: Fixtures.config.endCardText)

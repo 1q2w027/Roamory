@@ -4,17 +4,17 @@ Phone-side logic as a local Swift package: the Edit pipeline (TRD §9, Phase 2 o
 
 | Folder | What |
 |---|---|
-| `Sources/RoamoryKit/Edit/` | Models, `EditSpecValidator`, `FallbackPlanner`, `PrePass`, `Renderer` + `TitleOverlay`, `ClipTrimmer`, `EditPlanner`, `EditCoordinator`, `RenderLabView` (debug) |
+| `Sources/RoamoryKit/Edit/` | Models, `EditSpecValidator`, `FallbackPlanner`, `PrePass`, `Renderer` + `TitleOverlay`, `ClipTrimmer`, `EditPlanner`, `EditCoordinator` |
 | `Sources/RoamoryKit/Signals/` | Stage 1 detection: frame signals, local score, escalation gate, `MomentDetector` |
 | `Sources/RoamoryKit/Cloud/` | `PlanClient` (`POST /v1/plan`, multipart), `RemoteRenderClient` (`/v1/render`, Remotion), `POST /v1/evaluate` contract mirrors and `EvaluateClient` |
 | `Sources/RoamoryKit/Trip/` | `TripPipeline`: an ended trip's clips to a highlight video |
 | `Sources/RoamoryKit/Config/` | `EditConfig` (`Resources/edit_config.json`), `DetectionConfig` (`Resources/detection_config.json`) and bundled-file lookup |
-| `Sources/RoamoryKit/Resources/` | `style_presets.json` (copy of `contracts/`), `edit_config.json`, placeholder music beds, 2 s black end-card clips, RenderLab sample clips |
+| `Sources/RoamoryKit/Resources/` | `style_presets.json` (copy of `contracts/`), `edit_config.json`, placeholder music beds, 2 s black end-card clips, sample clips (onboarding style previews and tests) |
 | `scripts/` | `sync-contracts.sh` (copy the presets after a contract change), `make-placeholder-assets.sh` (regenerate the media with ffmpeg) |
 
 ## Add it to the app
 
-In Xcode: File > Add Package Dependencies… > Add Local… > `ios/RoamoryKit`, then add the `RoamoryKit` library to the app target. To try the renderer before capture exists, show `RenderLabView()` from a debug-only button. It renders the bundled samples, or any `.mp4` you put in the app's Documents folder. That folder shows in Files once the app's Info.plist has `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace`.
+In Xcode: File > Add Package Dependencies… > Add Local… > `ios/RoamoryKit`, then add the `RoamoryKit` library to the app target.
 
 The cloud planner is used only when the app's Info.plist has `RoamoryAPIBaseURL` and `RoamoryAppToken`. Set them from an untracked `.xcconfig`, never commit the token. Without them, or with cloud analysis off, the fallback planner runs.
 
@@ -28,7 +28,7 @@ let coordinator = EditCoordinator(
 await coordinator.run()   // phase: planning -> rendering(progress) -> completed / error; run() again to retry
 ```
 
-The video renders on the phone with AVFoundation unless `edit_config.json` has `"render_engine": "remotion"`, the Info.plist has `RoamoryRenderBaseURL` (same `RoamoryAppToken`) and cloud analysis is on. Then `RemoteRenderClient` trims the clips the spec uses, uploads them to the render service (`render/`), polls the job and downloads the MP4. On any error, or after `remote_render_timeout_s`, the coordinator renders on the phone instead; `GeneratedVideo.renderEngine` records which engine made the file. In Render Lab, the engine picker's "Both" renders each style on each engine to compare times.
+The video renders on the phone with AVFoundation unless `edit_config.json` has `"render_engine": "remotion"`, the Info.plist has `RoamoryRenderBaseURL` (same `RoamoryAppToken`) and cloud analysis is on. Then `RemoteRenderClient` trims the clips the spec uses, uploads them to the render service (`render/`), polls the job and downloads the MP4. On any error, or after `remote_render_timeout_s`, the coordinator renders on the phone instead; `GeneratedVideo.renderEngine` records which engine made the file.
 
 `ClipInfo(sidecar:moment:tripFolder:)` builds the input from a `clips/{id}.json` sidecar plus the Moment record's fields.
 

@@ -116,6 +116,19 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
+    /// Stops the camera for good, before going back to trip setup. The next trip makes a new `CameraService`.
+    func shutdown() async {
+        if isSaving { stopSaving() }
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            sessionQueue.async {
+                self.session.stopRunning()
+                cont.resume()
+            }
+        }
+        isReady = false
+        UIApplication.shared.isIdleTimerDisabled = false
+    }
+
     /// Sets the displayed zoom (1 = main camera), clamped to what the camera supports. Works while recording.
     /// On a multi-camera device the system switches lenses as the zoom crosses their switch-over points.
     func setZoom(_ factor: CGFloat) {

@@ -10,6 +10,8 @@ import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
+    /// Back to trip setup, after the trip has ended and the camera stopped.
+    let onBackToSetup: () -> Void
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
     @StateObject private var detection = DetectionController()
@@ -22,6 +24,8 @@ struct ContentView: View {
     /// The ended trip's video, from Processing to Review.
     @State private var ended: TripPipeline?
     @State private var isEnding = false
+    @State private var confirmBack = false
+    @State private var isLeaving = false
     /// Recording mode: dark until held, and dark again 10 s after the last touch.
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
@@ -77,17 +81,30 @@ struct ContentView: View {
             }
         }
         // Settings restart detection, which must not overlap End trip.
-        .overlay(alignment: .topLeading) { detectionSettingsButton.disabled(isEnding) }
+        .overlay(alignment: .topLeading) {
+            HStack(spacing: 8) {
+                backButton.disabled(isEnding || isLeaving)
+                detectionSettingsButton.disabled(isEnding)
+            }
+            .padding(.leading, 16)
+        }
+        .confirmationDialog("Back to trip setup?", isPresented: $confirmBack, titleVisibility: .visible) {
+            Button("Back to setup", role: .destructive, action: backToSetup)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Recording stops and this trip ends without a video. Moments already kept stay on the phone.")
+        }
         .overlay {
             if detection.isRunning {
                 RecordingCurtain(summary: detection.summary, buttonPresses: detection.buttonPresses,
-                                 awake: $curtainAwake, lastTouch: lastTouch, paused: showDetectionSettings)
+                                 awake: $curtainAwake, lastTouch: lastTouch, paused: showDetectionSettings || confirmBack)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
-        // Closing a sheet restarts the 10 s countdown rather than going dark at once.
+        // Closing a sheet or the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: showDetectionSettings) { lastTouch = .now }
+        .onChange(of: confirmBack) { lastTouch = .now }
         .sheet(isPresented: $showDetectionSettings, onDismiss: {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
@@ -185,6 +202,27 @@ struct ContentView: View {
         .accessibilityLabel("Keep this moment")
     }
 
+    private var backButton: some View {
+        Button { confirmBack = true } label: {
+            Image(systemName: "chevron.left")
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Back to trip setup")
+    }
+
+    /// Ends the trip without a video (kept clips finish saving), stops the camera, then shows setup again.
+    private func backToSetup() {
+        isLeaving = true
+        Task {
+            _ = await detection.endTrip()
+            headphones.stop()
+            await camera.shutdown()
+            onBackToSetup()
+        }
+    }
+
     private var detectionSettingsButton: some View {
         Button { showDetectionSettings = true } label: {
             Image(systemName: "sparkle.magnifyingglass")
@@ -192,7 +230,6 @@ struct ContentView: View {
                 .frame(width: 44, height: 44)
                 .background(.black.opacity(0.5), in: Circle())
         }
-        .padding(.leading, 16)
         .accessibilityLabel("Moment detection settings")
     }
 
@@ -308,5 +345,5 @@ private struct BottomStrip: Shape {
 }
 
 #Preview {
-    ContentView()
+    ContentView {}
 }

@@ -29,4 +29,25 @@ public enum GeoMath {
         let n = v / (v * v).sum().squareRoot()
         return GeoPoint(lat: asin(max(-1, min(1, n.y))) * 180 / .pi, lon: atan2(n.x, n.z) * 180 / .pi)
     }
+
+    /// Great-circle angle between two points, in radians.
+    public static func angle(_ a: GeoPoint, _ b: GeoPoint) -> Double {
+        acos(max(-1, min(1, (unitVector(a) * unitVector(b)).sum())))
+    }
+
+    /// The point midway between `points` on the sphere. `points` must not be empty.
+    public static func center(of points: [GeoPoint]) -> GeoPoint {
+        geoPoint(points.map(unitVector).reduce(.zero, +))
+    }
+
+    /// How far from the globe's center the camera must be, looking at `center`, for every point to sit within
+    /// `fill` of half the `fieldOfView` (degrees), clamped to `range`. A cap too wide to fit gets the far end.
+    public static func cameraDistance(fitting points: [GeoPoint], around center: GeoPoint, fieldOfView: Double,
+                                      fill: Double, range: ClosedRange<Double>) -> Double {
+        let theta = points.map { angle(center, $0) }.max() ?? 0
+        let alpha = fill * fieldOfView / 2 * .pi / 180
+        // A point θ from the point under the camera, seen from distance d, is atan(sin θ / (d − cos θ)) off axis.
+        let d = cos(theta) + sin(theta) / tan(alpha)
+        return min(max(d, range.lowerBound), range.upperBound)
+    }
 }

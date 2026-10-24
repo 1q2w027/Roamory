@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates the placeholder media bundled in Sources/RoamoryKit/Resources:
-# the 2 s black end-card clips, one music bed per preset, and the RenderLab sample clips.
+# the 2 s black end-card clips, one music bed per preset, and the sample clips.
 # Placeholders until music licensing is settled (TRD 9.2). Needs ffmpeg with libx264.
 set -euo pipefail
 cd "$(dirname "$0")/../Sources/RoamoryKit/Resources"
@@ -19,7 +19,7 @@ music reels_01 "0.5*sin(2*PI*55*t)*exp(-14*mod(t,0.5))+0.12*(sin(2*PI*220*t)+sin
 music documentary_01 "0.18*(sin(2*PI*73.42*t)+0.7*sin(2*PI*110*t)+0.3*sin(2*PI*146.83*t))*(0.75+0.25*sin(2*PI*t/16))"
 music vlog_01 "0.25*sin(2*PI*t*(261.63*eq(floor(mod(4*t,4)),0)+329.63*eq(floor(mod(4*t,4)),1)+392*eq(floor(mod(4*t,4)),2)+523.25*eq(floor(mod(4*t,4)),3)))*exp(-6*mod(t,0.25))"
 
-# Sample clips for RenderLab: landscape, landscape with audio, rotated (like iPhone footage
+# Sample clips (onboarding style previews and tests): landscape, landscape with audio, rotated (like iPhone footage
 # with a preferredTransform) and native portrait.
 clip() { ff -f lavfi -i "testsrc2=s=$2:r=30,hue=h=$3" -t 12 "${@:4}" "${x264[@]}" -crf 34 "SampleClips/$1.mp4"; }
 clip sample_a 640x360 0

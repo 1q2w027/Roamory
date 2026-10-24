@@ -7,9 +7,9 @@ struct OnboardingView: View {
     var onStart: () -> Void
 
     @AppStorage(DetectionSettings.Key.style) private var style = Style.cinematic.rawValue
-    @AppStorage(DetectionSettings.Key.continent) private var continent = "Asia"
-    @AppStorage(DetectionSettings.Key.country) private var country = "Japan"
-    @AppStorage(DetectionSettings.Key.city) private var city = "Kyoto"
+    @AppStorage(DetectionSettings.Key.continent) private var continent = OnboardingCatalog.defaultContinent
+    @AppStorage(DetectionSettings.Key.country) private var country = OnboardingCatalog.defaultCountry
+    @AppStorage(DetectionSettings.Key.city) private var city = OnboardingCatalog.defaultCity
     @AppStorage(DetectionSettings.Key.tripType) private var tripType = "honeymoon"
     @AppStorage(DetectionSettings.Key.lengthDays) private var lengthDays = 3
     @State private var step = Self.initialStep

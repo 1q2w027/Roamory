@@ -8,7 +8,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             if setupDone {
-                ContentView()
+                ContentView { withAnimation(.easeInOut(duration: 0.6)) { setupDone = false } }
                     .transition(.opacity.combined(with: .scale(scale: 1.05)))
             } else {
                 OnboardingView { withAnimation(.easeInOut(duration: 0.6)) { setupDone = true } }

@@ -14,7 +14,7 @@ final class EditCoordinatorTests: XCTestCase {
         _ clips: [ClipInfo], style: Style = .reels, cloud: Bool = false, service: (any PlanService)? = nil,
         engine: String = "avfoundation", remote: (any VideoRendering)? = nil
     ) throws -> EditCoordinator {
-        var trip = RenderLab.trip
+        var trip = SampleTrip.trip
         trip.style = style
         trip.allowCloudAnalysis = cloud
         var config = Fixtures.config
@@ -31,7 +31,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testRunsToCompletedWithButtonMomentsMarked() async throws {
-        let clips = try await RenderLab.clips(count: 3, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 3, from: BundledResources.sampleClipURLs)
         let c = try coordinator(clips)
         await c.run()
         XCTAssertEqual(c.phase, .completed)
@@ -51,7 +51,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testBackendDownStillMakesAVideo() async throws {
-        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 2, from: BundledResources.sampleClipURLs)
         let c = try coordinator(clips, cloud: true, service: FakePlanService { throw URLError(.cannotConnectToHost) })
         await c.run()
         XCTAssertEqual(c.phase, .completed)
@@ -59,7 +59,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testRetryAfterAnErrorRunsAgain() async throws {
-        var clips = try await RenderLab.clips(count: 1, from: BundledResources.sampleClipURLs)
+        var clips = try await SampleTrip.clips(count: 1, from: BundledResources.sampleClipURLs)
         clips[0].clipURL = URL(fileURLWithPath: "/nonexistent/clip.mp4")
         let c = try coordinator(clips)
         await c.run()
@@ -69,7 +69,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testRemoteEngineIsUsedWhenChosenAndAllowed() async throws {
-        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 2, from: BundledResources.sampleClipURLs)
         let remote = FakeRemoteRenderer()
         let c = try coordinator(clips, cloud: true, service: FakePlanService { throw URLError(.cannotConnectToHost) },
                                 engine: "remotion", remote: remote)
@@ -81,7 +81,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testRemoteFailureFallsBackToAVFoundation() async throws {
-        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 2, from: BundledResources.sampleClipURLs)
         for error in [RemoteRenderError.timedOut, .jobFailed(nil), .server(status: 429, error: nil)] as [any Error] + [URLError(.cannotConnectToHost)] {
             let remote = FakeRemoteRenderer(error: error)
             let c = try coordinator(clips, cloud: true, service: FakePlanService { throw URLError(.cannotConnectToHost) },
@@ -96,7 +96,7 @@ final class EditCoordinatorTests: XCTestCase {
     }
 
     func testRemoteNeedsConsentAndTheEngineSetting() async throws {
-        let clips = try await RenderLab.clips(count: 1, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 1, from: BundledResources.sampleClipURLs)
         for (cloud, engine) in [(false, "remotion"), (true, "avfoundation")] {
             let remote = FakeRemoteRenderer()
             let c = try coordinator(clips, cloud: cloud, service: FakePlanService { throw URLError(.cannotConnectToHost) },

@@ -18,9 +18,9 @@ struct DetectionSettings {
     var cloudAllowed = true
     var style = Style.cinematic
     var tripType = "honeymoon"
-    var country = "Japan"
-    var city = "Kyoto"
-    var continent = "Asia"
+    var country = OnboardingCatalog.defaultCountry
+    var city = OnboardingCatalog.defaultCity
+    var continent = OnboardingCatalog.defaultContinent
     var lengthDays = 3
     var demoMode = false
 
@@ -50,9 +50,9 @@ struct DetectionSettingsView: View {
     @AppStorage(DetectionSettings.Key.cloudAllowed) private var cloudAllowed = true
     @AppStorage(DetectionSettings.Key.style) private var style = Style.cinematic.rawValue
     @AppStorage(DetectionSettings.Key.tripType) private var tripType = "honeymoon"
-    @AppStorage(DetectionSettings.Key.country) private var country = "Japan"
-    @AppStorage(DetectionSettings.Key.city) private var city = "Kyoto"
-    @AppStorage(DetectionSettings.Key.continent) private var continent = "Asia"
+    @AppStorage(DetectionSettings.Key.country) private var country = OnboardingCatalog.defaultCountry
+    @AppStorage(DetectionSettings.Key.city) private var city = OnboardingCatalog.defaultCity
+    @AppStorage(DetectionSettings.Key.continent) private var continent = OnboardingCatalog.defaultContinent
     @AppStorage(DetectionSettings.Key.lengthDays) private var lengthDays = 3
     @AppStorage(DetectionSettings.Key.demoMode) private var demoMode = false
     @Environment(\.dismiss) private var dismiss
