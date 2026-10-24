@@ -31,7 +31,7 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(EvaluateContext.self, "examples/evaluate_context_select.json")
         try assertRoundTrip(EvaluateContext.self, "examples/evaluate_context_describe.json")
         try assertRoundTrip(Evaluation.self, "examples/evaluation_save.json")
-        try assertRoundTrip(Evaluation.self, "examples/evaluation_skip_2b.json")
+        try assertRoundTrip(Evaluation.self, "examples/evaluation_skip.json")
     }
 
     func testRenderExamplesRoundTrip() throws {

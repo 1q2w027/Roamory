@@ -55,7 +55,7 @@ Stage 2 moment selection (TRD §8.2). `Content-Type: multipart/form-data` with:
 - one part named `context`: the evaluate context JSON (`application/json`);
 - 1 to 3 parts named `frame_0.jpg` … `frame_{n-1}.jpg`, oldest first, the last one at `sample_t_ms` (normally `t−4 s`, `t−2 s`, `t`; fewer only near the start of a recording session). `image/jpeg`, 512 px long edge. No gaps and no other parts.
 
-`200` returns an evaluation. The server applies the S2 weights and thresholds (config), so `keep` is the decision: `false` releases the phone's speculative hold, `true` keeps it.
+`200` returns an evaluation. The model decides keep or skip itself (no scores), so `keep` is the decision: `false` releases the phone's speculative hold, `true` keeps it.
 
 `purpose = "describe"` is for button moments (TRD §7), sent off the critical path. They are already kept, so the server returns `keep: true`, uses only the fast model, and counts them against a separate cap, not the trip's select budget.
 

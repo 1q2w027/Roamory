@@ -67,7 +67,7 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "Normalized dhash distance from recent escalated frames. Used in S2 (TRD 8.2)."
+          "description": "Normalized dhash distance from recent escalated frames."
         },
         "sharpness": {"type": "number", "minimum": 0},
         "change": {"type": "number", "minimum": 0},
@@ -77,8 +77,7 @@
     },
     "recent_descriptions": {
       "type": "array",
-      "maxItems": 5,
-      "description": "Descriptions of the last saved moments, newest first, so the model can skip redundant views.",
+      "description": "Descriptions of every moment saved so far this trip, newest first, so the model can skip redundant views.",
       "items": {"type": "string", "maxLength": 200}
     }
   }

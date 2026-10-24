@@ -50,13 +50,6 @@ def test_rejected_select_spends_nothing(book, clock):
     book.take_select("t1")  # the rejected call did not take the refilled token
 
 
-def test_strong_cap_and_window(book, clock):
-    assert all(book.try_strong("t1") for _ in range(15))
-    assert book.try_strong("t1") is False
-    clock[0] += 3601
-    assert book.try_strong("t1") is True
-
-
 def test_describe_does_not_touch_bucket(book):
     for _ in range(5):
         book.take_select("t1")

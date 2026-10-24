@@ -29,7 +29,7 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 | Hold | References to the buffered samples around a moment, kept so they outlive the ring buffer's trimming (§5.3) |
 | Trip clock | Wall-clock milliseconds since trip start, `t_ms`; it keeps running while paused, so sessions leave gaps |
 | Stage 1 | The on-phone signals and escalation gate (§6) |
-| Stage 2 | The cloud evaluation (§8.2): 2a is the fast model, 2b the strong one |
+| Stage 2 | The cloud evaluation (§8.2): one call to a fast vision model |
 | Tier | A camera frame-rate level (for example 30, 15, 10 fps); deferred with §4.3 |
 | Sample | A downscaled JPEG frame used for on-phone checks and cloud evaluation |
 | Candidate | A sample that passed the on-phone gate and is sent to the cloud |
@@ -107,7 +107,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 | `Trip` | `id`, `style`, `destination`, `tripType`, `lengthDays`, `status`, `startedAt`, `endedAt` |
 | `RecordingSession` | `id`, `tripId`, `startedMs`, `endedMs`, `endReason` (user / interruption / background / low_battery / thermal) |
 | `Moment` | `id`, `tripId`, `sessionId`, `triggerMs`, `fromMs`, `toMs`, `status` (held / kept / released / finalized), `source` (ai / button / local_fallback), `eventType`, `description`, `score`, `clipPath`, `bestFrameDhash` |
-| `Evaluation` | `id`, `momentId`, `tier` (2a/2b), `latencyMs`, `response` (JSON), `s2`, `error` |
+| `Evaluation` | `id`, `momentId`, `latencyMs`, `response` (JSON), `error` |
 | `GeneratedVideo` | `id`, `tripId`, `status`, `editSpec` (JSON), `outputPath`, `durationS`, `style`, `createdAt`, `error` |
 
 The ring buffer is not persisted, so there is no index to recover. A saved clip has a sidecar JSON written after the clip finishes; a clip without one is partial (§5.4).
@@ -262,13 +262,13 @@ When a candidate passes the gate, the phone immediately **holds the moment windo
 | `POST /v1/plan` | JSON clip table + 4 thumbnails per clip (384 px) | Edit spec (§9.1) |
 | `GET /healthz` | none | `{ok: true}` |
 
-**Context** sent with `/v1/evaluate`: destination, trip type, style, trip length, local score and signals, and the last 5 saved-moment descriptions for redundancy. No names, no location coordinates, no device identifiers beyond a random install id.
+**Context** sent with `/v1/evaluate`: destination, trip type, style, trip length, local score and signals, and the descriptions of every moment saved so far this trip, for redundancy. No names, no location coordinates, no device identifiers beyond a random install id.
 
 **Auth.** **Proposal:** a bearer app token set at build time for the hackathon. This is weak because it can be extracted from the app; before any public release replace it with per-install tokens and App Attest.
 
 ### 8.2 Stage 2 — evaluation
 
-The model is a vision model whose ID is config. **Proposal:** a fast tier handles every request and a strong tier only runs when the fast tier answers `uncertain` or its score lands within ±0.08 of the threshold.
+The model is a fast vision model whose ID is config. Each request makes one call; there is no escalation to a stronger model.
 
 Output, enforced with tool use or a JSON schema and validated with Pydantic:
 
@@ -276,11 +276,7 @@ Output, enforced with tool use or a JSON schema and validated with Pydantic:
 {
   "event_type": "scenery | landmark | activity | food | social | other",
   "matched_preferences": ["scenery"],
-  "preference_alignment": 0.0,
-  "visual_interest": 0.0,
-  "significance": 0.0,
-  "visual_quality": 0.0,
-  "save_decision": "save | skip | uncertain",
+  "save_decision": "save | skip",
   "best_frame_index": 2,
   "window_hint_s": {"pre": 15, "post": 15},
   "description": "≤ 20 words, only what is visible",
@@ -288,19 +284,15 @@ Output, enforced with tool use or a JSON schema and validated with Pydantic:
 }
 ```
 
-**Prompt rules:** score only what is visible; never name a place unless recognizable or in the destination; prefer `skip` for transit, screens, and redundant views of a saved moment; return `uncertain` rather than guessing; never identify people ("a person", "friends"). Trip type and style shape what counts as interesting (a honeymoon favors couple and scenic moments).
+**Prompt rules:** judge only what is visible; decide save or skip as a whole judgment, with no scores; never name a place unless recognizable or in the destination; prefer `skip` for transit, screens, and redundant views of a saved moment; skip when unsure; never identify people ("a person", "friends"). Trip type and style shape what counts as interesting (a honeymoon favors couple and scenic moments).
 
-**Final score** uses these weights (config), with novelty from the phone:
-
-`S2 = 0.35·pref + 0.25·interest + 0.20·significance + 0.10·quality + 0.10·novelty`
-
-Save when `save_decision = save` and `S2 ≥ 0.60`, or `S2 ≥ 0.75` regardless. Weights and thresholds are config.
+**Keep rule:** keep when `save_decision = save`. The model makes the call itself; there is no score or threshold. Kept ai clips carry the phone's local score L as their `score` for ranking in the edit.
 
 **Failure handling:** the phone times out at 8 s, retries once on invalid JSON, then uses the local fallback (§6). Maximum 2 evaluations in flight; the queue holds 3 and drops the oldest. A dropped request's hold stays in place and is resolved by the local fallback when the moment finalizes (§5.3).
 
 ### 8.3 Budget and pacing
 
-A token bucket per trip: capacity 5, refill 1 per 30 s, with hard caps per recording hour of 100 fast and 15 strong calls. **Proposal:** caps count recording hours, not `lengthDays`, because a multi-day trip may record only a few hours a day; a per-trip spend cap sits on top (open, §14). As the bucket drains, the gate tightens: `τ_escalate = τ_base + 0.20·(1 − tokens/capacity)`. The backend enforces the caps too, so a modified app cannot overspend. A `DEMO_MODE` profile shortens cooldowns to 5 s and lowers `τ_base` to 0.45.
+A token bucket per trip: capacity 5, refill 1 per 30 s, with a hard cap of 100 calls per recording hour. **Proposal:** caps count recording hours, not `lengthDays`, because a multi-day trip may record only a few hours a day; a per-trip spend cap sits on top (open, §14). As the bucket drains, the gate tightens: `τ_escalate = τ_base + 0.20·(1 − tokens/capacity)`. The backend enforces the caps too, so a modified app cannot overspend. A `DEMO_MODE` profile shortens cooldowns to 5 s and lowers `τ_base` to 0.45.
 
 ## 9. Post-trip editing
 

@@ -102,7 +102,7 @@ public actor MomentDetector {
     private var previousLuma: LumaFrame?
     private var recentChanges: [Double] = []
     private var recentEscalated: [UInt64] = []
-    private var recentDescriptions: [String] = []  // newest first
+    private var recentDescriptions: [String] = []  // every kept moment this trip, newest first
     private var moments: [String: Moment] = [:]
     private var selectQueue: [Job] = []
     private var describeQueue: [Job] = []
@@ -269,9 +269,11 @@ public actor MomentDetector {
         guard case .success(let evaluation) = result, var m = moments[job.momentId], !m.finalized else { return }
         let verdict = evaluation.verdict
         if evaluation.keep || m.source == .button {
-            m.status = .kept(eventType: verdict.eventType, description: verdict.description, score: evaluation.s2)
+            // The model gives no score, so ai clips rank by their local score L; button moments have none.
+            m.status = .kept(eventType: verdict.eventType, description: verdict.description,
+                             score: m.source == .button ? nil : m.l)
             moments[job.momentId] = m
-            recentDescriptions = Array(([verdict.description] + recentDescriptions).prefix(config.recentDescriptions))
+            recentDescriptions.insert(verdict.description, at: 0)
         } else {
             m.status = .released
             moments[job.momentId] = m

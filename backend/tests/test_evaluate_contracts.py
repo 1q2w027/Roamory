@@ -1,7 +1,6 @@
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
 from app.evaluate.models import EvaluateContext, Evaluation
 from tests.conftest import load_example
 
@@ -12,7 +11,7 @@ def test_context_round_trip(name):
     assert EvaluateContext.model_validate(raw).model_dump(mode="json") == raw
 
 
-@pytest.mark.parametrize("name", ["evaluation_save.json", "evaluation_skip_2b.json"])
+@pytest.mark.parametrize("name", ["evaluation_save.json", "evaluation_skip.json"])
 def test_evaluation_round_trip(name):
     raw = load_example(name)
     assert Evaluation.model_validate(raw).model_dump(mode="json") == raw
@@ -24,5 +23,6 @@ def test_context_rejects_unknown_field():
         EvaluateContext.model_validate(raw)
 
 
-def test_default_weights_sum_to_one():
-    assert sum(Settings(_env_file=None).S2_WEIGHTS.values()) == pytest.approx(1.0)
+def test_context_accepts_every_saved_description():
+    raw = load_example("evaluate_context_select.json") | {"recent_descriptions": [f"d{i}" for i in range(50)]}
+    assert len(EvaluateContext.model_validate(raw).recent_descriptions) == 50

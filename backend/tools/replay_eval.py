@@ -7,7 +7,7 @@ DIR/frames/NNNNN.jpg come from `ffmpeg -i walk.mp4 -vf "fps=0.5,scale=512:-2" fr
 is at (n - 1) * 2000 ms. DIR/labels.json is {"should_save_ms": [...], "tolerance_ms": 10000}.
 This skips the phone's Stage 1 gate (it sends a sample every --every-s); use it to tune the prompt.
 Requests go out back to back, faster than a real trip, so start the server with the trip budget raised:
-  BUCKET_CAPACITY=1000 FAST_PER_HOUR=10000 STRONG_PER_HOUR=1000 .venv/bin/uvicorn app.main:app
+  BUCKET_CAPACITY=1000 FAST_PER_HOUR=10000 .venv/bin/uvicorn app.main:app
 Each run uses a fresh trip_id, and error responses are reported separately, never counted as skips.
 """
 import argparse
@@ -15,7 +15,6 @@ import json
 import statistics
 import sys
 import uuid
-from collections import Counter
 from pathlib import Path
 
 import httpx
@@ -72,7 +71,7 @@ def context(args: argparse.Namespace, trip_id: str, t_ms: int, recent: list[str]
         "destination": {"continent": None, "country": args.country, "city": args.city},
         "length_days": 1,
         "local": {"score": 0.6, "novelty": 0.5, "sharpness": 150.0, "change": 10.0, "motion": 10.0, "forced": False},
-        "recent_descriptions": recent[:5],
+        "recent_descriptions": recent,
     }
 
 
@@ -92,7 +91,6 @@ def main() -> int:
     frames = frame_times(args.dir / "frames")
     step = max(args.every_s * 1000 // SAMPLE_MS, 1)
     decisions: list[tuple[int, bool]] = []
-    tiers: Counter[str] = Counter()
     latencies: list[int] = []
     recent: list[str] = []
 
@@ -106,17 +104,16 @@ def main() -> int:
                 errors += 1
                 continue
             decisions.append((t_ms, body["keep"]))
-            tiers[body["tier"]] += 1
             latencies.append(body["latency_ms"])
             if body["keep"]:
                 recent.insert(0, body["verdict"]["description"])
-            print(f"{t_ms / 1000:7.1f}s  {'KEEP' if body['keep'] else 'skip'}  s2={body['s2']:.2f} "
-                  f"{body['tier']}  {body['verdict']['description']}")
+            print(f"{t_ms / 1000:7.1f}s  {'KEEP' if body['keep'] else 'skip'}  {body['verdict']['save_decision']:4}  "
+                  f"{body['verdict']['description']}")
 
     m = score_run(decisions, labels["should_save_ms"], labels.get("tolerance_ms", 10_000))
     print(f"\nprecision {m['precision']:.2f}  recall {m['recall']:.2f}  kept {m['kept']}/{m['calls']}  errors {errors}")
     if latencies:
-        print(f"tiers {dict(tiers)}  mean latency {statistics.mean(latencies):.0f} ms")
+        print(f"mean latency {statistics.mean(latencies):.0f} ms")
     return 0
 
 

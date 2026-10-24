@@ -11,10 +11,9 @@ from tests.conftest import JPEG, load_example, ok, text_response
 
 pytestmark = pytest.mark.anyio
 
-ctx = EvaluateContext.model_validate(load_example("evaluate_context_select.json"))  # novelty 0.4
+ctx = EvaluateContext.model_validate(load_example("evaluate_context_select.json"))
 describe_ctx = EvaluateContext.model_validate(load_example("evaluate_context_describe.json"))
 frames3 = [JPEG] * 3
-CONFIDENT = dict(preference_alignment=0.9, visual_interest=0.9, significance=0.9, visual_quality=0.9)  # S2 0.85
 
 
 def timeout() -> anthropic.APITimeoutError:
@@ -36,64 +35,49 @@ def evaluator(fake_model, settings, budget):
     return Evaluator(fake_model, settings, budget)
 
 
-async def test_confident_fast_answer_skips_strong(evaluator, fake_model):
-    fake_model.responses = [ok(**CONFIDENT)]
+async def test_save_is_kept_with_one_call(evaluator, fake_model):
+    fake_model.responses = [ok()]
     r = await evaluator.evaluate(ctx, frames3)
-    assert (r.tier, r.keep, r.s2, len(fake_model.calls)) == ("2a", True, 0.85, 1)
+    assert (r.keep, len(fake_model.calls)) == (True, 1)
     assert fake_model.calls[0]["model"] == "claude-haiku-5-5"
-
-
-async def test_near_threshold_escalates(evaluator, fake_model):
-    fake_model.responses = [ok(), ok(save_decision="skip", preference_alignment=0.2)]
-    r = await evaluator.evaluate(ctx, frames3)
-    assert (r.tier, r.keep, r.s2) == ("2b", False, 0.45)
-    assert fake_model.calls[1]["model"] == "claude-sonnet-5-5" and fake_model.calls[1]["fallbacks"] == "default"
     assert "fallbacks" not in fake_model.calls[0]
 
 
-async def test_fast_failure_escalates(evaluator, fake_model):
-    fake_model.responses = [text_response("not json"), ok(**CONFIDENT)]
-    assert (await evaluator.evaluate(ctx, frames3)).tier == "2b"
-
-
-async def test_fast_refusal_escalates(evaluator, fake_model):
-    refusal = text_response("")
-    refusal.stop_reason = "refusal"
-    fake_model.responses = [refusal, ok(**CONFIDENT)]
-    assert (await evaluator.evaluate(ctx, frames3)).tier == "2b"
-
-
-async def test_strong_timeout_returns_fast_verdict(evaluator, fake_model):
-    fake_model.responses = [ok(), timeout()]
+async def test_skip_is_not_kept(evaluator, fake_model):
+    fake_model.responses = [ok(save_decision="skip")]
     r = await evaluator.evaluate(ctx, frames3)
-    assert (r.tier, r.s2, r.keep) == ("2a", 0.66, True)
+    assert (r.keep, len(fake_model.calls)) == (False, 1)
 
 
-async def test_both_fail_raises_504(evaluator, fake_model):
-    fake_model.responses = [timeout(), timeout()]
+async def test_timeout_raises_504(evaluator, fake_model):
+    fake_model.responses = [timeout()]
     with pytest.raises(AppError) as e:
         await evaluator.evaluate(ctx, frames3)
     assert (e.value.status, e.value.code, e.value.retryable) == (504, "upstream_timeout", True)
+    assert len(fake_model.calls) == 1
 
 
-async def test_both_unusable_raises_502(evaluator, fake_model):
-    fake_model.responses = [text_response("nope"), text_response("still nope")]
+async def test_unusable_output_raises_502(evaluator, fake_model):
+    fake_model.responses = [text_response("nope")]
     with pytest.raises(AppError) as e:
         await evaluator.evaluate(ctx, frames3)
     assert (e.value.status, e.value.code, e.value.retryable) == (502, "upstream_error", True)
+    assert len(fake_model.calls) == 1
 
 
-async def test_strong_budget_exhausted_returns_fast(evaluator, fake_model, budget):
-    for _ in range(15):
-        budget.try_strong(ctx.trip_id)
-    fake_model.responses = [ok()]
-    assert (await evaluator.evaluate(ctx, frames3)).tier == "2a"
+async def test_refusal_raises_502(evaluator, fake_model):
+    refusal = text_response("")
+    refusal.stop_reason = "refusal"
+    fake_model.responses = [refusal]
+    with pytest.raises(AppError) as e:
+        await evaluator.evaluate(ctx, frames3)
+    assert e.value.status == 502
 
 
-async def test_describe_never_escalates_and_keeps(evaluator, fake_model):
-    fake_model.responses = [ok(save_decision="skip", preference_alignment=0.0)]
+async def test_describe_always_keeps(evaluator, fake_model):
+    fake_model.responses = [ok(save_decision="skip")]
     r = await evaluator.evaluate(describe_ctx, frames3)
-    assert (r.keep, r.tier, len(fake_model.calls)) == (True, "2a", 1)
+    assert (r.keep, len(fake_model.calls)) == (True, 1)
 
 
 async def test_select_over_budget_makes_no_call(evaluator, fake_model, budget):
@@ -105,7 +89,7 @@ async def test_select_over_budget_makes_no_call(evaluator, fake_model, budget):
 
 
 async def test_request_uses_structured_output_and_timeouts(evaluator, fake_model, settings):
-    fake_model.responses = [ok(**CONFIDENT)]
+    fake_model.responses = [ok()]
     await evaluator.evaluate(ctx, frames3)
     call = fake_model.calls[0]
     assert call["output_config"]["format"]["type"] == "json_schema"
@@ -120,3 +104,9 @@ def test_prompt_excludes_identifiers():
     assert ctx.trip_id not in text and ctx.install_id not in text
     assert [b["type"] for b in blocks].count("image") == 3
     assert "Kyoto" in text and "honeymoon" in text
+
+
+def test_prompt_sends_every_saved_description():
+    many = ctx.model_copy(update={"recent_descriptions": [f"saved moment {i}" for i in range(40)]})
+    text = " ".join(b.get("text", "") for b in build_user_content(many, frames3))
+    assert all(f"saved moment {i}\"" in text for i in range(40))

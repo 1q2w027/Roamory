@@ -92,7 +92,7 @@ final class MomentDetectorTests: XCTestCase {
     }
 
     func testSkipReleasesHold() async {
-        evaluator.results = [.success(decode("evaluation_skip_2b.json"))]
+        evaluator.results = [.success(decode("evaluation_skip.json"))]
         await detector.escalate(esc(10_000), novelty: 0.4, frames: [jpeg])
         await detector.waitForIdle()
         let released = await holder.released
@@ -107,7 +107,7 @@ final class MomentDetectorTests: XCTestCase {
         await detector.waitForIdle()
         let decision = await detector.finalDecision(for: "m_1")
         XCTAssertEqual(decision, .keep(source: .ai, eventType: .landmark,
-                                       description: "Orange torii gates lining a stone path", score: 0.85))
+                                       description: "Orange torii gates lining a stone path", score: 0.5))
         XCTAssertEqual(evaluator.calls.first?.context.purpose, .select)
         XCTAssertEqual(evaluator.calls.first?.context.local.novelty, 0.4)
     }
@@ -127,7 +127,7 @@ final class MomentDetectorTests: XCTestCase {
 
     func testQueueOverflowDropsOldestButKeepsHold() async {
         evaluator.blocked = true
-        evaluator.results = Array(repeating: .success(decode("evaluation_skip_2b.json")), count: 6)
+        evaluator.results = Array(repeating: .success(decode("evaluation_skip.json")), count: 6)
         for i in 0..<6 { await detector.escalate(esc(i * 20_000), novelty: 0.4, frames: [jpeg]) }
         let holds = await holder.holds.count
         XCTAssertEqual(holds, 6)
@@ -142,7 +142,7 @@ final class MomentDetectorTests: XCTestCase {
 
     func testLateAnswerAfterFinalizeIsIgnored() async {
         evaluator.blocked = true
-        evaluator.results = [.success(decode("evaluation_skip_2b.json"))]
+        evaluator.results = [.success(decode("evaluation_skip.json"))]
         await detector.escalate(esc(0), novelty: 0.4, frames: [jpeg])
         _ = await detector.finalDecision(for: "m_1")
         evaluator.open()
@@ -152,7 +152,7 @@ final class MomentDetectorTests: XCTestCase {
     }
 
     func testSkipNeverReleasesButtonMoment() async {
-        evaluator.results = [.success(decode("evaluation_save.json")), .success(decode("evaluation_skip_2b.json"))]
+        evaluator.results = [.success(decode("evaluation_save.json")), .success(decode("evaluation_skip.json"))]
         await detector.ingest(frame(8_000))  // so the describe request has a frame
         let button = await detector.buttonPressed(atMs: 9_000)
         await detector.waitForIdle()
@@ -163,7 +163,7 @@ final class MomentDetectorTests: XCTestCase {
         XCTAssertFalse(released.contains(button))
         let decision = await detector.finalDecision(for: button)
         XCTAssertEqual(decision, .keep(source: .button, eventType: .landmark,
-                                       description: "Orange torii gates lining a stone path", score: 0.85))
+                                       description: "Orange torii gates lining a stone path", score: nil))
         XCTAssertEqual(evaluator.calls.first?.context.purpose, .describe)
     }
 
@@ -197,7 +197,7 @@ final class MomentDetectorTests: XCTestCase {
         XCTAssertEqual(evaluator.calls.last?.context.sampleTMs, 60_000)
     }
 
-    func testRecentDescriptionsNewestFirstMaxFive() async {
+    func testRecentDescriptionsHoldEveryKeptMomentNewestFirst() async {
         for k in 1...6 {
             var e = decode("evaluation_save.json")
             e.verdict.description = "d\(k)"
@@ -205,10 +205,10 @@ final class MomentDetectorTests: XCTestCase {
             await detector.escalate(esc(k * 20_000), novelty: 0.4, frames: [jpeg])
             await detector.waitForIdle()
         }
-        evaluator.results = [.success(decode("evaluation_skip_2b.json"))]
+        evaluator.results = [.success(decode("evaluation_skip.json"))]
         await detector.escalate(esc(200_000), novelty: 0.4, frames: [jpeg])
         await detector.waitForIdle()
-        XCTAssertEqual(evaluator.calls.last?.context.recentDescriptions, ["d6", "d5", "d4", "d3", "d2"])
+        XCTAssertEqual(evaluator.calls.last?.context.recentDescriptions, ["d6", "d5", "d4", "d3", "d2", "d1"])
     }
 
     func testNoConsentHoldsLocallyWithoutRequests() async {
@@ -224,7 +224,7 @@ final class MomentDetectorTests: XCTestCase {
     }
 
     func testIngestEscalatesOnForcedSample() async {
-        evaluator.results = [.success(decode("evaluation_skip_2b.json"))]
+        evaluator.results = [.success(decode("evaluation_skip.json"))]
         for i in 0..<30 { await detector.ingest(frame(i * 2000)) }  // the 30th sample is forced
         await detector.waitForIdle()
         let holds = await holder.holds

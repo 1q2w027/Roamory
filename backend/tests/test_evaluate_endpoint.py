@@ -8,12 +8,11 @@ from tests.conftest import JPEG, evaluate_multipart, load_example, ok
 
 SELECT = load_example("evaluate_context_select.json")
 DESCRIBE = load_example("evaluate_context_describe.json")
-CONFIDENT = dict(preference_alignment=0.9, visual_interest=0.9, significance=0.9, visual_quality=0.9)
 EVALUATION_SCHEMA = json.loads((REPO_ROOT / "contracts" / "evaluation.schema.json").read_text())
 
 
 def test_select_happy_path(client, fake_model):
-    fake_model.responses = [ok(**CONFIDENT)]
+    fake_model.responses = [ok()]
     r = client.post("/v1/evaluate", **evaluate_multipart(SELECT))
     assert r.status_code == 200
     Draft202012Validator(EVALUATION_SCHEMA).validate(r.json())
@@ -28,7 +27,7 @@ def test_requires_token(client):
 
 
 def test_one_frame_accepted(client, fake_model):
-    fake_model.responses = [ok(**CONFIDENT)]
+    fake_model.responses = [ok()]
     r = client.post("/v1/evaluate", **evaluate_multipart(SELECT, n_frames=1))
     assert r.status_code == 200
     assert r.json()["verdict"]["best_frame_index"] == 0  # clamped to the one frame sent
@@ -59,24 +58,24 @@ def test_invalid_request_spends_no_budget(client, fake_model):
     ]:
         assert client.post("/v1/evaluate", **bad).status_code == 400
     assert fake_model.calls == []
-    fake_model.responses = [ok()] * 10  # each escalates: 2 calls per request
+    fake_model.responses = [ok(save_decision="skip")] * 5
     assert all(client.post("/v1/evaluate", **evaluate_multipart(SELECT)).status_code == 200 for _ in range(5))
 
 
 def test_describe_ignores_empty_select_bucket(client, fake_model):
-    fake_model.responses = [ok(**CONFIDENT)] * 5
+    fake_model.responses = [ok()] * 5
     for _ in range(5):
         assert client.post("/v1/evaluate", **evaluate_multipart(SELECT)).status_code == 200
     r = client.post("/v1/evaluate", **evaluate_multipart(SELECT))
     assert r.status_code == 429 and r.json()["code"] == "rate_limited"
-    fake_model.responses = [ok(save_decision="skip", preference_alignment=0.0)]
+    fake_model.responses = [ok(save_decision="skip")]
     r = client.post("/v1/evaluate", **evaluate_multipart(DESCRIBE))
     assert r.status_code == 200 and r.json()["keep"] is True
 
 
 def test_logs_hold_no_frames(client, fake_model, caplog):
     caplog.set_level(logging.DEBUG)
-    fake_model.responses = [ok(**CONFIDENT)]
+    fake_model.responses = [ok()]
     client.post("/v1/evaluate", **evaluate_multipart(SELECT))
     assert "evaluate trip=t_123" in caplog.text
     assert "/9j/" not in caplog.text and "temple gate" not in caplog.text  # base64 JPEG prefix, description

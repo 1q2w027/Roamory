@@ -6,9 +6,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.plan.models import Style
 
 Purpose = Literal["select", "describe"]
-Tier = Literal["2a", "2b"]
 EventType = Literal["scenery", "landmark", "activity", "food", "social", "other"]
-SaveDecision = Literal["save", "skip", "uncertain"]
+SaveDecision = Literal["save", "skip"]
 
 
 class _Strict(BaseModel):
@@ -44,7 +43,7 @@ class EvaluateContext(_Strict):
     destination: Destination
     length_days: int = Field(ge=1)
     local: LocalSignals
-    recent_descriptions: list[str] = Field(max_length=5)
+    recent_descriptions: list[str]
 
 
 # --- Response -----------------------------------------------------------------
@@ -60,10 +59,6 @@ class ModelVerdict(_Strict):
 
     event_type: EventType
     matched_preferences: list[str]
-    preference_alignment: float = Field(ge=0, le=1)
-    visual_interest: float = Field(ge=0, le=1)
-    significance: float = Field(ge=0, le=1)
-    visual_quality: float = Field(ge=0, le=1)
     save_decision: SaveDecision
     best_frame_index: int = Field(ge=0, le=2)
     window_hint_s: WindowHint
@@ -74,7 +69,5 @@ class ModelVerdict(_Strict):
 class Evaluation(_Strict):
     version: Literal[1] = 1
     keep: bool
-    s2: float = Field(ge=0, le=1)
-    tier: Tier
     latency_ms: int = Field(ge=0)
     verdict: ModelVerdict
