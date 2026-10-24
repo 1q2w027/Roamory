@@ -27,6 +27,20 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(ClipSidecar.self, "examples/clip_sidecar_m_03.json")
     }
 
+    func testEvaluateExamplesRoundTrip() throws {
+        try assertRoundTrip(EvaluateContext.self, "examples/evaluate_context_select.json")
+        try assertRoundTrip(EvaluateContext.self, "examples/evaluate_context_describe.json")
+        try assertRoundTrip(Evaluation.self, "examples/evaluation_save.json")
+        try assertRoundTrip(Evaluation.self, "examples/evaluation_skip_2b.json")
+    }
+
+    func testEvaluateDestinationEncodesExplicitNull() throws {
+        let d = EvaluateContext.Destination(continent: nil, country: "Japan", city: nil)
+        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(d)) as! [String: Any]
+        XCTAssertTrue(object["continent"] is NSNull)
+        XCTAssertTrue(object["city"] is NSNull)
+    }
+
     func testNullableFieldsEncodeAsExplicitNull() throws {
         let clip = EditSpec.Clip(momentId: "m_01", inS: 0, outS: 2, transitionIn: .cut, transitionS: 0, speedRamp: nil, caption: nil)
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(clip)) as! [String: Any]
