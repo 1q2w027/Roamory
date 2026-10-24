@@ -1,0 +1,15 @@
+{
+  "tolerance_deg": 1.0,
+  "leave_deg": 2.0,
+  "settle_s": 1.0,
+  "still_rad_s": 0.15,
+  "flat_gravity": 0.35,
+  "tick_step_deg": 1.0,
+  "tick_min_interval_s": 0.06,
+  "tick_far_deg": 10,
+  "tick_min_intensity": 0.3,
+  "smoothing": 0.2,
+  "update_hz": 50,
+  "bubble_range_deg": 10,
+  "fade_delay_s": 1.0
+}
