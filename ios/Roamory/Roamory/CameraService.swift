@@ -14,6 +14,8 @@ import UIKit
 /// It also hands a frame to `onFrame` every `frameInterval` seconds for moment detection (TRD §6).
 final class CameraService: NSObject, ObservableObject,
                            AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
+    /// True once the session is running, which is when the buffer starts filling and detection can start.
+    @Published private(set) var isReady = false
     @Published private(set) var isSaving = false
     /// When the saved clip would have started if it ran in real time, so `now - savingStart` is its length.
     @Published private(set) var savingStart: Date?
@@ -71,6 +73,7 @@ final class CameraService: NSObject, ObservableObject,
             }
         }
         if !ok { message = "Unable to open the rear camera." }
+        isReady = ok
         // The buffer fills for as long as the app is open, so the screen must not lock.
         UIApplication.shared.isIdleTimerDisabled = true
         if let device = videoDevice {

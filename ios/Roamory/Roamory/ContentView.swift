@@ -68,19 +68,22 @@ struct ContentView: View {
             }
         }
         .overlay(alignment: .topLeading) { detectionSettingsButton }
-        .sheet(isPresented: $showDetectionSettings) {
+        .sheet(isPresented: $showDetectionSettings, onDismiss: {
+            // Detection reads its settings when it starts, so a changed setting needs a restart.
+            Task {
+                await detection.stop()
+                detection.start(.current())
+            }
+        }) {
             NavigationStack { DetectionSettingsView(backend: detection.backend) }
         }
         // Volume keys and Bluetooth shutter remotes (TRD §7) keep the current moment.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { detection.buttonPressed() }
         }
-        .onChange(of: camera.isSaving) { _, saving in
-            if saving {
-                detection.start(.current())
-            } else {
-                Task { await detection.stop() }
-            }
+        // Detection runs for as long as the camera does, like the buffer.
+        .onChange(of: camera.isReady) { _, ready in
+            if ready { detection.start(.current()) }
         }
         .task {
             camera.frameInterval = detection.frameInterval
@@ -125,7 +128,6 @@ struct ContentView: View {
                 .background(.black.opacity(0.5), in: Circle())
         }
         .padding(.leading, 16)
-        .disabled(camera.isSaving)
         .accessibilityLabel("Moment detection settings")
     }
 
