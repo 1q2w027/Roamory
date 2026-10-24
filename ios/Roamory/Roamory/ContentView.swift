@@ -81,7 +81,8 @@ struct ContentView: View {
         }
         .overlay {
             if camera.isReady {
-                RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch)
+                RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
+                                 paused: showKeySheet)
                     .transition(.opacity)
             }
         }
