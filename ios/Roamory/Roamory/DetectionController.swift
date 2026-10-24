@@ -25,6 +25,8 @@ final class DetectionController: ObservableObject {
     @Published private(set) var isRunning = false
     /// Give `sink.handle` to `CameraService.onFrame`.
     let sink = FrameSink()
+    /// Called when a moment is kept, with the trip clock at the decision (TRD §5.5 saves the clip from the ring buffer).
+    var onKeep: (@Sendable (KeptMoment, _ nowMs: Int) async -> Void)?
     let config = try? DetectionConfig.bundled()
     /// Seconds between frames for `CameraService.frameInterval`.
     var frameInterval: TimeInterval { config?.sampleIntervalS ?? 2 }
@@ -37,6 +39,7 @@ final class DetectionController: ObservableObject {
     private let motion = MotionDwell()
     private var detector: MomentDetector?
     private var holder: InMemoryMomentHolder?
+    private var tripId = ""
     private var consumer: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var startUptime: TimeInterval = 0
@@ -59,6 +62,7 @@ final class DetectionController: ObservableObject {
         let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
                                       cloudAllowed: evaluator != nil, demoMode: settings.demoMode)
         self.holder = holder
+        self.tripId = trip.tripId
         self.detector = detector
         startUptime = ProcessInfo.processInfo.systemUptime
         summary = DetectionSummary(cloud: evaluator != nil)
@@ -133,6 +137,14 @@ final class DetectionController: ObservableObject {
             case .localFallback: summary.keptFallback += 1
             }
             if let description { summary.lastDescription = description }
+            if let onKeep, let holder {
+                let at = nowMs
+                let tripId = tripId
+                Task {
+                    guard let hold = await holder.holds.first(where: { $0.id == id }) else { return }
+                    await onKeep(KeptMoment(id: id, source: source, triggerMs: hold.triggerMs, tripId: tripId), at)
+                }
+            }
             log.info("keep \(id, privacy: .public) source=\(source.rawValue, privacy: .public) score=\(score ?? -1)")
         case .release:
             summary.released += 1

@@ -89,6 +89,10 @@ struct ContentView: View {
             camera.frameInterval = detection.frameInterval
             let sink = detection.sink
             camera.onFrame = { sink.handle($0) }
+            // A kept moment is written out of the ring buffer (TRD §5.5).
+            let saver = MomentClipSaver(recorder: camera.recorder, tripFolder: .documentsDirectory.appending(path: "Trip"),
+                                        sessionId: UUID().uuidString)
+            detection.onKeep = { moment, nowMs in _ = await saver.save(moment, nowMs: nowMs) }
             await camera.prepare()
         }
     }
