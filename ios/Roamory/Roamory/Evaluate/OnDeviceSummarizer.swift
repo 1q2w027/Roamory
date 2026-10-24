@@ -45,6 +45,7 @@ enum OnDeviceSummarizer {
 
         let session = LanguageModelSession(model: .default, instructions: SummaryClient.system)
         let prompt = Prompt {
+            if let details = SummaryClient.detailsPrompt { details }
             for (k, image) in images.enumerated() {
                 "Frame \(k):"
                 Attachment(image)

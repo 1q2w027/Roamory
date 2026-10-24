@@ -13,6 +13,8 @@
 	</array>
 	<key>RoamoryChatModel</key>
 	<string>$(ROAMORY_CHAT_MODEL)</string>
+	<key>RoamorySummaryFrames</key>
+	<string>$(ROAMORY_SUMMARY_FRAMES)</string>
 	<key>RoamorySummaryModel</key>
 	<string>$(ROAMORY_SUMMARY_MODEL)</string>
 </dict>

@@ -23,6 +23,8 @@ final class CameraService: NSObject, ObservableObject,
     /// The chosen model's description of the buffer from the last `evaluate()`, until dismissed.
     @Published var summary: String?
     @Published private(set) var isEvaluating = false
+    /// What the last Evaluate sent, kept so it can be looked at afterwards.
+    @Published private(set) var evaluation: SentEvaluation?
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var minZoom: CGFloat = 1
@@ -206,7 +208,8 @@ final class CameraService: NSObject, ObservableObject,
         Task {
             defer { isEvaluating = false }
             do {
-                let frames = try recorder.snapshotFrames(count: 6)
+                let frames = try recorder.snapshotFrames(count: SummarySettings.frameCount)
+                evaluation = SentEvaluation(frames: frames, details: SummaryClient.detailsPrompt)
                 summary = try await SummaryClient.summarize(frames: frames)
             } catch {
                 message = "Evaluate failed: \(error.localizedDescription)"
@@ -279,4 +282,10 @@ final class CameraService: NSObject, ObservableObject,
             message = "Save failed: \(error.localizedDescription)"
         }
     }
+}
+
+/// The frames, and the traveler's details line, that an Evaluate sent to the model.
+struct SentEvaluation {
+    let frames: [Data]
+    let details: String?
 }

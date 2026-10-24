@@ -1,7 +1,7 @@
 import RoamoryKit
 import SwiftUI
 
-/// Trip setup before recording (PRD §4): style, destination, trip type, then length and Start.
+/// Trip setup before recording (PRD §4): style, destination, trip type, length, optional details, then Start.
 /// Choices are saved in the `TripSettings` keys, so each launch starts from the last trip's answers.
 struct OnboardingView: View {
     var onStart: () -> Void
@@ -14,6 +14,7 @@ struct OnboardingView: View {
     @AppStorage(TripSettings.Key.city) private var city = OnboardingCatalog.defaultCity
     @AppStorage(TripSettings.Key.tripType) private var tripType = "honeymoon"
     @AppStorage(TripSettings.Key.lengthDays) private var lengthDays = 3
+    @AppStorage(TripSettings.Key.details) private var details = ""
     @State private var step = Self.initialStep
     @State private var forward = true
     @State private var started = false
@@ -24,6 +25,7 @@ struct OnboardingView: View {
         ("Destination", "Where to?"),
         ("The trip", "Who's coming along?"),
         ("How long", "How many days?"),
+        ("Optional", "Anything else we should know?"),
     ]
 
     /// Debug builds can open at a step with the launch argument `-onboardingStep N`.
@@ -40,7 +42,7 @@ struct OnboardingView: View {
             Theme.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 20) {
                 StepHeader(index: step, eyebrow: Self.steps[step].eyebrow, title: Self.steps[step].title,
-                           onClose: onClose, onBack: step > 0 ? { back() } : nil)
+                           count: Self.steps.count, onClose: onClose, onBack: step > 0 ? { back() } : nil)
                 ZStack {
                     stepContent
                         .id(step)
@@ -80,8 +82,10 @@ struct OnboardingView: View {
             }
         case 2:
             if let catalog { TripTypeStep(types: catalog.tripTypes, tripType: $tripType) }
-        default:
+        case 3:
             TripLengthStep(days: $lengthDays, style: Style(rawValue: style) ?? .cinematic)
+        default:
+            TripDetailsStep(details: $details)
         }
     }
 
@@ -90,7 +94,8 @@ struct OnboardingView: View {
         case 0: Style(rawValue: style) != nil
         case 1: !city.isEmpty
         case 2: !tripType.isEmpty
-        default: lengthDays >= 1
+        case 3: lengthDays >= 1
+        default: true
         }
     }
 

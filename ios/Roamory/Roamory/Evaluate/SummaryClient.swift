@@ -18,6 +18,11 @@ enum SummaryClient {
         Do not identify people (say "a person", "two friends") and do not name a place unless it is clearly recognizable.
         """
 
+    /// What the traveler typed in the last onboarding step, worded as part of the prompt; nil when they skipped it.
+    static var detailsPrompt: String? {
+        TripSettings.details().map { "Details from the traveler about this trip (use them to understand what you see): \($0)" }
+    }
+
     static func summarize(frames: [Data]) async throws -> String {
         switch SummarySettings.provider {
         case .claude: try await summarizeWithClaude(frames: frames)
@@ -27,6 +32,7 @@ enum SummaryClient {
 
     private static func summarizeWithClaude(frames: [Data]) async throws -> String {
         var content: [[String: Any]] = []
+        if let detailsPrompt { content.append(["type": "text", "text": detailsPrompt]) }
         for (k, jpeg) in frames.enumerated() {
             content.append(["type": "text", "text": "Frame \(k):"])
             content.append(["type": "image",
