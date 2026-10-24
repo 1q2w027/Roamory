@@ -1,4 +1,5 @@
 // Base build settings for the Roamory target.
-ROAMORY_SUMMARY_MODEL = claude-haiku-5-5
-ROAMORY_SUMMARY_FRAMES = 6
+ROAMORY_DIRECTOR_MODEL = claude-haiku-5-5
+ROAMORY_DIRECTOR_INTERVAL = 10
+ROAMORY_DIRECTOR_FRAMES = 5
 ROAMORY_CHAT_MODEL = claude-haiku-5-5

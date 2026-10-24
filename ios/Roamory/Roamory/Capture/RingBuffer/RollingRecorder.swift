@@ -29,7 +29,7 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
         var errorDescription: String? {
             switch self {
             case .bufferEmpty: "Nothing in the buffer yet."
-            case .noNewFrames: "No new frames since the last Evaluate. Wait a couple of seconds."
+            case .noNewFrames: "No new frames since the last request. Wait a couple of seconds."
             case .alreadySaving: "Already saving."
             case .notSaving: "Not saving."
             case .footageGone: "That footage is no longer in the buffer."
