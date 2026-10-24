@@ -36,10 +36,8 @@ struct OnboardingView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 20) {
-                HStack(alignment: .top) {
-                    StepHeader(index: step, eyebrow: Self.steps[step].eyebrow, title: Self.steps[step].title)
-                }
-                .overlay(alignment: .topLeading) { backButton }
+                StepHeader(index: step, eyebrow: Self.steps[step].eyebrow, title: Self.steps[step].title,
+                           onBack: step > 0 ? back : nil)
                 ZStack {
                     stepContent
                         .id(step)
@@ -72,24 +70,12 @@ struct OnboardingView: View {
         switch step {
         case 0:
             StylePickerStep(style: $style)
+        case 1:
+            if let catalog {
+                DestinationStep(catalog: catalog, continent: $continent, country: $country, city: $city)
+            }
         default:
             Text("Coming soon").foregroundStyle(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private var backButton: some View {
-        if step > 0 {
-            Button(action: back) {
-                Image(systemName: "chevron.left")
-                    .font(.footnote.bold())
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Theme.chip, in: Circle())
-            }
-            .offset(y: 16)
-            .accessibilityLabel("Back")
-            .transition(.opacity)
         }
     }
 

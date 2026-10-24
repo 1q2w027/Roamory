@@ -30,10 +30,24 @@ struct StepHeader: View {
     let eyebrow: String
     let title: String
     var count = 4
+    /// Shows a back chevron at the start of the progress bar.
+    var onBack: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
+                if let onBack {
+                    Button(action: onBack) {
+                        Image(systemName: "chevron.left")
+                            .font(.footnote.bold())
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Theme.chip, in: Circle())
+                    }
+                    .padding(.trailing, 4)
+                    .accessibilityLabel("Back")
+                    .transition(.scale.combined(with: .opacity))
+                }
                 ForEach(0..<count, id: \.self) { i in
                     Capsule()
                         .fill(i <= index ? AnyShapeStyle(Theme.accentGradient) : AnyShapeStyle(Theme.chip))
