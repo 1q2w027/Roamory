@@ -21,10 +21,31 @@ public struct RenderResult: Sendable {
     /// The spec actually rendered: the input, or its hard-cut copy after a failed export with transitions.
     public var spec: EditSpec
     public var usedHardCutRetry: Bool
+    /// "avfoundation" or "remotion".
+    public var engine: String
+
+    public init(url: URL, durationS: Double, elapsedS: Double, spec: EditSpec, usedHardCutRetry: Bool, engine: String) {
+        self.url = url
+        self.durationS = durationS
+        self.elapsedS = elapsedS
+        self.spec = spec
+        self.usedHardCutRetry = usedHardCutRetry
+        self.engine = engine
+    }
+}
+
+/// A render engine: the on-phone `Renderer`, or `RemoteRenderClient` (Remotion in the cloud).
+public protocol VideoRendering: Sendable {
+    /// - Parameters:
+    ///   - clipURLs: the clip file for each `moment_id` in the spec.
+    ///   - progress: 0...1.
+    func render(
+        _ spec: EditSpec, clipURLs: [String: URL], to outputURL: URL, progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> RenderResult
 }
 
 /// Renders an edit spec to an H.264 MP4 with AVFoundation (TRD 9.2).
-public struct Renderer: Sendable {
+public struct Renderer: VideoRendering {
     public var config: EditConfig
     /// Debug: fail the first export when it has transitions, to exercise the hard-cut retry.
     public var simulateTransitionFailure = false
@@ -59,7 +80,9 @@ public struct Renderer: Sendable {
         }
         let elapsed = (clock.now - start) / .seconds(1)
         Self.log.info("Rendered \(rendered.style.rawValue) \(rendered.clips.count) clips, \(duration)s video in \(elapsed)s")
-        return RenderResult(url: outputURL, durationS: duration, elapsedS: elapsed, spec: rendered, usedHardCutRetry: rendered != spec)
+        return RenderResult(
+            url: outputURL, durationS: duration, elapsedS: elapsed, spec: rendered, usedHardCutRetry: rendered != spec, engine: "avfoundation"
+        )
     }
 
     /// Exports and checks the file; returns its duration.
@@ -84,15 +107,16 @@ public struct Renderer: Sendable {
         defer { observer.cancel() }
         try await session.export(to: outputURL, as: .mp4)
         progress(1)
-        return try await verify(outputURL, expectedS: EditTimeline.totalDurationS(spec))
+        return try await Self.verify(outputURL, expectedS: EditTimeline.totalDurationS(spec), toleranceS: config.renderDurationToleranceS)
     }
 
     /// "Video ready" only once the file loads, plays and has about the planned length (TRD 10).
-    private func verify(_ url: URL, expectedS: Double) async throws -> Double {
+    /// Shared by both engines, so a downloaded MP4 gets the same check. Returns its duration.
+    static func verify(_ url: URL, expectedS: Double, toleranceS: Double) async throws -> Double {
         let (playable, duration) = try await AVURLAsset(url: url).load(.isPlayable, .duration)
         guard playable else { throw RenderError.notPlayable }
         let seconds = duration.seconds
-        guard abs(seconds - expectedS) <= config.renderDurationToleranceS else {
+        guard abs(seconds - expectedS) <= toleranceS else {
             throw RenderError.durationMismatch(expectedS: expectedS, actualS: seconds)
         }
         return seconds

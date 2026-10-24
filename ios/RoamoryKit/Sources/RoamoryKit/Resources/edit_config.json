@@ -10,5 +10,9 @@
   "window_change_weight": 0.5,
   "end_card_text": "Made with Roamory",
   "export_preset": "AVAssetExportPresetHighestQuality",
-  "render_duration_tolerance_s": 0.5
+  "render_duration_tolerance_s": 0.5,
+  "render_engine": "avfoundation",
+  "remote_render_timeout_s": 150,
+  "remote_render_poll_s": 1,
+  "remote_upload_preset": "AVAssetExportPreset1280x720"
 }

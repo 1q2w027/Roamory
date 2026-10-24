@@ -4,9 +4,9 @@ Phone-side logic as a local Swift package: the Edit pipeline (TRD §9, Phase 2 o
 
 | Folder | What |
 |---|---|
-| `Sources/RoamoryKit/Edit/` | Models, `EditSpecValidator`, `FallbackPlanner`, `PrePass`, `Renderer` + `TitleOverlay`, `EditPlanner`, `EditCoordinator`, `RenderLabView` (debug) |
+| `Sources/RoamoryKit/Edit/` | Models, `EditSpecValidator`, `FallbackPlanner`, `PrePass`, `Renderer` + `TitleOverlay`, `ClipTrimmer`, `EditPlanner`, `EditCoordinator`, `RenderLabView` (debug) |
 | `Sources/RoamoryKit/Signals/` | Stage 1 detection: frame signals, local score, escalation gate, `MomentDetector` |
-| `Sources/RoamoryKit/Cloud/` | `PlanClient` (`POST /v1/plan`, multipart), `POST /v1/evaluate` contract mirrors and `EvaluateClient` |
+| `Sources/RoamoryKit/Cloud/` | `PlanClient` (`POST /v1/plan`, multipart), `RemoteRenderClient` (`/v1/render`, Remotion), `POST /v1/evaluate` contract mirrors and `EvaluateClient` |
 | `Sources/RoamoryKit/Config/` | `EditConfig` (`Resources/edit_config.json`), `DetectionConfig` (`Resources/detection_config.json`) and bundled-file lookup |
 | `Sources/RoamoryKit/Resources/` | `style_presets.json` (copy of `contracts/`), `edit_config.json`, placeholder music beds, 2 s black end-card clips, RenderLab sample clips |
 | `scripts/` | `sync-contracts.sh` (copy the presets after a contract change), `make-placeholder-assets.sh` (regenerate the media with ffmpeg) |
@@ -21,10 +21,13 @@ The cloud planner is used only when the app's Info.plist has `RoamoryAPIBaseURL`
 let coordinator = EditCoordinator(
     trip: trip, clips: clips, outputDirectory: tripFolder.appending(path: "video"),
     presets: try .bundled(), config: try .bundled(),
-    service: PlanClient.fromBundle(config: try .bundled())
+    service: PlanClient.fromBundle(config: try .bundled()),
+    remoteRenderer: RemoteRenderClient.fromBundle(config: try .bundled(), trip: trip)
 )
 await coordinator.run()   // phase: planning -> rendering(progress) -> completed / error; run() again to retry
 ```
+
+The video renders on the phone with AVFoundation unless `edit_config.json` has `"render_engine": "remotion"`, the Info.plist has `RoamoryRenderBaseURL` (same `RoamoryAppToken`) and cloud analysis is on. Then `RemoteRenderClient` trims the clips the spec uses, uploads them to the render service (`render/`), polls the job and downloads the MP4. On any error, or after `remote_render_timeout_s`, the coordinator renders on the phone instead; `GeneratedVideo.renderEngine` records which engine made the file. In Render Lab, the engine picker's "Both" renders each style on each engine to compare times.
 
 `ClipInfo(sidecar:moment:tripFolder:)` builds the input from a `clips/{id}.json` sidecar plus the Moment record's fields.
 
