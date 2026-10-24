@@ -69,6 +69,11 @@ public struct OnboardingCatalog: Codable, Sendable {
         case tripTypes = "trip_types"
     }
 
+    /// The destination onboarding starts at before the user has chosen one.
+    public static let defaultContinent = "North America"
+    public static let defaultCountry = "United States"
+    public static let defaultCity = "New York"
+
     public static func bundled() throws -> OnboardingCatalog {
         try BundledResources.decode(OnboardingCatalog.self, named: "onboarding_catalog")
     }
