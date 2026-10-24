@@ -38,7 +38,7 @@ struct OnboardingView: View {
             Theme.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 20) {
                 StepHeader(index: step, eyebrow: Self.steps[step].eyebrow, title: Self.steps[step].title,
-                           onBack: step > 0 ? back : nil)
+                           onBack: step > 0 ? { back() } : nil)
                 ZStack {
                     stepContent
                         .id(step)
