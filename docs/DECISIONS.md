@@ -2,6 +2,7 @@
 
 Short record of team decisions. Newest first. Format: date, decision, why.
 
+- 2026-10-23: Remotion cloud render as an optional engine; trimmed selected clips are uploaded, deleted after download; AVFoundation remains default and fallback (TRD §9.2, §11.3; plan in `docs/remotion-plan.md`). Why: richer motion graphics (kinetic titles, lower thirds, animated transitions) than Core Animation gives us, without risking the video: any cloud failure still renders on the phone.
 - 2026-10-22: The demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). Why: a real walk cannot happen on stage.
 - 2026-10-22: The phone is worn in a regular chest mount, camera facing forward (PRD FR-007a). Why: a pocket films nothing, and an off-the-shelf mount means no custom hardware.
 - 2026-10-22: Moment selection runs in the cloud on a frontier model API, behind our own backend. Why: best selection quality, and the API key stays off the phone.
@@ -15,3 +16,4 @@ Short record of team decisions. Newest first. Format: date, decision, why.
 - Who owns each folder (fill in README)
 - The proposals added in the docs review PR: capture orientation set by style (PRD FR-007a), trips with pause and resume (FR-007b), button moments beating the length target (FR-009), and how replay mode works (TRD §12.4)
 - Does our chest mount's clamp rotate to both orientations?
+- Where the Remotion render service is hosted, and whether we need a Remotion company license (TRD §14)

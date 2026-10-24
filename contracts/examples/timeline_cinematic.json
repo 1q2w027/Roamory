@@ -1,0 +1,52 @@
+{
+  "edit_spec": "edit_spec_cinematic.json",
+  "slots": [
+    {
+      "moment_id": "m_01",
+      "start_s": 0,
+      "end_s": 6
+    },
+    {
+      "moment_id": "m_02",
+      "start_s": 5.4,
+      "end_s": 11.4
+    },
+    {
+      "moment_id": "m_03",
+      "start_s": 10.8,
+      "end_s": 16.842
+    },
+    {
+      "moment_id": "m_06",
+      "start_s": 16.242,
+      "end_s": 21.242
+    },
+    {
+      "moment_id": "m_07",
+      "start_s": 20.642,
+      "end_s": 26.642
+    },
+    {
+      "moment_id": "m_08",
+      "start_s": 26.042,
+      "end_s": 32.042
+    },
+    {
+      "moment_id": "m_10",
+      "start_s": 31.442,
+      "end_s": 38.442
+    },
+    {
+      "moment_id": "m_11",
+      "start_s": 37.842,
+      "end_s": 42.842
+    },
+    {
+      "moment_id": "m_12",
+      "start_s": 42.242,
+      "end_s": 48.242
+    }
+  ],
+  "end_card_start_s": 48.242,
+  "total_s": 50.242
+}
