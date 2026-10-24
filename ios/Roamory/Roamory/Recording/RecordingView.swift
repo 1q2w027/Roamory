@@ -75,7 +75,8 @@ struct RecordingView: View {
             Text("Recording stops and this trip ends. Video already saved stays in Photos.")
         }
         .overlay {
-            if Self.curtainEnabled, camera.isReady {
+            // The level must be visible while it shows, so the curtain waits until it is gone.
+            if Self.curtainEnabled, camera.isReady, !showLevel {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
                                  paused: confirmBack || showSettings || showStudio || showFrames || showLevel)
                     .transition(.opacity)
@@ -132,10 +133,13 @@ struct RecordingView: View {
             savingTimer
             formatBadge
             Spacer()
-            if !guidedAccess.isEnabled {
-                guidedAccessHint
+            // Cards would cover the level, so they wait until it is gone.
+            if !showLevel {
+                if !guidedAccess.isEnabled {
+                    guidedAccessHint
+                }
+                summaryCard
             }
-            summaryCard
             messageText
             zoomControl
             HStack(spacing: 12) {
@@ -151,32 +155,38 @@ struct RecordingView: View {
         }
     }
 
-    /// A phone on its side (16:9): status top left, buttons in a column along the right edge.
+    /// A phone on its side (16:9): status and debug buttons top left, the zoom presets and the main buttons in
+    /// columns along the right edge (one column of everything is taller than a landscape phone).
     private var landscapeChrome: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     savingTimer
                     formatBadge
+                    #if DEBUG
+                    evaluateButton
+                    settingsButton
+                    #endif
                 }
                 .padding(.leading, 60)
                 Spacer()
-                if !guidedAccess.isEnabled {
-                    guidedAccessHint.frame(maxWidth: 420)
+                // Cards would cover the level, so they wait until it is gone.
+                if !showLevel {
+                    if !guidedAccess.isEnabled {
+                        guidedAccessHint.frame(maxWidth: 420)
+                    }
+                    summaryCard.frame(maxWidth: 420, alignment: .leading)
                 }
-                summaryCard.frame(maxWidth: 420, alignment: .leading)
                 messageText
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(spacing: 12) {
-                #if DEBUG
-                settingsButton
-                evaluateButton
-                #endif
-                if hasLevel { levelButton }
-                saveButton
-                studioButton
+            HStack(spacing: 12) {
                 zoomColumn
+                VStack(spacing: 12) {
+                    if hasLevel { levelButton }
+                    saveButton
+                    studioButton
+                }
             }
         }
         .padding(.vertical, 12)
