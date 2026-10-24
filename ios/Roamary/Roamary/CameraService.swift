@@ -20,9 +20,12 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
     /// Asks for camera permission, then configures and starts the session.
     func prepare() async {
         guard await AVCaptureDevice.requestAccess(for: .video) else {
-            message = "需要相机权限，请在设置中开启"
+            message = "Camera access is required. Enable it in Settings."
             return
         }
+        // Microphone is optional: without it we still record video.
+        let hasMic = await AVCaptureDevice.requestAccess(for: .audio)
+        if !hasMic { message = "Microphone access is off. The video will have no sound." }
         let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             sessionQueue.async {
                 let ok = self.configure()
@@ -30,7 +33,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
                 cont.resume(returning: ok)
             }
         }
-        if !ok { message = "无法打开后置摄像头" }
+        if !ok { message = "Unable to open the rear camera." }
     }
 
     nonisolated private func configure() -> Bool {
@@ -45,6 +48,13 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
               session.canAddOutput(movieOutput) else { return false }
         session.addInput(input)
         session.addOutput(movieOutput)
+
+        if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
+           let mic = AVCaptureDevice.default(for: .audio),
+           let micInput = try? AVCaptureDeviceInput(device: mic),
+           session.canAddInput(micInput) {
+            session.addInput(micInput)
+        }
         return true
     }
 
@@ -81,7 +91,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
             isRecording = false
             recordingStart = nil
             if failed {
-                message = "录制失败：\(error?.localizedDescription ?? "未知错误")"
+                message = "Recording failed: \(error?.localizedDescription ?? "unknown error")"
                 try? FileManager.default.removeItem(at: outputFileURL)
             } else {
                 await saveToPhotos(outputFileURL)
@@ -92,16 +102,16 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
     private func saveToPhotos(_ url: URL) async {
         defer { try? FileManager.default.removeItem(at: url) }
         guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
-            message = "需要相册权限才能保存视频"
+            message = "Photos access is required to save the video."
             return
         }
         do {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
             }
-            message = "已保存到相册"
+            message = "Saved to Photos"
         } catch {
-            message = "保存失败：\(error.localizedDescription)"
+            message = "Save failed: \(error.localizedDescription)"
         }
     }
 }
