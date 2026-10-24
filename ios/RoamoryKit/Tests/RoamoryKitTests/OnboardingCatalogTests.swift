@@ -21,6 +21,13 @@ final class OnboardingCatalogTests: XCTestCase {
         }
     }
 
+    func testDefaultDestinationIsInTheCatalog() {
+        XCTAssertEqual(OnboardingCatalog.defaultCountry, "United States")
+        let continent = catalog.continents.first { $0.name == OnboardingCatalog.defaultContinent }
+        let country = continent?.countries.first { $0.name == OnboardingCatalog.defaultCountry }
+        XCTAssertNotNil(country?.cities.first { $0.name == OnboardingCatalog.defaultCity })
+    }
+
     func testContinentLookup() {
         XCTAssertEqual(catalog.continent(at: GeoPoint(lat: 35.01, lon: 135.77))?.id, "asia")
         XCTAssertEqual(catalog.continent(at: GeoPoint(lat: 48.86, lon: 2.35))?.id, "europe")
