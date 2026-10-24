@@ -22,9 +22,9 @@ done
 # Built here rather than by fly deploy so BuildKit applies cloud/Dockerfile.dockerignore. Loaded,
 # then pushed with docker push: Fly's registry rejects a push from a docker-container buildx builder.
 image="registry.fly.io/$app:$(git -C "$root" rev-parse --short HEAD)-$(date +%s)"
-fly auth docker
 docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
   -f "$root/cloud/Dockerfile" -t "$image" --load "$root"
+fly auth docker  # after the build: its registry login expires in minutes
 docker push "$image"
 
 # --ha=false keeps it to one machine.
