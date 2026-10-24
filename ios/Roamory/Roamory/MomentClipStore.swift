@@ -31,8 +31,9 @@ nonisolated final class MomentClipStore: Sendable {
         URL.documentsDirectory.appending(path: "trips/\(tripId)", directoryHint: .isDirectory)
     }
 
-    /// Writes the moment's window from the buffer and returns the mp4's URL.
-    func save(momentId: String, source: MomentSource, triggerMs: Int, window: MomentWindow) async throws -> URL {
+    /// Writes the moment's window from the buffer, then its Stage 2 fields and its sidecar, and returns the mp4's URL.
+    func save(momentId: String, source: MomentSource, triggerMs: Int, window: MomentWindow,
+              moment: MomentFields) async throws -> URL {
         let clips = folder.appending(path: "clips", directoryHint: .isDirectory)
         try FileManager.default.createDirectory(at: clips, withIntermediateDirectories: true)
         let saved = try await recorder.writeClip(from: clock.bufferTime(atMs: window.fromMs),
@@ -50,6 +51,7 @@ nonisolated final class MomentClipStore: Sendable {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         do {
+            try TripFolder.saveMoment(moment, momentId: momentId, in: folder)
             try encoder.encode(sidecar).write(to: clips.appending(path: "\(momentId).json"), options: .atomic)
         } catch {
             try? FileManager.default.removeItem(at: saved.url)

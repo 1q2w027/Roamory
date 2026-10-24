@@ -43,6 +43,10 @@ final class DetectionController: ObservableObject {
     private var detector: MomentDetector?
     private var holder: InMemoryMomentHolder?
     private var store: MomentClipStore?
+    /// The trip being recorded, for the editor at End trip.
+    private var trip: TripContext?
+    /// Clip saves started on this trip; `endTrip()` waits for them.
+    private var saves: [Task<Void, Never>] = []
     private var consumer: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var clock = TripClock(originS: 0)
@@ -73,6 +77,12 @@ final class DetectionController: ObservableObject {
         self.detector = detector
         clock = TripClock(originS: Self.clockNow())
         store = MomentClipStore(recorder: recorder, tripId: trip.tripId, clock: clock)
+        self.trip = TripContext(
+            tripId: trip.tripId, style: settings.style, tripType: settings.tripType,
+            destination: Destination(country: settings.country, city: settings.city.isEmpty ? nil : settings.city),
+            startDate: Self.dayFormatter.string(from: Date()), allowCloudAnalysis: settings.cloudAllowed
+        )
+        saves = []
         summary = DetectionSummary(cloud: evaluator != nil)
         isRunning = true
         log.info("start trip=\(trip.tripId, privacy: .public) cloud=\(evaluator != nil) demo=\(settings.demoMode)")
@@ -113,6 +123,27 @@ final class DetectionController: ObservableObject {
         isRunning = false
     }
 
+    /// End Trip (TRD §10): stops detection, finalizes pending moments and waits until every clip is written.
+    /// Returns the trip and its folder, the editor's input (`TripFolder.loadClips`); nil when no trip is running.
+    func endTrip() async -> (trip: TripContext, folder: URL)? {
+        guard let trip, let folder = store?.folder else { return nil }
+        await stop()
+        for save in saves { await save.value }
+        saves = []
+        self.trip = nil
+        log.info("end trip=\(trip.tripId, privacy: .public) saved=\(self.summary.saved) failed=\(self.summary.saveFailed)")
+        return (trip, folder)
+    }
+
+    /// Local calendar day, as `TripContext.startDate` wants it.
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     /// A Bluetooth remote, a volume key or the on-screen button (TRD §7): always kept.
     func buttonPressed() {
         guard let detector else { return }
@@ -136,19 +167,21 @@ final class DetectionController: ObservableObject {
     private func finalize(_ id: String, detector: MomentDetector, holder: InMemoryMomentHolder) async {
         let decision = await detector.finalDecision(for: id)
         record(decision, id: id)
-        if case .keep(let source, _, _, _) = decision, let config, let store,
+        if case .keep(let source, let eventType, let description, let score) = decision, let config, let store,
            let hold = await holder.holds.first(where: { $0.id == id }) {
             let window = MomentWindow(triggerMs: hold.triggerMs, preS: config.preS, postS: config.postS)
-            Task {
+            let moment = MomentFields(eventType: eventType, description: description, score: score)
+            saves.append(Task {
                 do {
-                    let url = try await store.save(momentId: id, source: source, triggerMs: hold.triggerMs, window: window)
+                    let url = try await store.save(momentId: id, source: source, triggerMs: hold.triggerMs,
+                                                   window: window, moment: moment)
                     summary.saved += 1
                     log.info("saved \(id, privacy: .public) \(url.lastPathComponent, privacy: .public)")
                 } catch {
                     summary.saveFailed += 1
                     log.error("save failed \(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
-            }
+            })
         }
         await holder.markFinalized(id)
     }
