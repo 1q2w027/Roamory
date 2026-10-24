@@ -5,6 +5,8 @@
   "jpeg_long_edge_px": 512,
   "jpeg_quality": 0.7,
   "frames_per_request": 3,
+  "pre_s": 15,
+  "post_s": 15,
   "weight_change_spike": 0.4,
   "weight_dwell": 0.3,
   "weight_quality": 0.2,
