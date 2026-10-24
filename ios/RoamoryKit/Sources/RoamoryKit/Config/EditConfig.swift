@@ -22,7 +22,8 @@ public struct EditConfig: Codable, Sendable, Equatable {
     public var exportPreset: String
     /// Allowed difference between the exported and the planned duration.
     public var renderDurationToleranceS: Double
-    /// "avfoundation" (on the phone, the default) or "remotion" (the render service, TRD 9.2).
+    /// "avfoundation" (on the phone, the default), "remotion" (the render service, TRD 9.2) or "agent"
+    /// (a Claude agent in the render service edits and renders the whole video, TRD 9.3).
     public var renderEngine: String
     /// Whole remote render, from trimming to download; past it the phone renders locally.
     public var remoteRenderTimeoutS: Double
@@ -30,6 +31,11 @@ public struct EditConfig: Codable, Sendable, Equatable {
     public var remoteRenderPollS: Double
     /// `AVAssetExportSession` preset for the trimmed clips uploaded to the render service.
     public var remoteUploadPreset: String
+    /// Whole agent job, from re-encoding to download; above the server's `AGENT_TIMEOUT_S`, so its own
+    /// timeout reports first. Past it the phone plans and renders as usual.
+    public var agentTimeoutS: Double
+    /// `AVAssetExportSession` preset for the whole clips uploaded in agent mode.
+    public var agentUploadPreset: String
 
     enum CodingKeys: String, CodingKey {
         case dedupeHamming = "dedupe_hamming"
@@ -48,6 +54,8 @@ public struct EditConfig: Codable, Sendable, Equatable {
         case remoteRenderTimeoutS = "remote_render_timeout_s"
         case remoteRenderPollS = "remote_render_poll_s"
         case remoteUploadPreset = "remote_upload_preset"
+        case agentTimeoutS = "agent_timeout_s"
+        case agentUploadPreset = "agent_upload_preset"
     }
 
     public static func bundled() throws -> EditConfig {

@@ -42,6 +42,28 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(RenderJob.self, "examples/render_job_failed.json")
     }
 
+    func testAgentExamplesRoundTrip() throws {
+        for style in Style.allCases {
+            try assertRoundTrip(AgentRequest.self, "examples/agent_request_\(style.rawValue).json")
+        }
+        try assertRoundTrip(AgentResult.self, "examples/agent_result_reels.json")
+    }
+
+    /// The agent request carries the plan request's clip fields, so both examples agree for the same trip.
+    func testAgentRequestMatchesThePlanRequest() throws {
+        for style in Style.allCases {
+            let agent = try Fixtures.decode(AgentRequest.self, "examples/agent_request_\(style.rawValue).json")
+            let plan = try Fixtures.planRequest(style)
+            XCTAssertEqual(agent.effectiveTargetS, plan.effectiveTargetS, "\(style)")
+            XCTAssertEqual(agent.context, RenderRequest.Context(destination: plan.destination, tripType: plan.tripType, startDate: plan.startDate))
+            XCTAssertEqual(agent.clips.map(\.momentId), plan.clips.map(\.momentId))
+            for (a, p) in zip(agent.clips, plan.clips) {
+                XCTAssertEqual([a.proposedInS, a.proposedOutS, a.lowFpsLeadInS], [p.proposedInS, p.proposedOutS, p.lowFpsLeadInS], a.momentId)
+                XCTAssertEqual(a.source, p.source)
+            }
+        }
+    }
+
     /// Golden timelines (contracts README): both engines place every clip at the same time, within 1 ms.
     func testEditTimelineMatchesTheGoldenTimelines() throws {
         struct Golden: Decodable {

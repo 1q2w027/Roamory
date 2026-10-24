@@ -12,7 +12,7 @@ final class EditCoordinatorTests: XCTestCase {
 
     private func coordinator(
         _ clips: [ClipInfo], style: Style = .reels, cloud: Bool = false, service: (any PlanService)? = nil,
-        engine: String = "avfoundation", remote: (any VideoRendering)? = nil
+        engine: String = "avfoundation", remote: (any VideoRendering)? = nil, agent: (any AgentRendering)? = nil
     ) throws -> EditCoordinator {
         var trip = SampleTrip.trip
         trip.style = style
@@ -20,7 +20,7 @@ final class EditCoordinatorTests: XCTestCase {
         var config = Fixtures.config
         config.renderEngine = engine
         return EditCoordinator(trip: trip, clips: clips, outputDirectory: outputDir, presets: try StylePresets.bundled(),
-                               config: config, service: service, remoteRenderer: remote)
+                               config: config, service: service, remoteRenderer: remote, agent: agent)
     }
 
     func testNoClipsIsANoMomentsError() async throws {
@@ -41,7 +41,7 @@ final class EditCoordinatorTests: XCTestCase {
         XCTAssertEqual(video.planSource, "fallback")
         XCTAssertEqual(video.renderEngine, "avfoundation")
         XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(video.outputPath)))
-        XCTAssertEqual(c.reviewMoments.map(\.momentId), c.renderResult?.spec.clips.map(\.momentId))
+        XCTAssertEqual(c.reviewMoments.map(\.momentId), c.renderResult?.spec?.clips.map(\.momentId))
         XCTAssertEqual(c.reviewMoments.filter(\.isButton).map(\.momentId), ["lab_01"])
 
         let saved = try Data(contentsOf: outputDir.appending(path: "generated_video.json"))
@@ -108,6 +108,59 @@ final class EditCoordinatorTests: XCTestCase {
         }
     }
 
+    func testAgentMakesTheVideoAndReviewMomentsComeFromItsResult() async throws {
+        let clips = try await RenderLab.clips(count: 3, from: BundledResources.sampleClipURLs)
+        let agent = FakeAgent()
+        let service = FakePlanService { XCTFail("no plan call in agent mode"); throw URLError(.cannotConnectToHost) }
+        let c = try coordinator(clips, cloud: true, service: service, engine: "agent", agent: agent)
+        await c.run()
+        XCTAssertEqual(c.phase, .completed)
+        XCTAssertEqual(agent.requests.map { $0.clips.map(\.momentId) }, [["lab_00", "lab_01", "lab_02"]], "every candidate clip")
+        XCTAssertNil(c.planOutcome)
+        let video = try XCTUnwrap(c.video)
+        XCTAssertEqual(video.planSource, "agent")
+        XCTAssertEqual(video.renderEngine, "agent")
+        XCTAssertNil(video.editSpec)
+        XCTAssertEqual(video.durationS, 30)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: try XCTUnwrap(video.outputPath)))
+        XCTAssertEqual(c.agentResult, FakeAgent.result)
+        XCTAssertEqual(c.reviewMoments, [
+            ReviewMoment(momentId: "lab_01", isButton: true, description: nil, startS: 0, endS: 12),
+            ReviewMoment(momentId: "lab_02", isButton: false, description: nil, startS: 12, endS: 30),
+        ])
+    }
+
+    func testAgentFailureFallsBackToPlanAndRender() async throws {
+        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        for error in [RemoteRenderError.timedOut, .jobFailed(APIError(code: "agent_failed", message: "", retryable: false)),
+                      .server(status: 429, error: nil)] as [any Error] + [URLError(.cannotConnectToHost)] {
+            let agent = FakeAgent(error: error)
+            let c = try coordinator(clips, cloud: true, service: FakePlanService { throw URLError(.cannotConnectToHost) },
+                                    engine: "agent", agent: agent)
+            await c.run()
+            XCTAssertEqual(c.phase, .completed, "\(error)")
+            XCTAssertEqual(agent.requests.count, 1)
+            XCTAssertNil(c.agentResult)
+            XCTAssertEqual(c.video?.planSource, "fallback", "\(error)")
+            XCTAssertEqual(c.video?.renderEngine, "avfoundation")
+            XCTAssertNotNil(c.video?.editSpec)
+            XCTAssertEqual(c.reviewMoments.map(\.momentId), c.renderResult?.spec?.clips.map(\.momentId))
+        }
+    }
+
+    func testAgentNeedsConsentAndTheEngineSetting() async throws {
+        let clips = try await RenderLab.clips(count: 1, from: BundledResources.sampleClipURLs)
+        for (cloud, engine) in [(false, "agent"), (true, "remotion"), (true, "avfoundation")] {
+            let agent = FakeAgent()
+            let c = try coordinator(clips, cloud: cloud, service: FakePlanService { throw URLError(.cannotConnectToHost) },
+                                    engine: engine, agent: agent)
+            await c.run()
+            XCTAssertEqual(c.phase, .completed)
+            XCTAssertEqual(agent.requests.count, 0, "cloud \(cloud), engine \(engine)")
+            XCTAssertNotEqual(c.video?.planSource, "agent")
+        }
+    }
+
     func testCapKeepsButtonsThenBestScores() {
         let clips = (0..<6).map { i in
             ClipInfo(momentId: "m\(i)", source: i < 2 ? .button : .ai, score: Double(i) / 10, fromMs: i * 1000, toMs: i * 1000 + 30_000,
@@ -139,5 +192,34 @@ final class FakeRemoteRenderer: VideoRendering, @unchecked Sendable {
         var result = try await Renderer(config: Fixtures.config).render(spec, clipURLs: clipURLs, to: outputURL, progress: progress)
         result.engine = "remotion"
         return result
+    }
+}
+
+/// Stands in for `AgentRenderClient`: throws `error`, or writes a placeholder file and returns `result`.
+final class FakeAgent: AgentRendering, @unchecked Sendable {
+    static let result = AgentResult(
+        totalS: 30, title: .init(text: "Kyoto", subtitle: nil),
+        moments: [.init(momentId: "lab_01", startS: 0, endS: 12), .init(momentId: "lab_02", startS: 12, endS: 30)]
+    )
+
+    let error: (any Error)?
+    private let lock = NSLock()
+    private var recorded: [AgentRequest] = []
+
+    init(error: (any Error)? = nil) {
+        self.error = error
+    }
+
+    var requests: [AgentRequest] { lock.withLock { recorded } }
+
+    func edit(
+        _ request: AgentRequest, clipURLs: [String: URL], output: OutputFormat, to outputURL: URL,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws -> AgentRender {
+        lock.withLock { recorded.append(request) }
+        if let error { throw error }
+        try Data("mp4".utf8).write(to: outputURL)
+        let video = RenderResult(url: outputURL, durationS: Self.result.totalS, elapsedS: 1, output: output, engine: "agent")
+        return AgentRender(video: video, result: Self.result)
     }
 }

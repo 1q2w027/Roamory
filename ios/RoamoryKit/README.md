@@ -6,7 +6,7 @@ Phone-side logic as a local Swift package: the Edit pipeline (TRD §9, Phase 2 o
 |---|---|
 | `Sources/RoamoryKit/Edit/` | Models, `EditSpecValidator`, `FallbackPlanner`, `PrePass`, `Renderer` + `TitleOverlay`, `ClipTrimmer`, `EditPlanner`, `EditCoordinator` |
 | `Sources/RoamoryKit/Signals/` | Stage 1 detection: frame signals, local score, escalation gate, `MomentDetector` |
-| `Sources/RoamoryKit/Cloud/` | `PlanClient` (`POST /v1/plan`, multipart), `RemoteRenderClient` (`/v1/render`, Remotion), `POST /v1/evaluate` contract mirrors and `EvaluateClient` |
+| `Sources/RoamoryKit/Cloud/` | `PlanClient` (`POST /v1/plan`, multipart), `RemoteRenderClient` (`/v1/render`, Remotion), `AgentRenderClient` (`/v1/agent`, agent mode), both on `RenderServiceHTTP`, `POST /v1/evaluate` contract mirrors and `EvaluateClient` |
 | `Sources/RoamoryKit/Trip/` | `TripPipeline`: an ended trip's clips to a highlight video |
 | `Sources/RoamoryKit/Config/` | `EditConfig` (`Resources/edit_config.json`), `DetectionConfig` (`Resources/detection_config.json`) and bundled-file lookup |
 | `Sources/RoamoryKit/Resources/` | `style_presets.json` (copy of `contracts/`), `edit_config.json`, placeholder music beds, 2 s black end-card clips, sample clips (onboarding style previews and tests) |
@@ -29,6 +29,8 @@ await coordinator.run()   // phase: planning -> rendering(progress) -> completed
 ```
 
 The video renders on the phone with AVFoundation unless `edit_config.json` has `"render_engine": "remotion"`, the Info.plist has `RoamoryRenderBaseURL` (same `RoamoryAppToken`) and cloud analysis is on. Then `RemoteRenderClient` trims the clips the spec uses, uploads them to the render service (`render/`), polls the job and downloads the MP4. On any error, or after `remote_render_timeout_s`, the coordinator renders on the phone instead; `GeneratedVideo.renderEngine` records which engine made the file.
+
+Agent mode (TRD 9.3): with `"render_engine": "agent"`, the same render service and cloud analysis on, the coordinator skips planning after the pre-pass. `AgentRenderClient` re-encodes every candidate clip whole at `agent_upload_preset`, uploads them to `/v1/agent`, polls, fetches the result (title, moments, `total_s`) and then the MP4, and checks its duration against `total_s`. Review's moments come from the result, and `GeneratedVideo` records `agent` as plan source and engine, with no edit spec. On any error, or after `agent_timeout_s`, the normal plan and render runs. Render Lab's "Agent" engine tries it and shows the elapsed time.
 
 `ClipInfo(sidecar:moment:tripFolder:)` builds the input from a `clips/{id}.json` sidecar plus the Moment record's fields.
 
