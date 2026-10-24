@@ -48,6 +48,13 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
     public var demoCooldownS: Double
     public var demoTauBase: Double
 
+    /// A moment's clip window, [trigger − pre, trigger + post] (TRD 5.3).
+    public var preS: Double
+    public var postS: Double
+    /// A window overlapping the previous one by more than this extends it instead, up to `maxClipS`.
+    public var mergeOverlapS: Double
+    public var maxClipS: Double
+
     enum CodingKeys: String, CodingKey {
         case sampleIntervalS = "sample_interval_s"
         case lumaWidth = "luma_width"
@@ -79,6 +86,10 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
         case recentDescriptions = "recent_descriptions"
         case demoCooldownS = "demo_cooldown_s"
         case demoTauBase = "demo_tau_base"
+        case preS = "pre_s"
+        case postS = "post_s"
+        case mergeOverlapS = "merge_overlap_s"
+        case maxClipS = "max_clip_s"
     }
 
     public static func bundled() throws -> DetectionConfig {

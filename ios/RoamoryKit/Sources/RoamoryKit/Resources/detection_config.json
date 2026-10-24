@@ -28,5 +28,9 @@
   "max_queued": 3,
   "recent_descriptions": 5,
   "demo_cooldown_s": 5,
-  "demo_tau_base": 0.45
+  "demo_tau_base": 0.45,
+  "pre_s": 15,
+  "post_s": 15,
+  "merge_overlap_s": 5,
+  "max_clip_s": 60
 }
