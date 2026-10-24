@@ -1,6 +1,6 @@
 //
 //  CameraPreview.swift
-//  Roamary
+//  Roamory
 //
 
 import AVFoundation

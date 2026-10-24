@@ -155,7 +155,7 @@ async function main() {
     const { family } = server.address() as AddressInfo;
     origin = `http://${family === "IPv6" ? "[::1]" : "127.0.0.1"}:${config.port}`;
     console.log(`render service on :${config.port}`);
-    // What a phone on the same network can use (ios/Roamary/Config/use-laptop-render.sh writes the first)
+    // What a phone on the same network can use (ios/Roamory/Config/use-laptop-render.sh writes the first)
     const lan = Object.values(os.networkInterfaces()).flat().filter((a) => a && a.family === "IPv4" && !a.internal);
     if (process.platform === "darwin") console.log(`  from a phone: http://${os.hostname().replace(/\.local$/, "")}.local:${config.port}`);
     for (const a of lan) console.log(`  from a phone: http://${a!.address}:${config.port}`);

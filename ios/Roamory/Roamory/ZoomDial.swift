@@ -1,6 +1,6 @@
 //
 //  ZoomDial.swift
-//  Roamary
+//  Roamory
 //
 
 import SwiftUI

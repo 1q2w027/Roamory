@@ -16,7 +16,7 @@ scripts/smoke.sh [style ...]  # renders the examples over the sample clips and c
 
 The phone and the Mac must be on the same Wi-Fi.
 
-1. `ios/Roamary/Config/use-laptop-render.sh` writes the app's untracked `Local.xcconfig` with this Mac's `.local` name, `$PORT` and `$APP_TOKEN` (it generates a token into `render/.env` if none is set). Pass a host to override, for example the IP that `npm start` prints when the network blocks Bonjour.
+1. `ios/Roamory/Config/use-laptop-render.sh` writes the app's untracked `Local.xcconfig` with this Mac's `.local` name, `$PORT` and `$APP_TOKEN` (it generates a token into `render/.env` if none is set). Pass a host to override, for example the IP that `npm start` prints when the network blocks Bonjour.
 2. `npm start`. It prints the addresses a phone can use. Allow incoming connections if macOS asks about `node`.
 3. Build and run the app on the phone from Xcode, then allow local network access when iOS asks. In a Debug build, the corner button opens Render Lab. Pick "Remotion" (or "Both") and render. If the server can't be reached, the summary says "remote failed" and the phone renders the video itself.
 
