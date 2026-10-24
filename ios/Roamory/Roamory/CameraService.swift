@@ -6,6 +6,7 @@
 import AVFoundation
 import Combine
 import Photos
+import RoamoryKit
 import UIKit
 
 /// Owns the capture session. Frames feed a rolling buffer of the last seconds from the moment the camera is
@@ -26,6 +27,12 @@ final class CameraService: NSObject, ObservableObject,
     @Published private(set) var maxZoom: CGFloat = 1
     /// Quick-select zoom levels, including the points where the system switches lenses.
     @Published private(set) var zoomPresets: [CGFloat] = []
+    /// The format this session records in, fixed when it starts (TRD 4.1).
+    @Published private(set) var captureOrientation = CaptureOrientation.portrait
+    /// How the phone is held now, as a horizon-level capture angle in degrees, for the "turn the phone" hint.
+    @Published private(set) var heldAngle: Double?
+    /// The rear camera once the session is configured, for the preview's rotation.
+    @Published private(set) var device: AVCaptureDevice?
 
     nonisolated(unsafe) let session = AVCaptureSession()
     nonisolated let recorder = RollingRecorder()
@@ -43,15 +50,18 @@ final class CameraService: NSObject, ObservableObject,
     nonisolated(unsafe) private let frameOutput = AVCaptureVideoDataOutput()
     nonisolated private let frameQueue = DispatchQueue(label: "roamory.camera.frames")
     nonisolated(unsafe) private var lastFrameTime = CMTime.invalid
-    /// Called on the frame queue with an upright (portrait) frame. Set it before the camera starts.
+    /// Called on the frame queue with an upright frame, portrait or landscape as `captureOrientation`. Set it before the camera starts.
     /// The buffer is only valid during the call.
     nonisolated(unsafe) var onFrame: (@Sendable (CVPixelBuffer) -> Void)?
     nonisolated(unsafe) var frameInterval: TimeInterval = 2
     /// Digital zoom beyond this looks too soft to be useful.
     private let zoomLimit: CGFloat = 10
+    private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var heldAngleObservation: NSKeyValueObservation?
 
-    /// Asks for camera permission, then configures and starts the session.
-    func prepare() async {
+    /// Asks for camera permission, then configures and starts the session recording in `orientation`, turned
+    /// whichever way the phone is held. The orientation stays for as long as the session runs.
+    func prepare(orientation: CaptureOrientation) async {
         guard await AVCaptureDevice.requestAccess(for: .video) else {
             message = "Camera access is required. Enable it in Settings."
             return
@@ -73,16 +83,25 @@ final class CameraService: NSObject, ObservableObject,
         }
         let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             sessionQueue.async {
-                let ok = self.configure()
+                let ok = self.configure(orientation: orientation)
                 if ok { self.session.startRunning() }
                 cont.resume(returning: ok)
             }
         }
         if !ok { message = "Unable to open the rear camera." }
+        // A second call finds the session running and keeps the orientation it started with.
+        if ok && !isReady { captureOrientation = orientation }
         isReady = ok
         // The buffer fills for as long as the app is open, so the screen must not lock.
         UIApplication.shared.isIdleTimerDisabled = true
         if let device = videoDevice {
+            self.device = device
+            let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil)
+            rotationCoordinator = coordinator
+            heldAngleObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelCapture, options: [.initial, .new]) { [weak self] c, _ in
+                let angle = c.videoRotationAngleForHorizonLevelCapture
+                Task { @MainActor [weak self] in self?.heldAngle = angle }
+            }
             minZoom = device.minAvailableVideoZoomFactor * zoomMultiplier
             maxZoom = min(device.activeFormat.videoMaxZoomFactor * zoomMultiplier, zoomLimit)
             let switchOvers = device.virtualDeviceSwitchOverVideoZoomFactors.map { CGFloat($0.doubleValue) * zoomMultiplier }
@@ -108,7 +127,7 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    nonisolated private func configure() -> Bool {
+    nonisolated private func configure(orientation: CaptureOrientation) -> Bool {
         guard !session.isRunning, session.inputs.isEmpty else { return true }
         session.beginConfiguration()
         defer { session.commitConfiguration() }
@@ -127,9 +146,11 @@ final class CameraService: NSObject, ObservableObject,
         videoOutput.alwaysDiscardsLateVideoFrames = true
         videoOutput.setSampleBufferDelegate(self, queue: sampleQueue)
         session.addOutput(videoOutput)
-        // The UI is portrait only; deliver upright frames so the clip needs no rotation.
-        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
-            connection.videoRotationAngle = 90
+        // Deliver upright frames in the style's format, so the clip needs no rotation and the edit no crop.
+        let held = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil).videoRotationAngleForHorizonLevelCapture
+        let angle = orientation.rotationAngle(near: held)
+        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
         }
         videoDevice = device
         zoomMultiplier = device.displayVideoZoomFactorMultiplier
@@ -145,8 +166,8 @@ final class CameraService: NSObject, ObservableObject,
             frameOutput.alwaysDiscardsLateVideoFrames = true
             frameOutput.setSampleBufferDelegate(self, queue: frameQueue)
             session.addOutput(frameOutput)
-            if let connection = frameOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+            if let connection = frameOutput.connection(with: .video), connection.isVideoRotationAngleSupported(angle) {
+                connection.videoRotationAngle = angle
             }
         }
 
