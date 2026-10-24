@@ -58,6 +58,15 @@ final class ContractsTests: XCTestCase {
         XCTAssertEqual(try StylePresets.bundled().presets.count, 4)
     }
 
+    func testBundledMediaExists() {
+        for style in Style.allCases {
+            let track = try! StylePresets.bundled()[style].musicTrack
+            XCTAssertNotNil(BundledResources.musicURL(track: track), "no music for \(track)")
+        }
+        XCTAssertNotNil(BundledResources.blackClipURL(portrait: false))
+        XCTAssertNotNil(BundledResources.blackClipURL(portrait: true))
+        XCTAssertFalse(BundledResources.sampleClipURLs.isEmpty)
+    }
 
     func testSidecarToClipInfo() throws {
         let sidecar = try Fixtures.decode(ClipSidecar.self, "examples/clip_sidecar_m_03.json")
