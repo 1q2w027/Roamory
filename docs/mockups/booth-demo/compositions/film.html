@@ -79,6 +79,145 @@
       z-index: 50;
     }
 
+    /* App screens, rebuilt from ios/Roamory/Roamory with the app's copy; type about 1.2x the app's for distance. */
+    .scr {
+      position: absolute;
+      inset: 0;
+      color: #fff;
+    }
+    .scr .in {
+      position: absolute;
+      inset: 0;
+      padding: 74px 26px 34px;
+      display: flex;
+      flex-direction: column;
+    }
+    .bar { display: flex; gap: 6px; margin-bottom: 18px; }
+    .bar i { display: block; height: 5px; width: 30px; border-radius: 3px; background: var(--chip); }
+    .bar i.on { background: linear-gradient(90deg, var(--g), var(--g2)); }
+    .bar i.cur { flex: 1; }
+    .eyebrow { font-size: 14px; font-weight: 800; letter-spacing: 2.4px; color: var(--g2); }
+    .title { font-size: 34px; font-weight: 800; line-height: 1.12; margin: 10px 0 20px; }
+    .btn {
+      margin-top: auto;
+      height: 62px;
+      border-radius: 31px;
+      background: linear-gradient(90deg, var(--g), var(--g2));
+      color: var(--ink);
+      font-size: 21px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(3, 252, 115, 0.35);
+    }
+
+    #scr-welcome .in { align-items: center; justify-content: center; text-align: center; padding-bottom: 120px; }
+    #scr-welcome .wash { position: absolute; inset: 0; background: radial-gradient(60% 40% at 50% 38%, rgba(3, 252, 115, 0.22), transparent); }
+    #scr-welcome .badge {
+      width: 170px; height: 170px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--g), var(--g2));
+      box-shadow: 0 12px 40px rgba(3, 252, 115, 0.6);
+      display: flex; align-items: center; justify-content: center; font-size: 76px;
+    }
+    #scr-welcome .chip {
+      margin-top: 34px; padding: 9px 16px; border-radius: 20px;
+      background: rgba(3, 252, 115, 0.18); border: 1px solid rgba(3, 252, 115, 0.4);
+      color: var(--g2); font-size: 16px; font-weight: 800;
+    }
+    #scr-welcome h2 { margin-top: 18px; font-size: 40px; font-weight: 900; line-height: 1.08; }
+    #scr-welcome p { margin-top: 14px; font-size: 20px; line-height: 1.4; color: var(--mute); }
+
+    .styles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; flex: 1; margin-bottom: 18px; }
+    .style {
+      position: relative; border-radius: 22px; padding: 16px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      font-size: 21px; font-weight: 900;
+    }
+    .style small { font-size: 15px; font-weight: 700; opacity: 0.85; }
+    .style .play {
+      position: absolute; top: 12px; right: 12px; width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(0, 0, 0, 0.35); font-size: 13px; display: flex; align-items: center; justify-content: center;
+    }
+    .style .ring { position: absolute; inset: -4px; border-radius: 26px; border: 3px solid var(--g); box-shadow: 0 0 22px rgba(3, 252, 115, 0.7); opacity: 0; }
+
+    #globe-wrap { position: relative; width: 340px; height: 340px; margin: 6px auto 18px; }
+    #globe-wrap .halo { position: absolute; inset: -40px; border-radius: 50%; background: radial-gradient(closest-side, rgba(59, 130, 246, 0.35), transparent); }
+    #globe { position: absolute; inset: 0; overflow: visible; }
+    #kyoto { position: absolute; width: 0; height: 0; }
+    #kyoto .head { position: absolute; left: -9px; top: -34px; width: 18px; height: 18px; border-radius: 50%; background: var(--g); box-shadow: 0 0 14px var(--g); }
+    #kyoto .stalk { position: absolute; left: -1.5px; top: -18px; width: 3px; height: 18px; background: rgba(255, 255, 255, 0.8); }
+    #kyoto .pulse { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--g); }
+    .chips { display: flex; gap: 8px; }
+    .chips span { padding: 9px 15px; border-radius: 20px; background: var(--chip); font-size: 17px; font-weight: 800; }
+    .chips span.sel { background: linear-gradient(90deg, var(--g), var(--g2)); color: var(--ink); }
+    .city { margin-top: 14px; padding: 16px 18px; border-radius: 18px; background: var(--card); border: 2px solid var(--g); display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; }
+    .city small { color: var(--mute); font-size: 16px; font-weight: 700; }
+
+    .deck { position: relative; flex: 1; margin: 6px 6px 22px; }
+    .card {
+      position: absolute; inset: 0; border-radius: 30px; overflow: hidden; padding: 24px;
+      display: flex; flex-direction: column; justify-content: flex-end;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+    .card .sheen { position: absolute; inset: 0; background: linear-gradient(rgba(255, 255, 255, 0.18), transparent 50%); }
+    .card .emoji { position: absolute; top: 26px; left: 24px; font-size: 80px; }
+    .card b { position: relative; font-size: 40px; font-weight: 900; }
+    .card span { position: relative; font-size: 19px; font-weight: 700; margin-top: 4px; }
+    .card em { position: relative; font-style: normal; font-size: 15px; opacity: 0.85; margin-top: 10px; }
+    .dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 18px; }
+    .dots i { width: 9px; height: 9px; border-radius: 5px; background: var(--chip); }
+
+    .counter { display: flex; align-items: center; justify-content: center; gap: 28px; margin-top: 30px; }
+    .counter .step { width: 58px; height: 58px; border-radius: 50%; background: var(--chip); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 900; }
+    .counter .num { text-align: center; min-width: 150px; }
+    #days-num {
+      font-size: 112px; font-weight: 900; line-height: 1;
+      background: linear-gradient(90deg, var(--g), var(--g2)); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .counter .unit { font-size: 22px; font-weight: 800; }
+    .ruler { position: relative; height: 56px; margin: 30px -26px 0; overflow: hidden; }
+    .ruler .mark { position: absolute; left: 50%; top: 0; width: 3px; height: 34px; margin-left: -1.5px; background: var(--g); border-radius: 2px; }
+    #ruler-ticks { position: absolute; left: 0; top: 4px; height: 50px; display: flex; }
+    #ruler-ticks i { flex: none; width: 34px; display: flex; flex-direction: column; align-items: center; font-style: normal; }
+    #ruler-ticks i::before { content: ""; width: 2px; height: 16px; background: #55555f; border-radius: 1px; }
+    #ruler-ticks i.week::before { height: 28px; }
+    .mount { margin-top: 26px; padding: 16px; border-radius: 18px; background: var(--card); display: flex; gap: 14px; align-items: center; }
+    .mount .ph { flex: none; width: 34px; height: 60px; border-radius: 9px; border: 3px solid var(--g2); position: relative; }
+    .mount .ph::after { content: ""; position: absolute; top: 6px; left: 50%; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: var(--g); }
+    .mount b { display: block; font-size: 17px; }
+    .mount span { font-size: 15px; color: var(--mute); }
+
+    /* Camera preview with the mount level (LevelOverlay.swift: a horizon line against a fixed crosshair). */
+    #scr-level .view { position: absolute; inset: 0; background: linear-gradient(#7fa7d4 0%, #c9dcec 46%, #5d7f58 47%, #2f4630 100%); }
+    #scr-level .hill { position: absolute; left: -40px; right: -40px; top: 360px; height: 180px; border-radius: 50% 50% 0 0; background: #47683f; }
+    #scr-level .sun { position: absolute; left: 250px; top: 150px; width: 70px; height: 70px; border-radius: 50%; background: #fff4d6; box-shadow: 0 0 50px #fff4d6; }
+    .stub { position: absolute; top: 451px; width: 24px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.85); }
+    .cross { position: absolute; left: 50%; top: 452px; }
+    .cross::before { content: ""; position: absolute; left: -14px; top: -1px; width: 28px; height: 2px; background: rgba(255, 255, 255, 0.9); }
+    .cross::after { content: ""; position: absolute; left: -1px; top: -22px; width: 2px; height: 44px; background: rgba(255, 255, 255, 0.9); }
+    #horizon { position: absolute; left: 100px; top: 438px; width: 202px; height: 28px; }
+    #horizon .line { position: absolute; left: 0; right: 0; top: 12px; height: 3px; border-radius: 2px; background: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.6); }
+    #horizon .dot { position: absolute; left: 50%; top: 6px; width: 16px; height: 16px; margin-left: -8px; border-radius: 50%; border: 2px solid #fff; }
+    .lvl-pill { position: absolute; left: 50%; top: 600px; height: 44px; padding: 0 18px; border-radius: 22px; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; gap: 8px; font-size: 19px; font-weight: 800; white-space: nowrap; }
+    #lvl-ok { color: var(--g); }
+
+    /* The dark recording screen (RecordingCurtain.swift). */
+    #scr-curtain .black { position: absolute; inset: 0; background: #000; }
+    #scr-curtain .in { align-items: center; justify-content: center; text-align: center; }
+    #scr-curtain .rec { font-size: 22px; font-weight: 800; color: var(--red); display: flex; align-items: center; gap: 10px; }
+    #scr-curtain .rec i { width: 13px; height: 13px; border-radius: 50%; background: var(--red); }
+    #scr-curtain .dim { margin-top: 14px; font-size: 17px; line-height: 1.5; color: #8e8e99; }
+    #scr-curtain .hint { position: absolute; left: 30px; right: 30px; bottom: 64px; font-size: 15px; line-height: 1.45; color: #7a7a85; }
+
+    /* Chest mount: one strap behind the phone and clamps on its sides. */
+    #mount { position: absolute; inset: 0; transform: translateZ(-24px); }
+    #mount .strap { position: absolute; left: 150px; width: 130px; top: -700px; height: 2300px; border-radius: 12px; background: linear-gradient(90deg, #1d1d24, #2a2a33 50%, #1d1d24); }
+    #mount .strap::before, #mount .strap::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(#45454f 0 10px, transparent 10px 18px); }
+    #mount .strap::before { left: 10px; }
+    #mount .strap::after { right: 10px; }
+    #mount .clamp { position: absolute; top: 420px; width: 40px; height: 92px; border-radius: 12px; background: #2e2e37; }
+
     /* Roamy, rebuilt from ios/Roamory/Roamory/Ask/RoamyMascot.swift. */
     #roamy {
       position: absolute;
@@ -136,6 +275,11 @@
 
     <div id="stage">
       <div id="phone">
+        <div id="mount" data-layout-ignore>
+          <div class="strap"></div>
+          <div class="clamp" style="left: -22px"></div>
+          <div class="clamp" style="right: -22px"></div>
+        </div>
         <div class="edge"></div>
         <div class="edge"></div>
         <div class="edge"></div>
@@ -143,6 +287,114 @@
         <div class="edge"></div>
         <div class="body">
           <div id="screen">
+            <!-- Beat 1: the first intro page (WelcomeView.swift). -->
+            <div id="scr-welcome" class="scr clip" data-start="0" data-duration="4.1" data-track-index="2">
+              <div class="wash"></div>
+              <div class="in">
+                <div class="badge">👋</div>
+                <div class="chip">👋 Nice to meet you</div>
+                <h2>Welcome to Roamory</h2>
+                <p>Roamory films your trip so you can put the phone away and actually enjoy it.</p>
+              </div>
+            </div>
+
+            <!-- Beat 2: setup steps 1–4 (OnboardingView.swift). -->
+            <div id="scr-style" class="scr clip" data-start="4" data-duration="1.6" data-track-index="2">
+              <div class="in">
+                <div class="bar"><i class="on cur"></i><i></i><i></i><i></i><i></i></div>
+                <div class="eyebrow">1 OF 5 · YOUR STYLE</div>
+                <div class="title">Which one feels like your trip?</div>
+                <div class="styles">
+                  <div class="style" id="style-reels" style="background: linear-gradient(160deg, #f857a6, #7b2ff7)"><div class="ring"></div><div class="play">▶</div>Reels<small>fast cuts</small></div>
+                  <div class="style dimmable" style="background: linear-gradient(160deg, #2a3d66, #0b1020)"><div class="play">▶</div>Cinematic<small>slow, wide</small></div>
+                  <div class="style dimmable" style="background: linear-gradient(160deg, #6b8f71, #2f4a37)"><div class="play">▶</div>Documentary<small>calm, captions</small></div>
+                  <div class="style dimmable" style="background: linear-gradient(160deg, #8aa2d8, #4a5d8e)"><div class="play">▶</div>Vlog<small>casual</small></div>
+                </div>
+                <div class="btn" id="btn-style">Continue</div>
+              </div>
+            </div>
+            <div id="scr-globe" class="scr clip" data-start="5.6" data-duration="1.4" data-track-index="2">
+              <div class="in">
+                <div class="bar"><i class="on"></i><i class="on cur"></i><i></i><i></i><i></i></div>
+                <div class="eyebrow">2 OF 5 · DESTINATION</div>
+                <div class="title">Where to?</div>
+                <div id="globe-wrap">
+                  <div class="halo"></div>
+                  <svg id="globe" viewBox="0 0 340 340">
+                    <defs>
+                      <radialGradient id="ocean" cx="40%" cy="35%" r="70%">
+                        <stop offset="0" stop-color="#1a2e54" />
+                        <stop offset="1" stop-color="#0d1a33" />
+                      </radialGradient>
+                    </defs>
+                    <circle cx="170" cy="170" r="160" fill="url(#ocean)" stroke="rgba(59,130,246,0.25)" />
+                    <g id="globe-grid" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="1"></g>
+                    <g id="globe-land"></g>
+                  </svg>
+                  <div id="kyoto"><div class="pulse"></div><div class="stalk"></div><div class="head"></div></div>
+                </div>
+                <div class="chips"><span id="chip-asia" class="sel">Asia</span><span id="chip-japan">Japan</span><span id="chip-kyoto">Kyoto</span></div>
+                <div class="city" id="city-kyoto">Kyoto <small>Japan</small></div>
+              </div>
+            </div>
+            <div id="scr-trip" class="scr clip" data-start="7" data-duration="1.4" data-track-index="2">
+              <div class="in">
+                <div class="bar"><i class="on"></i><i class="on"></i><i class="on cur"></i><i></i><i></i></div>
+                <div class="eyebrow">3 OF 5 · THE TRIP</div>
+                <div class="title">Who's coming along?</div>
+                <div class="deck">
+                  <div class="card" id="card-friends" style="background: linear-gradient(135deg, #ffc371, #ff5f6d)">
+                    <div class="sheen"></div><div class="emoji">🎉</div><b>Friends</b><span>The group chat, in person</span><em>Swipe for more · Family, Solo, School trip…</em>
+                  </div>
+                  <div class="card" id="card-honeymoon" style="background: linear-gradient(135deg, #f857a6, #ff5858)">
+                    <div class="sheen"></div><div class="emoji">💍</div><b>Honeymoon</b><span>Just the two of you</span><em>Swipe for more · Friends, Family, Solo…</em>
+                  </div>
+                </div>
+                <div class="dots"><i id="dot-1"></i><i id="dot-2"></i><i></i><i></i><i></i><i></i></div>
+                <div class="btn">Continue</div>
+              </div>
+            </div>
+            <div id="scr-days" class="scr clip" data-start="8.4" data-duration="1.75" data-track-index="2">
+              <div class="in">
+                <div class="bar"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on cur"></i><i></i></div>
+                <div class="eyebrow">4 OF 5 · HOW LONG</div>
+                <div class="title">How many days?</div>
+                <div class="counter">
+                  <div class="step">−</div>
+                  <div class="num"><div id="days-num">1</div><div class="unit" id="days-unit">day</div></div>
+                  <div class="step" id="days-plus">+</div>
+                </div>
+                <div class="ruler">
+                  <div id="ruler-ticks"></div>
+                  <div class="mark"></div>
+                </div>
+                <div class="mount">
+                  <div class="ph"></div>
+                  <div><b>Chest mount, camera facing out</b><span>Hold it upright: Reels records 9:16.</span></div>
+                </div>
+                <div class="btn" id="btn-days">Continue</div>
+              </div>
+            </div>
+
+            <!-- Beat 3: the camera opens with the level, then the screen goes dark. -->
+            <div id="scr-level" class="scr clip" data-start="10" data-duration="2.9" data-track-index="2">
+              <div class="view"><div class="sun"></div><div class="hill"></div></div>
+              <div class="stub" style="left: 52px"></div>
+              <div class="stub" style="right: 52px"></div>
+              <div class="cross"></div>
+              <div id="horizon"><div class="line"></div><div class="dot"></div></div>
+              <div class="lvl-pill" id="lvl-tilt" style="margin-left: -62px">Tilt 7° ↺</div>
+              <div class="lvl-pill" id="lvl-ok" style="margin-left: -58px">✓ Level</div>
+            </div>
+            <div id="scr-curtain" class="scr clip" data-start="12.2" data-duration="12.8" data-track-index="3">
+              <div class="black"></div>
+              <div class="in">
+                <div class="rec"><i></i>Recording</div>
+                <div class="dim">Screen at 0% brightness<br />Tap and hold to wake</div>
+                <div class="hint">Shutter remote, volume key or AirPods: press to start or stop saving</div>
+              </div>
+            </div>
+
             <div id="island"></div>
           </div>
         </div>
@@ -276,6 +528,149 @@
         tl.to('#root .eyes', { scaleY: 0.08, duration: 0.07, ease: 'power1.in', svgOrigin: '70 54' }, t);
         tl.to('#root .eyes', { scaleY: 1, duration: 0.09, ease: 'power1.out', svgOrigin: '70 54' }, t + 0.1);
       });
+
+      // ---- Globe: orthographic projection of the app's continent outlines, redrawn from a tweened view centre.
+      const R = 160, C = 170, RAD = Math.PI / 180;
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const land = [];
+      Object.entries(window.ROAMORY_GLOBE).forEach(([id, polys]) => {
+        polys.forEach((poly) => {
+          const p = document.createElementNS(svgNS, 'path');
+          p.setAttribute('fill', '#3d6b52');
+          p.setAttribute('stroke', 'rgba(61,107,82,0.6)');
+          document.getElementById('globe-land').appendChild(p);
+          land.push({ id, poly, el: p });
+        });
+      });
+      const grid = [];
+      for (let lat = -60; lat <= 60; lat += 30) grid.push(Array.from({ length: 73 }, (_, i) => [lat, -180 + i * 5]));
+      for (let lon = -180; lon < 180; lon += 30) grid.push(Array.from({ length: 37 }, (_, i) => [-90 + i * 5, lon]));
+      const gridEls = grid.map(() => {
+        const p = document.createElementNS(svgNS, 'path');
+        document.getElementById('globe-grid').appendChild(p);
+        return p;
+      });
+      function project(lat, lon, lat0, lon0) {
+        const φ = lat * RAD, λ = (lon - lon0) * RAD, φ0 = lat0 * RAD;
+        let x = Math.cos(φ) * Math.sin(λ);
+        let y = Math.cos(φ0) * Math.sin(φ) - Math.sin(φ0) * Math.cos(φ) * Math.cos(λ);
+        const front = Math.sin(φ0) * Math.sin(φ) + Math.cos(φ0) * Math.cos(φ) * Math.cos(λ) > 0;
+        if (!front) { const n = Math.hypot(x, y) || 1; x /= n; y /= n; } // hidden points ride the rim
+        return [C + R * x, C - R * y, front];
+      }
+      const globeView = { lat: 12, lon: -20, lit: 0 };
+      function drawGlobe() {
+        const { lat, lon, lit } = globeView;
+        land.forEach(({ id, poly, el }) => {
+          const pts = poly.map(([a, b]) => project(a, b, lat, lon));
+          el.setAttribute('d', pts.some((p) => p[2]) ? 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L') + 'Z' : '');
+          if (id === 'asia') el.setAttribute('fill', lit > 0.5 ? '#03fc73' : '#3d6b52');
+        });
+        grid.forEach((line, i) => {
+          let d = '', pen = false;
+          line.forEach(([a, b]) => {
+            const [x, y, front] = project(a, b, lat, lon);
+            if (front) { d += (pen ? 'L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1); pen = true; } else pen = false;
+          });
+          gridEls[i].setAttribute('d', d);
+        });
+      }
+      drawGlobe();
+      const GLOBE_END = { lat: 30, lon: 128 };
+      const [kx, ky] = project(35.0, 135.8, GLOBE_END.lat, GLOBE_END.lon);
+      gsap.set('#kyoto', { left: kx, top: ky });
+
+      // Ruler ticks for the days step: one per day, a taller tick every week.
+      const ticks = document.getElementById('ruler-ticks');
+      for (let d = 1; d <= 30; d++) {
+        const i = document.createElement('i');
+        if (d % 7 === 0) i.className = 'week';
+        ticks.appendChild(i);
+      }
+      const TICK = 34, RULER_MID = 201; // the ruler spans the 402 px screen; its mark is at the middle
+
+      // Each setup screen slides in from the right and out to the left, like the app's step change.
+      function stepIn(sel, at) {
+        tl.fromTo(sel + ' .in', { x: 70, opacity: 0 }, { x: 0, opacity: 1, duration: 0.32, ease: 'power3.out' }, at);
+      }
+      function stepOut(sel, at) {
+        tl.to(sel + ' .in', { x: -70, opacity: 0, duration: 0.22, ease: 'power3.in' }, at);
+      }
+      function tap(sel, at) {
+        tl.to(sel, { scale: 0.93, duration: 0.06, ease: 'power2.out' }, at);
+        tl.to(sel, { scale: 1, duration: 0.13, ease: 'back.out(2)' }, at + 0.06);
+      }
+
+      // ---- Beat 1 · hook: the welcome page builds while the phone turns slowly.
+      tl.set('#mount', { opacity: 0 }, 0);
+      tl.set('#roamy', { x: 0, y: 0, scale: 1 }, 0);
+      tl.fromTo('#scr-welcome .in > *', { opacity: 0, y: 26, filter: 'blur(6px)' },
+        { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.6, stagger: 0.1, ease: 'expo.out' }, 0.2);
+      tl.fromTo('#scr-welcome .wash', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'power2.out' }, 0.1);
+      tl.to('#phone', { rotationY: -11, duration: 3.6, ease: 'none' }, 0.2);
+
+      // ---- Beat 2 · setup: push in to a flat phone, then the four steps.
+      tl.to('#phone', { rotationY: 0, rotationX: 0, rotationZ: 0, scale: 1.12, x: -20, duration: 0.6, ease: 'power2.inOut' }, 3.8);
+      tl.to('#glow', { x: -60, y: 40, duration: 0.6, ease: 'power2.inOut' }, 3.8);
+      tl.to('#roamy', { x: -10, y: 600, scale: 0.8, duration: 0.7, ease: 'power3.inOut' }, 3.75);
+      tl.to('#scr-welcome .in', { x: -70, opacity: 0, duration: 0.22, ease: 'power3.in' }, 3.85);
+
+      stepIn('#scr-style', 4.05);
+      tl.to('#scr-style .dimmable', { opacity: 0.5, duration: 0.25 }, 4.75);
+      tl.fromTo('#style-reels .ring', { opacity: 0 }, { opacity: 1, duration: 0.2 }, 4.75);
+      tl.to('#style-reels', { scale: 1.05, duration: 0.18, ease: 'power2.out' }, 4.75);
+      tl.to('#style-reels', { scale: 1, duration: 0.3, ease: 'back.out(2)' }, 4.93);
+      tap('#btn-style', 5.25);
+      stepOut('#scr-style', 5.36);
+
+      stepIn('#scr-globe', 5.6);
+      tl.fromTo(globeView, { lat: 12, lon: -20 }, { ...GLOBE_END, duration: 0.85, ease: 'power3.out', onUpdate: drawGlobe }, 5.62);
+      tl.fromTo(globeView, { lit: 0 }, { lit: 1, duration: 0.01, onUpdate: drawGlobe }, 6.3);
+      tl.fromTo('#kyoto .head, #kyoto .stalk', { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.3, ease: 'bounce.out' }, 6.4);
+      tl.fromTo('#kyoto .pulse', { opacity: 0.9, scale: 0.4 }, { opacity: 0, scale: 2.4, duration: 0.5, ease: 'power2.out' }, 6.55);
+      tl.fromTo('#chip-japan, #chip-kyoto', { opacity: 0.35 }, { opacity: 1, duration: 0.15, stagger: 0.1 }, 6.45);
+      tl.fromTo('#chip-kyoto', { background: '#22222c', color: '#ffffff' }, { background: '#03fc73', color: '#02200f', duration: 0.15 }, 6.6);
+      tl.fromTo('#city-kyoto', { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power3.out' }, 6.6);
+      stepOut('#scr-globe', 6.76);
+
+      stepIn('#scr-trip', 7.0);
+      // The card behind shows only its colour until the top card leaves.
+      tl.set('#card-friends', { scale: 0.92, y: 18 }, 7.0);
+      tl.fromTo('#card-friends > *', { opacity: 0 }, { opacity: 1, duration: 0.2 }, 7.7);
+      tl.fromTo('#card-honeymoon', { x: 0, rotation: 0 }, { x: -460, rotation: -18, duration: 0.42, ease: 'power3.in' }, 7.5);
+      tl.to('#card-friends', { scale: 1, y: 0, duration: 0.4, ease: 'back.out(1.6)' }, 7.75);
+      tl.fromTo('#dot-1', { width: 22, background: '#f857a6' }, { width: 9, background: '#22222c', duration: 0.2 }, 7.8);
+      tl.fromTo('#dot-2', { width: 9, background: '#22222c' }, { width: 22, background: '#ffc371', duration: 0.2 }, 7.8);
+      stepOut('#scr-trip', 8.16);
+
+      stepIn('#scr-days', 8.4);
+      tl.set('#ruler-ticks', { x: RULER_MID - TICK / 2 }, 8.4);
+      [2, 3, 4].forEach((d, i) => {
+        const at = 8.75 + i * 0.2;
+        tap('#days-plus', at);
+        tl.set('#days-num', { textContent: String(d) }, at + 0.05);
+        tl.set('#days-unit', { textContent: 'days' }, at + 0.05);
+        tl.to('#ruler-ticks', { x: RULER_MID - TICK / 2 - (d - 1) * TICK, duration: 0.18, ease: 'power2.out' }, at + 0.05);
+      });
+      tap('#btn-days', 9.55);
+      tl.to('#scr-days .in', { opacity: 0, duration: 0.25, ease: 'power2.in' }, 9.75);
+
+      // ---- Beat 3 · start: pull back onto the chest mount, the level settles, the screen goes dark.
+      tl.to('#phone', { scale: 1, x: 0, rotationY: -14, rotationX: 4, rotationZ: -7, duration: 0.7, ease: 'power2.inOut' }, 9.85);
+      tl.to('#glow', { x: 0, y: 0, duration: 0.7, ease: 'power2.inOut' }, 9.85);
+      tl.fromTo('#mount', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 10.0);
+      tl.fromTo('#scr-level', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 10.0);
+      tl.set('#lvl-ok', { opacity: 0 }, 10.0);
+      tl.fromTo('#horizon', { rotation: 7, y: 26 }, { rotation: 0, y: 0, duration: 0.9, ease: 'power3.out' }, 10.8);
+      tl.to('#phone', { rotationZ: 0, duration: 0.9, ease: 'power3.out' }, 10.8);
+      tl.set('#lvl-tilt', { opacity: 0 }, 11.6);
+      tl.set('#lvl-ok', { opacity: 1 }, 11.6);
+      tl.set('#horizon .line', { background: '#03fc73' }, 11.6);
+      tl.set('#horizon .dot', { borderColor: '#03fc73', background: '#03fc73' }, 11.6);
+      tl.fromTo('#lvl-ok', { scale: 0.85 }, { scale: 1, duration: 0.3, ease: 'back.out(2)' }, 11.6);
+      tl.fromTo('#scr-curtain .black', { opacity: 0 }, { opacity: 1, duration: 0.7, ease: 'power2.inOut' }, 12.2);
+      tl.fromTo('#scr-curtain .in', { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' }, 12.9);
+      tl.to('#phone', { rotationY: -19, duration: 2.0, ease: 'none' }, 13.0);
 
       window.__timelines['film'] = tl;
     })();
