@@ -97,13 +97,14 @@ struct ContentView: View {
         .overlay {
             if detection.isRunning {
                 RecordingCurtain(summary: detection.summary, buttonPresses: detection.buttonPresses,
-                                 awake: $curtainAwake, lastTouch: lastTouch, paused: showDetectionSettings)
+                                 awake: $curtainAwake, lastTouch: lastTouch, paused: showDetectionSettings || confirmBack)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
-        // Closing a sheet restarts the 10 s countdown rather than going dark at once.
+        // Closing a sheet or the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: showDetectionSettings) { lastTouch = .now }
+        .onChange(of: confirmBack) { lastTouch = .now }
         .sheet(isPresented: $showDetectionSettings, onDismiss: {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
