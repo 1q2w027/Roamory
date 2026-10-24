@@ -21,8 +21,6 @@
     timeout = "5s"
     grace_period = "60s"
 
-# The most a new Fly org allows (2 shared cores). Once billing lifts the limits, performance-4x with
-# 8gb renders much faster.
 [[vm]]
-  size = "shared-cpu-2x"
-  memory = "4gb"
+  size = "performance-4x"
+  memory = "8gb"

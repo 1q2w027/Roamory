@@ -466,7 +466,7 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 - Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
-- Is the Remotion render service on Fly.io (2 shared vCPU, which throttle after a burst, shared with the backend, decided in §2) fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
+- Is the Remotion render service on Fly.io (4 dedicated vCPU shared with the backend, decided in §2) fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
 - Does our 4-person team need a Remotion company license (free for individuals and companies of up to 3)?
 - Does the user need rendering to continue if they leave the app?
 - Are location and audio signals worth including in the MVP?
