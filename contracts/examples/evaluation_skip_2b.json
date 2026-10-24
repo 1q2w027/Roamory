@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "keep": false,
+  "s2": 0.45,
+  "tier": "2b",
+  "latency_ms": 5210,
+  "verdict": {
+    "event_type": "other",
+    "matched_preferences": [],
+    "preference_alignment": 0.2,
+    "visual_interest": 0.6,
+    "significance": 0.5,
+    "visual_quality": 0.9,
+    "save_decision": "skip",
+    "best_frame_index": 1,
+    "window_hint_s": {"pre": 15, "post": 15},
+    "description": "Crowded train platform with people waiting",
+    "reason": "Transit scene; little to keep for this trip"
+  }
+}
