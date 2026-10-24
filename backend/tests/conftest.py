@@ -9,6 +9,8 @@ from app.config import REPO_ROOT, Settings, get_settings
 from app.main import app
 from app.plan import router as plan_router
 from app.plan.prompt import TOOL_NAME
+from app.evaluate.budget import BudgetBook
+from app.evaluate.service import Evaluator
 from app.plan.service import Planner
 
 EXAMPLES = REPO_ROOT / "contracts" / "examples"
@@ -61,6 +63,7 @@ def client(settings, fake_model):
     plan_router._plan_counts.clear()
     app.dependency_overrides[get_settings] = lambda: settings
     app.state.planner = Planner(fake_model, settings)
+    app.state.evaluator = Evaluator(fake_model, settings, BudgetBook(settings))
     yield TestClient(app)  # not entered as a context manager, so lifespan (real client) doesn't run
     app.dependency_overrides.clear()
 
@@ -72,4 +75,33 @@ def multipart(plan_request: dict, thumbs: bool = True) -> dict:
             for k in range(c["thumbnail_count"]):
                 name = f"{c['moment_id']}_{k}.jpg"
                 files.append((name, (name, b"\xff\xd8\xff\xe0fake-jpeg", "image/jpeg")))
+    return {"files": files, "headers": {"Authorization": f"Bearer {TOKEN}"}}
+
+
+def verdict(**kw):
+    """A valid Stage 2 verdict (contracts/evaluation verdict) with overrides."""
+    from app.evaluate.models import ModelVerdict
+
+    base = dict(
+        event_type="scenery", matched_preferences=["scenery"], preference_alignment=0.8,
+        visual_interest=0.6, significance=0.5, visual_quality=0.9, save_decision="save",
+        best_frame_index=2, window_hint_s={"pre": 15, "post": 15},
+        description="A temple gate at dusk", reason="Scenic landmark",
+    )
+    return ModelVerdict.model_validate(base | kw)
+
+
+JPEG = b"\xff\xd8\xff\xe0fake-jpeg"
+
+
+def ok(**kw) -> SimpleNamespace:
+    """A model response whose structured output is verdict(**kw)."""
+    return text_response(json.dumps(verdict(**kw).model_dump()))
+
+
+def evaluate_multipart(ctx: dict, n_frames: int = 3, frame: bytes = JPEG, names: list[str] | None = None) -> dict:
+    """POST /v1/evaluate kwargs: the context part plus frame parts (frame_0.jpg ... by default)."""
+    files = [("context", ("context.json", json.dumps(ctx).encode(), "application/json"))]
+    for name in names or [f"frame_{k}.jpg" for k in range(n_frames)]:
+        files.append((name, (name, frame, "image/jpeg")))
     return {"files": files, "headers": {"Authorization": f"Bearer {TOKEN}"}}

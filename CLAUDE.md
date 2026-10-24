@@ -27,5 +27,6 @@ Add run and test commands here as each part is built.
 - Backend setup: `cd backend && python3.11 -m venv .venv && .venv/bin/pip install -e ".[dev]"` (reads the repo-root `.env`).
 - Backend tests: `cd backend && .venv/bin/pytest`.
 - Backend run: `cd backend && .venv/bin/uvicorn app.main:app --reload`. Try it: `curl -H "Authorization: Bearer $APP_TOKEN" -F "request=@../contracts/examples/plan_request_reels.json" -F "m_01_0.jpg=@thumb.jpg" … localhost:8000/v1/plan` (one `{moment_id}_{k}.jpg` part per thumbnail).
+- Try `/v1/evaluate`: `curl -H "Authorization: Bearer $APP_TOKEN" -F "context=@../contracts/examples/evaluate_context_select.json" -F "frame_0.jpg=@f0.jpg" -F "frame_1.jpg=@f1.jpg" -F "frame_2.jpg=@f2.jpg" localhost:8000/v1/evaluate` (1-3 JPEG frames, oldest first).
 - iOS Edit package (`ios/RoamoryKit`, needs full Xcode for XCTest): `cd ios/RoamoryKit && swift test` on the Mac, or `xcodebuild test -scheme RoamoryKit -destination 'platform=iOS Simulator,name=iPhone 17'`. After changing `contracts/style_presets.json`, run `ios/RoamoryKit/scripts/sync-contracts.sh`.
 - Render service (`render/`, lands in phase R1 of `docs/remotion-plan.md`): `cd render && npm ci && npm test`; run with `npm start` (port from `render/.env`); `scripts/smoke.sh` renders each example spec and checks its duration against `contracts/examples/timeline_*.json`.
