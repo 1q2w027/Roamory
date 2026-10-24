@@ -14,7 +14,7 @@ Phone-side logic as a local Swift package: the Edit pipeline (TRD §9, Phase 2 o
 
 ## Add it to the app
 
-In Xcode: File > Add Package Dependencies… > Add Local… > `ios/RoamoryKit`, then add the `RoamoryKit` library to the app target. To try the renderer before capture exists, show `RenderLabView()` from a debug-only button. It renders the bundled samples, or any `.mp4` you put in the app's Documents folder. That folder shows in Files once the app's Info.plist has `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace`.
+The Roamary app already links it as a local package (File > Add Package Dependencies… > Add Local… > `ios/RoamoryKit`). In Debug builds the app's top-right menu opens `RenderLabView()`. It renders the bundled samples, or any `.mp4` you put in the app's Documents folder. That folder shows in Files once the app's Info.plist has `UIFileSharingEnabled` and `LSSupportsOpeningDocumentsInPlace`.
 
 The cloud planner is used only when the app's Info.plist has `RoamoryAPIBaseURL` and `RoamoryAppToken`. Set them from an untracked `.xcconfig`, never commit the token. Without them, or with cloud analysis off, the fallback planner runs.
 
@@ -31,6 +31,20 @@ await coordinator.run()   // phase: planning -> rendering(progress) -> completed
 The video renders on the phone with AVFoundation unless `edit_config.json` has `"render_engine": "remotion"`, the Info.plist has `RoamoryRenderBaseURL` (same `RoamoryAppToken`) and cloud analysis is on. Then `RemoteRenderClient` trims the clips the spec uses, uploads them to the render service (`render/`), polls the job and downloads the MP4. On any error, or after `remote_render_timeout_s`, the coordinator renders on the phone instead; `GeneratedVideo.renderEngine` records which engine made the file. In Render Lab, the engine picker's "Both" renders each style on each engine to compare times.
 
 `ClipInfo(sidecar:moment:tripFolder:)` builds the input from a `clips/{id}.json` sidecar plus the Moment record's fields.
+
+### From a recording
+
+The app (`ios/Roamary`) makes the video from a finished recording with `TripPipeline`, until the live rolling buffer exists. It moves the file into `Documents/Trips/{tripId}/source.*`, runs it through `MomentDetector` (`FileDetection`, with the marked moments as button presses), cuts each kept moment into `clips/{id}.mp4` plus its sidecar (`ClipExtractor`, windows from `pre_s`/`post_s`, merged up to `max_clip_s`), then runs `EditCoordinator` into `video/`:
+
+```swift
+let pipeline = TripPipeline(settings: TripSettings.load())
+await pipeline.start(video: recordingURL, buttonPressesMs: marks)
+// phase: finding(progress) -> editing (pipeline.coordinator has planning/rendering/completed/error) or failed
+await pipeline.retry()                    // after an error
+await pipeline.rerender(style: .reels)    // same clips, another style
+```
+
+`EvaluateClient.fromBundle` reads the same Info.plist keys as the planner; without them, or with cloud analysis off, only moments with a local score of at least `local_fallback_min` are kept besides marked ones, so a recording with no marks usually ends in `no_moments`. `detector-replay` uses the same `FileDetection` loop.
 
 ## Test
 
