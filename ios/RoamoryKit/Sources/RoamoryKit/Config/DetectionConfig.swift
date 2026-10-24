@@ -24,6 +24,8 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
     public var sharpnessFull: Double
     /// dHash distance from recent escalations that counts as fully novel.
     public var noveltyFullBits: Int
+    /// A frame below this quality (black, blown out, lens covered) is unusable and scores L = 0.
+    public var minQuality: Double
 
     /// EMA weight of the newest L in the smoothed score.
     public var smoothingAlpha: Double
@@ -61,6 +63,7 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
         case changeSpikeScale = "change_spike_scale"
         case sharpnessFull = "sharpness_full"
         case noveltyFullBits = "novelty_full_bits"
+        case minQuality = "min_quality"
         case smoothingAlpha = "smoothing_alpha"
         case tauBase = "tau_base"
         case tauBudgetSlope = "tau_budget_slope"

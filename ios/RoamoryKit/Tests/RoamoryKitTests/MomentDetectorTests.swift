@@ -231,4 +231,12 @@ final class MomentDetectorTests: XCTestCase {
         XCTAssertEqual(evaluator.calls.first?.frames.count, 3)
         XCTAssertEqual(evaluator.calls.first?.context.local.forced, true)
     }
+
+    func testNormalToBlackWhileStoppedDoesNotEscalateTheBlackFrame() async {
+        for i in 0..<8 { await detector.ingest(SampledFrame(tMs: i * 2000, luma: .checkerboard, jpeg: jpeg, dwell: 1)) }
+        for i in 8..<16 { await detector.ingest(SampledFrame(tMs: i * 2000, luma: .solid(0), jpeg: jpeg, dwell: 1)) }
+        await detector.waitForIdle()
+        let holds = await holder.holds
+        XCTAssertTrue(holds.allSatisfy { $0.triggerMs < 16_000 }, "escalated a black frame: \(holds.map(\.triggerMs))")
+    }
 }

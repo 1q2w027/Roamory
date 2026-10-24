@@ -13,6 +13,7 @@
   "change_spike_scale": 20,
   "sharpness_full": 200,
   "novelty_full_bits": 32,
+  "min_quality": 0.1,
   "smoothing_alpha": 0.8,
   "tau_base": 0.55,
   "tau_budget_slope": 0.2,

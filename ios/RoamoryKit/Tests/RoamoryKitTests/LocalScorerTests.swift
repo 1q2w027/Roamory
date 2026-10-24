@@ -39,4 +39,12 @@ final class LocalScorerTests: XCTestCase {
         scorer.reset()
         XCTAssertEqual(scorer.score(signals(change: 40), dwell: 0, recentEscalated: []).changeSpike, 1)
     }
+
+    func testUnusableFrameScoresZeroEvenWhenStopped() {
+        // Normal view, then the lens is covered while the wearer stands still: a full change spike on a black frame.
+        var scorer = LocalScorer(config: config)
+        for _ in 0..<5 { _ = scorer.score(signals(change: 2, sharpness: 300), dwell: 1, recentEscalated: []) }
+        let black = scorer.score(signals(change: 120, sharpness: 0, clipped: 1), dwell: 1, recentEscalated: [])
+        XCTAssertEqual(black.l, 0)
+    }
 }

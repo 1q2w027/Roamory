@@ -30,8 +30,10 @@ public struct LocalScorer: Sendable {
         let novelty = recentEscalated.map { hammingDistance($0, s.dhash) }.min()
             .map { clamp(Double($0) / Double(config.noveltyFullBits)) } ?? 1
 
-        let l = config.weightChangeSpike * changeSpike + config.weightDwell * clamp(dwell)
-            + config.weightQuality * quality + config.weightNovelty * novelty
+        // An unusable frame never becomes a candidate, even as a change spike while the wearer stands still.
+        let l = quality < config.minQuality ? 0
+            : config.weightChangeSpike * changeSpike + config.weightDwell * clamp(dwell)
+                + config.weightQuality * quality + config.weightNovelty * novelty
         return LocalScore(l: l, changeSpike: changeSpike, quality: quality, novelty: novelty)
     }
 
