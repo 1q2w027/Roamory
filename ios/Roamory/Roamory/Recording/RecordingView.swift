@@ -270,7 +270,9 @@ struct RecordingView: View {
     #if DEBUG
     private var evaluateButton: some View {
         // If the chosen model is not ready (no API key, Apple Intelligence off), open settings first.
-        Button { if SummarySettings.isReady { camera.evaluate() } else { showSettings = true } } label: {
+        Button {
+            Task { if await SummarySettings.isReady() { camera.evaluate() } else { showSettings = true } }
+        } label: {
             Label(camera.isEvaluating ? "Evaluating…" : "Evaluate", systemImage: "wand.and.sparkles")
                 .font(.headline)
                 .foregroundStyle(.white)
