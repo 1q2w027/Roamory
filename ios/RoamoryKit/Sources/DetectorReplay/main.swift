@@ -6,7 +6,6 @@
 // labels.json: {"should_save_ms": [...], "tolerance_ms": 10000}. Without --server, it reports what the gate
 // escalates (no cloud; moments settle by the local fallback). With --server, each request finishes before the
 // next sample, so start the backend with the trip budget raised (see backend/tools/replay_eval.py).
-import AVFoundation
 import Foundation
 import RoamoryKit
 
@@ -63,26 +62,17 @@ struct Labels: Decodable {
     }
 }
 
-/// Stands in for the rolling buffer: remembers each hold and release.
-actor LoggingHolder: MomentHolder {
-    var holds: [(id: String, triggerMs: Int, source: MomentSource)] = []
-    var released: Set<String> = []
-
-    func hold(momentId: String, triggerMs: Int, source: MomentSource) {
-        holds.append((momentId, triggerMs, source))
-        print(String(format: "%7.1fs  hold %@ (%@)", Double(triggerMs) / 1000, momentId, source.rawValue))
-    }
-
-    func release(_ momentId: String) {
-        released.insert(momentId)
-        print("          release \(momentId) (cloud said skip)")
-    }
-}
-
 let options = parseOptions()
 let config = try DetectionConfig.bundled()
 let labels = try JSONDecoder().decode(Labels.self, from: Data(contentsOf: options.labels))
-let holder = LoggingHolder()
+let holder = CollectingHolder { event in
+    switch event {
+    case .hold(let h):
+        print(String(format: "%7.1fs  hold %@ (%@)", Double(h.triggerMs) / 1000, h.momentId, h.source.rawValue))
+    case .release(let id):
+        print("          release \(id) (cloud said skip)")
+    }
+}
 let evaluator: Evaluating? = options.server.map {
     EvaluateClient(baseURL: $0, token: options.token, timeoutS: config.evaluateTimeoutS)
 }
@@ -93,52 +83,28 @@ let trip = TripInfo(
 let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
                               cloudAllowed: evaluator != nil, demoMode: options.demo, momentIdPrefix: "m")
 
-let asset = AVURLAsset(url: options.video)
-guard let track = try await asset.loadTracks(withMediaType: .video).first else {
-    FileHandle.standardError.write(Data("no video track in \(options.video.path)\n".utf8))
+let samples: Int
+do {
+    samples = try await FileDetection.detect(video: options.video, detector: detector, config: config,
+                                             waitForRequests: evaluator != nil).count
+} catch {
+    FileHandle.standardError.write(Data("\(options.video.path): \(error)\n".utf8))
     exit(1)
 }
-// iPhone recordings are stored sensor-side up with a rotation in the track; turn every frame upright.
-let orientation = FrameSampler.orientation(for: try await track.load(.preferredTransform))
-let size = try await track.load(.naturalSize)
-let portrait = orientation == .left || orientation == .right ? size.width > size.height : size.height > size.width
-let (lumaW, lumaH) = portrait ? (config.lumaHeight, config.lumaWidth) : (config.lumaWidth, config.lumaHeight)
-let reader = try AVAssetReader(asset: asset)
-let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
-reader.add(output)
-reader.startReading()
-
-let intervalMs = Int(config.sampleIntervalS * 1000)
-var nextMarkMs = 0
-var samples = 0
-var latencies: [Int] = []
-while let sample = output.copyNextSampleBuffer() {
-    let tMs = Int(CMSampleBufferGetPresentationTimeStamp(sample).seconds * 1000)
-    guard tMs >= nextMarkMs, let pixels = CMSampleBufferGetImageBuffer(sample) else { continue }
-    nextMarkMs += intervalMs * ((tMs - nextMarkMs) / intervalMs + 1)
-    guard let jpeg = FrameSampler.jpeg(pixels, longEdge: config.jpegLongEdgePx, quality: config.jpegQuality,
-                                       orientation: orientation) else { continue }
-    let luma = FrameSampler.luma(pixels, width: lumaW, height: lumaH, orientation: orientation)
-    samples += 1
-    await detector.ingest(SampledFrame(tMs: tMs, luma: luma, jpeg: jpeg, dwell: 0))
-    if evaluator != nil { await detector.waitForIdle() }
-}
-if reader.status == .failed { print("reader failed: \(reader.error?.localizedDescription ?? "unknown")") }
-await detector.waitForIdle()
 
 var escalatedMs: [Int] = []
 var keptMs: [Int] = []
 print("\nmoment  trigger  decision")
 for h in await holder.holds {
     escalatedMs.append(h.triggerMs)
-    let decision = await detector.finalDecision(for: h.id)
+    let decision = await detector.finalDecision(for: h.momentId)
     switch decision {
     case .keep(let source, _, let description, let score):
         keptMs.append(h.triggerMs)
-        print(String(format: "%@  %6.1fs  KEEP (%@) %@ %@", h.id, Double(h.triggerMs) / 1000, source.rawValue,
+        print(String(format: "%@  %6.1fs  KEEP (%@) %@ %@", h.momentId, Double(h.triggerMs) / 1000, source.rawValue,
                      score.map { String(format: "%.2f", $0) } ?? "-", description ?? ""))
     case .release:
-        print(String(format: "%@  %6.1fs  release", h.id, Double(h.triggerMs) / 1000))
+        print(String(format: "%@  %6.1fs  release", h.momentId, Double(h.triggerMs) / 1000))
     }
 }
 
