@@ -19,10 +19,12 @@ public struct RenderLabView: View {
 
     @State private var clipCount = 3
     @State private var useCloud = false
-    /// "avfoundation", "remotion", or "both" (each style on each engine, to compare render times).
+    /// "avfoundation", "remotion", "agent", or "both" (each style on AVFoundation and Remotion, to compare render times).
     @State private var engine = "avfoundation"
     @State private var forceExportFailure = false
     @State private var current: EditCoordinator?
+    /// When the current run started, for the elapsed time (an agent run takes minutes).
+    @State private var startedAt: Date?
     @State private var runs: [Run] = []
     @State private var playing: URL?
     @State private var setupError: String?
@@ -46,6 +48,7 @@ public struct RenderLabView: View {
                 Picker("Engine", selection: $engine) {
                     Text("AVFoundation").tag("avfoundation")
                     Text("Remotion").tag("remotion")
+                    Text("Agent").tag("agent")
                     Text("Both").tag("both")
                 }
                 .pickerStyle(.segmented)
@@ -62,7 +65,15 @@ public struct RenderLabView: View {
             .disabled(current?.isRunning == true || sources.isEmpty)
 
             if let current {
-                Section("Status") { Text(Self.describe(current.phase)) }
+                Section("Status") {
+                    Text(Self.describe(current.phase))
+                    if let startedAt {
+                        TimelineView(.periodic(from: startedAt, by: 1)) { context in
+                            let seconds = Int(context.date.timeIntervalSince(startedAt))
+                            Text(String(format: "Elapsed %d:%02d", seconds / 60, seconds % 60)).monospacedDigit()
+                        }
+                    }
+                }
             }
             if let setupError {
                 Section("Error") { Text(setupError).foregroundStyle(.red) }
@@ -113,15 +124,19 @@ public struct RenderLabView: View {
                     renderer.simulateTransitionFailure = forceExportFailure
                     var trip = RenderLab.trip
                     trip.style = style
-                    // The remote engine needs cloud consent; the planner stays local unless "Cloud planner" is on.
-                    trip.allowCloudAnalysis = useCloud || engine == "remotion"
+                    // The remote engines need cloud consent; the planner stays local unless "Cloud planner" is on
+                    // (in agent mode it only runs if the agent fails).
+                    trip.allowCloudAnalysis = useCloud || engine != "avfoundation"
                     let coordinator = EditCoordinator(
                         trip: trip, clips: clips, outputDirectory: output.appending(path: engine), presets: presets, config: config,
                         service: useCloud ? cloud : nil, renderer: renderer,
-                        remoteRenderer: RemoteRenderClient.fromBundle(config: config, trip: trip)
+                        remoteRenderer: RemoteRenderClient.fromBundle(config: config, trip: trip),
+                        agent: AgentRenderClient.fromBundle(config: config)
                     )
                     current = coordinator
+                    startedAt = Date()
                     await coordinator.run()
+                    startedAt = nil
                     runs.append(Run(style: style, engine: engine, clipCount: clipCount, summary: Self.summary(coordinator, requested: engine),
                                     url: coordinator.renderResult?.url, moments: coordinator.reviewMoments))
                 }
@@ -136,10 +151,10 @@ public struct RenderLabView: View {
         let source = switch c.planOutcome?.source {
         case .cloud: "cloud plan"
         case let .fallback(reason): "fallback (\(reason))"
-        case nil: "?"
+        case nil: c.agentResult.map { "agent edit, \($0.moments.count) moments, title \"\($0.title.text)\"" } ?? "?"
         }
         let short = c.planOutcome.map { EditSpecValidator.onlyTooShort($0.violations) } == true ? ", short: not enough footage" : ""
-        let fellBack = requested != result.engine ? " (remote failed, see the log)" : ""
+        let fellBack = requested != result.engine ? " (\(requested) failed, see the log)" : ""
         return String(format: "%.1f s video in %.1f s by %@%@, ", result.durationS, result.elapsedS, result.engine, fellBack) + source
             + (result.usedHardCutRetry ? ", hard-cut retry" : "") + short
     }

@@ -14,5 +14,7 @@
   "render_engine": "avfoundation",
   "remote_render_timeout_s": 150,
   "remote_render_poll_s": 1,
-  "remote_upload_preset": "AVAssetExportPreset1280x720"
+  "remote_upload_preset": "AVAssetExportPreset1280x720",
+  "agent_timeout_s": 540,
+  "agent_upload_preset": "AVAssetExportPreset1280x720"
 }

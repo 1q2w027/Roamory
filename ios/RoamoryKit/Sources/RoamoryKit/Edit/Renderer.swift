@@ -19,17 +19,28 @@ public struct RenderResult: Sendable {
     /// Wall-clock render time (performance target: under 2 minutes, TRD 9.2).
     public var elapsedS: Double
     /// The spec actually rendered: the input, or its hard-cut copy after a failed export with transitions.
-    public var spec: EditSpec
+    /// Nil in agent mode, where the agent wrote its own composition.
+    public var spec: EditSpec?
+    /// The video's size and frame rate.
+    public var output: OutputFormat
     public var usedHardCutRetry: Bool
-    /// "avfoundation" or "remotion".
+    /// "avfoundation", "remotion" or "agent".
     public var engine: String
 
     public init(url: URL, durationS: Double, elapsedS: Double, spec: EditSpec, usedHardCutRetry: Bool, engine: String) {
+        self.init(url: url, durationS: durationS, elapsedS: elapsedS, output: spec.output, engine: engine)
+        self.spec = spec
+        self.usedHardCutRetry = usedHardCutRetry
+    }
+
+    /// A video made without an edit spec (agent mode).
+    public init(url: URL, durationS: Double, elapsedS: Double, output: OutputFormat, engine: String) {
         self.url = url
         self.durationS = durationS
         self.elapsedS = elapsedS
-        self.spec = spec
-        self.usedHardCutRetry = usedHardCutRetry
+        self.spec = nil
+        self.output = output
+        self.usedHardCutRetry = false
         self.engine = engine
     }
 }

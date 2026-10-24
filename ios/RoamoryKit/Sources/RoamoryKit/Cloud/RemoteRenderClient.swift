@@ -54,6 +54,12 @@ public struct RemoteRenderClient: VideoRendering {
         return RenderResult(url: outputURL, durationS: duration, elapsedS: elapsed, spec: spec, usedHardCutRetry: false, engine: "remotion")
     }
 
+    private var http: RenderServiceHTTP {
+        RenderServiceHTTP(
+            baseURL: baseURL, appToken: appToken, timeoutS: config.remoteRenderTimeoutS, pollS: config.remoteRenderPollS, session: session
+        )
+    }
+
     private func renderOnce(
         _ spec: EditSpec, clipURLs: [String: URL], to outputURL: URL, progress: @escaping @Sendable (Double) -> Void
     ) async throws -> Double {
@@ -63,87 +69,18 @@ public struct RemoteRenderClient: VideoRendering {
         progress(0)
         let trimmed = try await ClipTrimmer.trim(spec, clipURLs: clipURLs, into: work, presetName: config.remoteUploadPreset)
         progress(0.1)
-        let jobId = try await upload(trimmed) { progress(0.1 + 0.2 * $0) }
-
-        var job = try await self.job(jobId)
-        while job.status != .completed {
-            if job.status == .failed { throw RemoteRenderError.jobFailed(job.error) }
-            progress(0.3 + 0.6 * job.progress)
-            try await Task.sleep(for: .seconds(config.remoteRenderPollS))
-            job = try await self.job(jobId)
+        // `POST /v1/render`: the rebased request plus one `{moment_id}.mp4` part per clip.
+        let request = try JSONEncoder().encode(RenderRequest(editSpec: trimmed.spec, context: context, clips: trimmed.clips))
+        let files = try trimmed.clips.map { clip in
+            guard let file = trimmed.files[clip.momentId] else { throw RenderError.missingClip(momentId: clip.momentId) }
+            return (momentId: clip.momentId, url: file)
         }
+        let jobId = try await http.upload("v1/render", request: request, files: files) { progress(0.1 + 0.2 * $0) }
+        try await http.waitForJob("v1/render/\(jobId)") { progress(0.3 + 0.6 * $0) }
 
         progress(0.9)
-        try await download(jobId, to: outputURL)
+        try await http.download("v1/render/\(jobId)/video", to: outputURL)
         progress(1)
         return try await Renderer.verify(outputURL, expectedS: EditTimeline.totalDurationS(spec), toleranceS: config.renderDurationToleranceS)
-    }
-
-    // MARK: Requests
-
-    private func request(_ path: String, method: String = "GET") -> URLRequest {
-        var http = URLRequest(url: baseURL.appending(path: path), timeoutInterval: config.remoteRenderTimeoutS)
-        http.httpMethod = method
-        http.setValue("Bearer \(appToken)", forHTTPHeaderField: "Authorization")
-        return http
-    }
-
-    /// `POST /v1/render`: the request JSON plus one `{moment_id}.mp4` part per clip. Returns the job id.
-    private func upload(_ trimmed: ClipTrimmer.Trimmed, progress: @escaping @Sendable (Double) -> Void) async throws -> String {
-        let request = RenderRequest(editSpec: trimmed.spec, context: context, clips: trimmed.clips)
-        var body = MultipartBody(boundary: "roamory-\(UUID().uuidString)")
-        body.part(name: "request", type: "application/json", data: try JSONEncoder().encode(request))
-        for clip in trimmed.clips {
-            guard let file = trimmed.files[clip.momentId] else { throw RenderError.missingClip(momentId: clip.momentId) }
-            let name = "\(clip.momentId).mp4"
-            body.part(name: name, filename: name, type: "video/mp4", data: try Data(contentsOf: file))
-        }
-        var http = self.request("v1/render", method: "POST")
-        http.setValue(body.contentType, forHTTPHeaderField: "Content-Type")
-
-        let (data, response) = try await session.upload(for: http, from: body.finished(), delegate: UploadProgress(progress))
-        try Self.check(response, data, expected: 202)
-        struct Accepted: Decodable { var job_id: String }
-        return try JSONDecoder().decode(Accepted.self, from: data).job_id
-    }
-
-    /// `GET /v1/render/{job_id}`.
-    private func job(_ jobId: String) async throws -> RenderJob {
-        let (data, response) = try await session.data(for: request("v1/render/\(jobId)"))
-        try Self.check(response, data, expected: 200)
-        return try JSONDecoder().decode(RenderJob.self, from: data)
-    }
-
-    /// `GET /v1/render/{job_id}/video`; the server deletes the job after it.
-    private func download(_ jobId: String, to outputURL: URL) async throws {
-        let (file, response) = try await session.download(for: request("v1/render/\(jobId)/video"))
-        defer { try? FileManager.default.removeItem(at: file) }
-        try Self.check(response, (try? Data(contentsOf: file)) ?? Data(), expected: 200)
-        try FileManager.default.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? FileManager.default.removeItem(at: outputURL)
-        try FileManager.default.moveItem(at: file, to: outputURL)
-    }
-
-    private static func check(_ response: URLResponse, _ data: @autoclosure () -> Data, expected: Int) throws {
-        guard let status = (response as? HTTPURLResponse)?.statusCode else { throw RemoteRenderError.invalidResponse }
-        guard status == expected else {
-            throw RemoteRenderError.server(status: status, error: try? JSONDecoder().decode(APIError.self, from: data()))
-        }
-    }
-}
-
-/// Reports upload progress, 0...1.
-private final class UploadProgress: NSObject, URLSessionTaskDelegate, Sendable {
-    let onProgress: @Sendable (Double) -> Void
-
-    init(_ onProgress: @escaping @Sendable (Double) -> Void) {
-        self.onProgress = onProgress
-    }
-
-    func urlSession(
-        _ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64
-    ) {
-        guard totalBytesExpectedToSend > 0 else { return }
-        onProgress(Double(totalBytesSent) / Double(totalBytesExpectedToSend))
     }
 }
