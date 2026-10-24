@@ -24,6 +24,8 @@ struct RecordingView: View {
     /// Recording mode: dark until held, and dark again 10 s after the last touch.
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
+    /// Off for debugging: no dark curtain, so the screen keeps its brightness and the camera UI takes touches.
+    private static let curtainEnabled = false
     @State private var showSettings = false
     @State private var showStudio = false
 
@@ -96,7 +98,7 @@ struct RecordingView: View {
             Text("Recording stops and this trip ends. Video already saved stays in Photos.")
         }
         .overlay {
-            if camera.isReady {
+            if Self.curtainEnabled, camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
                                  paused: confirmBack || showSettings || showStudio)
                     .transition(.opacity)
