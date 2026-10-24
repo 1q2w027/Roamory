@@ -72,7 +72,7 @@ struct ContentView: View {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
                 await detection.stop()
-                detection.start(.current())
+                detection.start(.current(), recorder: camera.recorder)
             }
         }) {
             NavigationStack { DetectionSettingsView(backend: detection.backend) }
@@ -83,7 +83,7 @@ struct ContentView: View {
         }
         // Detection runs for as long as the camera does, like the buffer.
         .onChange(of: camera.isReady) { _, ready in
-            if ready { detection.start(.current()) }
+            if ready { detection.start(.current(), recorder: camera.recorder) }
         }
         .task {
             camera.frameInterval = detection.frameInterval
@@ -97,7 +97,7 @@ struct ContentView: View {
     private var detectionStatus: some View {
         let s = detection.summary
         return VStack(spacing: 2) {
-            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released)\(s.cloud ? "" : " · offline")")
+            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released) · saved \(s.saved)\(s.saveFailed > 0 ? " · \(s.saveFailed) failed" : "")\(s.cloud ? "" : " · offline")")
                 .font(.caption.monospacedDigit())
             if let last = s.lastDescription {
                 Text(last).font(.caption2).lineLimit(1)
