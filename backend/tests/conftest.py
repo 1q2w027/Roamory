@@ -86,3 +86,11 @@ def verdict(**kw):
         description="A temple gate at dusk", reason="Scenic landmark",
     )
     return ModelVerdict.model_validate(base | kw)
+
+
+JPEG = b"\xff\xd8\xff\xe0fake-jpeg"
+
+
+def ok(**kw) -> SimpleNamespace:
+    """A model response whose structured output is verdict(**kw)."""
+    return text_response(json.dumps(verdict(**kw).model_dump()))
