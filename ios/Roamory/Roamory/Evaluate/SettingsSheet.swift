@@ -70,7 +70,9 @@ struct SettingsSheet: View {
     private var onDeviceSection: some View {
         let reason = OnDeviceSummarizer.unavailableReason
         Section {
-            LabeledContent("Model", value: SystemLanguageModel.default.variant.displayName)
+            if #available(iOS 27.0, *) {
+                LabeledContent("Model", value: SystemLanguageModel.default.variant.displayName)
+            }
             LabeledContent("Status") {
                 if let reason {
                     Text(reason).foregroundStyle(.red).multilineTextAlignment(.trailing)

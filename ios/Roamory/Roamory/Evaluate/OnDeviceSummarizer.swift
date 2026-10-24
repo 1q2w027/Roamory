@@ -14,6 +14,7 @@ enum OnDeviceSummarizer {
 
     /// Why the model cannot be used now, or nil when it can.
     static var unavailableReason: String? {
+        guard #available(iOS 27.0, *) else { return "The on-device model needs iOS 27." }
         let model = SystemLanguageModel.default
         switch model.availability {
         case .available:
@@ -30,8 +31,8 @@ enum OnDeviceSummarizer {
     }
 
     static func summarize(frames: [Data]) async throws -> String {
-        if let reason = unavailableReason {
-            throw SummaryClient.Failure(errorDescription: reason)
+        guard #available(iOS 27.0, *), unavailableReason == nil else {
+            throw SummaryClient.Failure(errorDescription: unavailableReason ?? "The on-device model is unavailable.")
         }
         let images = frames.compactMap(image)
         guard !images.isEmpty else {
