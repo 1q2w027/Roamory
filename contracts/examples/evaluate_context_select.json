@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "trip_id": "t_123",
+  "install_id": "i_8f3a2c",
+  "purpose": "select",
+  "sample_t_ms": 600000,
+  "style": "cinematic",
+  "trip_type": "honeymoon",
+  "destination": {"continent": "Asia", "country": "Japan", "city": "Kyoto"},
+  "length_days": 5,
+  "local": {
+    "score": 0.62,
+    "novelty": 0.4,
+    "sharpness": 214.3,
+    "change": 15.8,
+    "motion": 9.6,
+    "forced": false
+  },
+  "recent_descriptions": [
+    "River winding between green hills"
+  ]
+}

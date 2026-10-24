@@ -13,7 +13,9 @@ Shared shapes between the iPhone app, the backend and the render service (`rende
 | `render_request.schema.json` | `request` part of `POST /v1/render` (render service): a rebased edit spec, trip context and the uploaded clips |
 | `render_job.schema.json` | Body of `GET /v1/render/{job_id}` |
 | `timeline.schema.json` | Golden timelines: where each clip of an example edit spec lands in the video |
-| `examples/` | Per style (same 12-clip Kyoto trip): a plan request, an edit spec, a render request and a golden timeline. Also errors, render jobs and a sidecar |
+| `evaluate_context.schema.json` | `context` part of `POST /v1/evaluate` |
+| `evaluation.schema.json` | Response of `POST /v1/evaluate` (TRD §8.2) |
+| `examples/` | Per style (same 12-clip Kyoto trip): a plan request, an edit spec, a render request and a golden timeline. Also errors, render jobs, a sidecar, a select and a describe evaluate context, and a kept and a skipped evaluation |
 | `check.py` | Validates `style_presets.json` and `examples/` against the schemas |
 
 Check after any change: `pip install jsonschema && python contracts/check.py`. It also checks that each render request's clips match its edit spec and that each golden timeline lines up with its edit spec.
@@ -43,6 +45,28 @@ Same for the backend and the render service: every request except `GET /healthz`
 | 500 | `internal` | true | Anything else |
 
 On any error, timeout or network failure the phone uses its fallback planner; it never blocks on a retry.
+
+## `POST /v1/evaluate`
+
+Stage 2 moment selection (TRD §8.2). `Content-Type: multipart/form-data` with:
+
+- one part named `context`: the evaluate context JSON (`application/json`);
+- 1 to 3 parts named `frame_0.jpg` … `frame_{n-1}.jpg`, oldest first, the last one at `sample_t_ms` (normally `t−4 s`, `t−2 s`, `t`; fewer only near the start of a recording session). `image/jpeg`, 512 px long edge. No gaps and no other parts.
+
+`200` returns an evaluation. The server applies the S2 weights and thresholds (config), so `keep` is the decision: `false` releases the phone's speculative hold, `true` keeps it.
+
+`purpose = "describe"` is for button moments (TRD §7), sent off the critical path. They are already kept, so the server returns `keep: true`, uses only the fast model, and counts them against a separate cap, not the trip's select budget.
+
+| Status | `code` | `retryable` | When |
+|---|---|---|---|
+| 400 | `bad_request` | false | `context` missing or invalid, frame parts wrong, or a frame not a JPEG or over the server's `MAX_FRAME_BYTES` |
+| 401 | `unauthorized` | false | Bad token |
+| 429 | `rate_limited` | false | Over the trip's budget (TRD §8.3) |
+| 502 | `upstream_error` | true | The model API failed or returned unusable output |
+| 504 | `upstream_timeout` | true | The model API timed out |
+| 500 | `internal` | true | Anything else |
+
+On any error, the phone's 8 s timeout or a network failure, the phone applies the local fallback (TRD §6); button moments are kept regardless.
 
 ## Edit spec rules
 

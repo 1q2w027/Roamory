@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roamory.app/contracts/evaluate_context.schema.json",
+  "title": "EvaluateContext",
+  "description": "The `context` part of POST /v1/evaluate (TRD 8.1). Frames travel as separate multipart parts (see README). trip_id and install_id are for budget caps and logs only; the backend never sends them to the model.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "trip_id",
+    "install_id",
+    "purpose",
+    "sample_t_ms",
+    "style",
+    "trip_type",
+    "destination",
+    "length_days",
+    "local",
+    "recent_descriptions"
+  ],
+  "properties": {
+    "version": {"type": "integer", "const": 1},
+    "trip_id": {"type": "string", "minLength": 1},
+    "install_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Random id made at install. Not a device identifier."
+    },
+    "purpose": {
+      "type": "string",
+      "enum": ["select", "describe"],
+      "description": "select: a Stage 1 candidate; the backend decides keep or skip. describe: a button moment (TRD 7), already kept; the backend only fills in event_type and description, and always returns keep = true."
+    },
+    "sample_t_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Trip-clock time of the last frame (frame t)."
+    },
+    "style": {
+      "type": "string",
+      "enum": ["cinematic", "reels", "documentary", "vlog"]
+    },
+    "trip_type": {
+      "type": "string",
+      "minLength": 1,
+      "description": "From the app's trip-type config list, e.g. honeymoon, family, friends, school."
+    },
+    "destination": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["continent", "country", "city"],
+      "properties": {
+        "continent": {"type": ["string", "null"], "minLength": 1},
+        "country": {"type": "string", "minLength": 1},
+        "city": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "length_days": {"type": "integer", "minimum": 1},
+    "local": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Stage 1 signals for frame t (TRD 6).",
+      "required": ["score", "novelty", "sharpness", "change", "motion", "forced"],
+      "properties": {
+        "score": {"type": "number", "minimum": 0, "maximum": 1, "description": "Local score L."},
+        "novelty": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Normalized dhash distance from recent escalated frames. Used in S2 (TRD 8.2)."
+        },
+        "sharpness": {"type": "number", "minimum": 0},
+        "change": {"type": "number", "minimum": 0},
+        "motion": {"type": "number", "minimum": 0},
+        "forced": {"type": "boolean", "description": "True for the once-a-minute forced sample."}
+      }
+    },
+    "recent_descriptions": {
+      "type": "array",
+      "maxItems": 5,
+      "description": "Descriptions of the last saved moments, newest first, so the model can skip redundant views.",
+      "items": {"type": "string", "maxLength": 200}
+    }
+  }
+}

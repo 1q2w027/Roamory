@@ -21,6 +21,8 @@ SCHEMA_FOR_PREFIX = {
     "render_request_": "render_request.schema.json",
     "render_job_": "render_job.schema.json",
     "timeline_": "timeline.schema.json",
+    "evaluate_context_": "evaluate_context.schema.json",
+    "evaluation_": "evaluation.schema.json",
 }
 
 # Every schema, keyed by its $id, so "$ref": "edit_spec.schema.json" resolves locally.
