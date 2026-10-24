@@ -160,8 +160,16 @@ final class CameraService: NSObject, ObservableObject,
         // Deliver upright frames in the style's format, so the clip needs no rotation and the edit no crop.
         let held = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: nil).videoRotationAngleForHorizonLevelCapture
         let angle = orientation.rotationAngle(near: held)
-        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(angle) {
-            connection.videoRotationAngle = angle
+        if let connection = videoOutput.connection(with: .video) {
+            if connection.isVideoRotationAngleSupported(angle) { connection.videoRotationAngle = angle }
+            // The strongest stabilization the format allows; the default is off.
+            let modes: [AVCaptureVideoStabilizationMode] = [.cinematicExtendedEnhanced, .cinematicExtended, .cinematic, .standard]
+            if let mode = modes.first(where: device.activeFormat.isVideoStabilizationModeSupported) {
+                connection.preferredVideoStabilizationMode = mode
+            }
+            #if DEBUG
+            print("Stabilization: \(connection.activeVideoStabilizationMode.rawValue) (preferred \(connection.preferredVideoStabilizationMode.rawValue))")
+            #endif
         }
         videoDevice = device
         zoomMultiplier = device.displayVideoZoomFactorMultiplier
