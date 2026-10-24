@@ -29,6 +29,12 @@ struct RecordingView: View {
     @State private var showSettings = false
     @State private var showStudio = false
     @State private var showFrames = false
+    /// The mount level: shown when the camera opens, gone once the phone is level, back from the level button.
+    @StateObject private var level = LevelMonitor()
+    @State private var showLevel = false
+    @State private var fadeLevel: Task<Void, Never>?
+    /// Compact height: the interface is landscape (a 16:9 trip, see `OrientationLock`).
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         ZStack {
@@ -45,55 +51,17 @@ struct RecordingView: View {
                         .onEnded { _ in pinchStartZoom = nil }
                 )
 
-            VStack {
-                if let start = camera.savingStart {
-                    TimelineView(.periodic(from: start, by: 1)) { context in
-                        Label(timeString(context.date.timeIntervalSince(start)), systemImage: "circle.fill")
-                            .foregroundStyle(.red)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.5), in: Capsule())
-                    }
-                }
-                formatBadge
-                Spacer()
-                if !guidedAccess.isEnabled {
-                    guidedAccessHint
-                }
-                if let summary = camera.summary {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(summary)
-                        if let evaluation = camera.evaluation {
-                            Button { showFrames = true } label: {
-                                Label("View the \(evaluation.frames.count) frames sent", systemImage: "photo.on.rectangle")
-                                    .font(.footnote.weight(.semibold))
-                            }
-                        }
-                    }
-                        .font(.callout)
-                        .foregroundStyle(.white)
-                        .padding(12)
-                        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 16)
-                        .onTapGesture { camera.summary = nil }
-                }
-                if let message = camera.message {
-                    Text(message)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.5), in: Capsule())
-                        .foregroundStyle(.white)
-                }
-                zoomControl
-                HStack(spacing: 12) {
-                    saveButton
-                    studioButton
-                    #if DEBUG
-                    evaluateButton
-                    settingsButton
-                    #endif
-                }
-                .padding(.bottom, 32)
+            if showLevel {
+                LevelOverlay(pose: level.pose, isLevel: level.isLevel, bubbleRangeDeg: level.bubbleRangeDeg,
+                             toleranceDeg: level.toleranceDeg)
+                    .onTapGesture { showLevel = false }
+                    .transition(.opacity)
+            }
+
+            if verticalSizeClass == .compact {
+                landscapeChrome
+            } else {
+                portraitChrome
             }
         }
         .overlay(alignment: .topLeading) {
@@ -109,7 +77,7 @@ struct RecordingView: View {
         .overlay {
             if Self.curtainEnabled, camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack || showSettings || showStudio || showFrames)
+                                 paused: confirmBack || showSettings || showStudio || showFrames || showLevel)
                     .transition(.opacity)
             }
         }
@@ -121,6 +89,22 @@ struct RecordingView: View {
         }
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
+        .onChange(of: showLevel) { _, on in
+            if on, let angle = camera.captureRotationAngle { level.start(captureAngle: angle) } else { level.stop() }
+        }
+        // Once level, the level stays a moment and fades; leaving level again (a warning) keeps it up.
+        .onChange(of: level.isLevel) { _, isLevel in
+            fadeLevel?.cancel()
+            guard isLevel else { return }
+            fadeLevel = Task {
+                try? await Task.sleep(for: .seconds(level.fadeDelay))
+                if !Task.isCancelled { withAnimation { showLevel = false } }
+            }
+        }
+        .onDisappear {
+            level.stop()
+            OrientationLock.set(.portrait)
+        }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { camera.toggleSaving() }
@@ -130,9 +114,117 @@ struct RecordingView: View {
             let style = TripSettings.style()
             let orientation = (try? StylePresets.bundled()).map { CaptureOrientation(preset: $0[style]) } ?? .portrait
             await camera.prepare(orientation: orientation)
+            // A 16:9 trip lays the screen out in landscape, turned to the side the camera records.
+            if let angle = camera.captureRotationAngle {
+                OrientationLock.set(CaptureOrientation.interfaceSide(forCaptureAngle: angle))
+            }
+            // Level the phone on its mount first; the buffer is already recording.
+            if hasLevel { showLevel = true }
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
             headphones.start()
+        }
+    }
+
+    /// An upright phone (Reels): status at the top, buttons along the bottom.
+    private var portraitChrome: some View {
+        VStack {
+            savingTimer
+            formatBadge
+            Spacer()
+            if !guidedAccess.isEnabled {
+                guidedAccessHint
+            }
+            summaryCard
+            messageText
+            zoomControl
+            HStack(spacing: 12) {
+                saveButton
+                studioButton
+                if hasLevel { levelButton }
+                #if DEBUG
+                evaluateButton
+                settingsButton
+                #endif
+            }
+            .padding(.bottom, 32)
+        }
+    }
+
+    /// A phone on its side (16:9): status top left, buttons in a column along the right edge.
+    private var landscapeChrome: some View {
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 8) {
+                    savingTimer
+                    formatBadge
+                }
+                .padding(.leading, 60)
+                Spacer()
+                if !guidedAccess.isEnabled {
+                    guidedAccessHint.frame(maxWidth: 420)
+                }
+                summaryCard.frame(maxWidth: 420, alignment: .leading)
+                messageText
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(spacing: 12) {
+                #if DEBUG
+                settingsButton
+                evaluateButton
+                #endif
+                if hasLevel { levelButton }
+                saveButton
+                studioButton
+                zoomColumn
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.trailing, 16)
+    }
+
+    @ViewBuilder
+    private var savingTimer: some View {
+        if let start = camera.savingStart {
+            TimelineView(.periodic(from: start, by: 1)) { context in
+                Label(timeString(context.date.timeIntervalSince(start)), systemImage: "circle.fill")
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(.black.opacity(0.5), in: Capsule())
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var summaryCard: some View {
+        if let summary = camera.summary {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(summary)
+                if let evaluation = camera.evaluation {
+                    Button { showFrames = true } label: {
+                        Label("View the \(evaluation.frames.count) frames sent", systemImage: "photo.on.rectangle")
+                            .font(.footnote.weight(.semibold))
+                    }
+                }
+            }
+                .font(.callout)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+                .padding(.horizontal, 16)
+                .onTapGesture { camera.summary = nil }
+        }
+    }
+
+    @ViewBuilder
+    private var messageText: some View {
+        if let message = camera.message {
+            Text(message)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.black.opacity(0.5), in: Capsule())
+                .foregroundStyle(.white)
         }
     }
 
@@ -168,7 +260,10 @@ struct RecordingView: View {
         isLeaving = true
         Task {
             headphones.stop()
+            showLevel = false
+            level.stop()
             await camera.shutdown()
+            OrientationLock.set(.portrait)
             onBackToSetup()
         }
     }
@@ -193,7 +288,7 @@ struct RecordingView: View {
 
     /// Like the system Camera app: a row of lens buttons that turns into a rotary dial while you swipe on it.
     private var zoomControl: some View {
-        let activeIndex = camera.zoomPresets.lastIndex { $0 <= camera.zoomFactor + 0.05 } ?? 0
+        let activeIndex = activeZoomIndex
         return ZStack(alignment: .bottom) {
             zoomPicker(activeIndex: activeIndex)
                 .opacity(showDial ? 0 : 1)
@@ -238,19 +333,39 @@ struct RecordingView: View {
             : sizes.prefix(activeIndex).reduce(0, +) + spacing * CGFloat(activeIndex) + sizes[activeIndex] / 2
         return HStack(spacing: spacing) {
             ForEach(Array(presets.enumerated()), id: \.offset) { index, z in
-                let isActive = index == activeIndex
-                Button { camera.setZoom(z) } label: {
-                    Text(isActive ? ZoomDial.label(camera.zoomFactor) + "x" : String(format: "%g", z))
-                        .font(.footnote.bold().monospacedDigit())
-                        .foregroundStyle(isActive ? .yellow : .white)
-                        .frame(width: sizes[index], height: sizes[index])
-                        .background(.black.opacity(0.5), in: Circle())
-                }
+                zoomPresetButton(z, isActive: index == activeIndex, size: sizes[index])
             }
         }
         .offset(x: total / 2 - activeCenter)
         .frame(maxWidth: .infinity, minHeight: 44)
         .animation(.easeInOut(duration: 0.15), value: activeIndex)
+    }
+
+    /// The lens buttons in a column, for the landscape layout; no rotary dial there (pinch still zooms).
+    private var zoomColumn: some View {
+        let activeIndex = activeZoomIndex
+        return VStack(spacing: 8) {
+            ForEach(Array(camera.zoomPresets.enumerated()), id: \.offset) { index, z in
+                zoomPresetButton(z, isActive: index == activeIndex, size: index == activeIndex ? 44 : 36)
+            }
+        }
+        .sensoryFeedback(.selection, trigger: activeIndex)
+        .animation(.easeInOut(duration: 0.15), value: activeIndex)
+    }
+
+    private var activeZoomIndex: Int {
+        camera.zoomPresets.lastIndex { $0 <= camera.zoomFactor + 0.05 } ?? 0
+    }
+
+    /// One lens button; the active one shows the live value.
+    private func zoomPresetButton(_ zoom: CGFloat, isActive: Bool, size: CGFloat) -> some View {
+        Button { camera.setZoom(zoom) } label: {
+            Text(isActive ? ZoomDial.label(camera.zoomFactor) + "x" : String(format: "%g", zoom))
+                .font(.footnote.bold().monospacedDigit())
+                .foregroundStyle(isActive ? .yellow : .white)
+                .frame(width: size, height: size)
+                .background(.black.opacity(0.5), in: Circle())
+        }
     }
 
     /// Saves the buffer and what follows until tapped again. Volume keys, shutter remotes and AirPods do the same.
@@ -279,6 +394,21 @@ struct RecordingView: View {
                 .background(.black.opacity(0.5), in: Circle())
         }
         .accessibilityLabel("Make video")
+    }
+
+    /// The mount level needs a motion sensor and the angle the session records at.
+    private var hasLevel: Bool { level.isAvailable && camera.captureRotationAngle != nil }
+
+    /// Shows the mount level again, for when the mount slips.
+    private var levelButton: some View {
+        Button { showLevel = true } label: {
+            Image(systemName: "level")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Level the phone")
     }
 
     #if DEBUG

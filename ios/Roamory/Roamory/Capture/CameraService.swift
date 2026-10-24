@@ -33,6 +33,9 @@ final class CameraService: NSObject, ObservableObject,
     @Published private(set) var zoomPresets: [CGFloat] = []
     /// The format this session records in, fixed when it starts (TRD 4.1).
     @Published private(set) var captureOrientation = CaptureOrientation.portrait
+    /// The capture rotation the session records at (degrees, horizon-level), fixed when it starts; the level and the
+    /// landscape layout follow it.
+    @Published private(set) var captureRotationAngle: Double?
     /// How the phone is held now, as a horizon-level capture angle in degrees, for the "turn the phone" hint.
     @Published private(set) var heldAngle: Double?
     /// The rear camera once the session is configured, for the preview's rotation.
@@ -43,6 +46,8 @@ final class CameraService: NSObject, ObservableObject,
     nonisolated(unsafe) private let videoOutput = AVCaptureVideoDataOutput()
     nonisolated(unsafe) private let audioOutput = AVCaptureAudioDataOutput()
     nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
+    /// The rotation `configure` applied to the video output.
+    nonisolated(unsafe) private var appliedRotationAngle: Double?
     /// displayZoom = videoZoomFactor * multiplier. A virtual multi-camera starts at the ultra-wide, so this is 0.5 there.
     nonisolated(unsafe) private var zoomMultiplier: CGFloat = 1
     nonisolated private let sessionQueue = DispatchQueue(label: "roamory.camera.session")
@@ -88,7 +93,10 @@ final class CameraService: NSObject, ObservableObject,
         }
         if !ok { message = "Unable to open the rear camera." }
         // A second call finds the session running and keeps the orientation it started with.
-        if ok && !isReady { captureOrientation = orientation }
+        if ok && !isReady {
+            captureOrientation = orientation
+            captureRotationAngle = appliedRotationAngle
+        }
         isReady = ok
         // The buffer fills for as long as the app is open, so the screen must not lock.
         UIApplication.shared.isIdleTimerDisabled = true
@@ -162,6 +170,7 @@ final class CameraService: NSObject, ObservableObject,
         let angle = orientation.rotationAngle(near: held)
         if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(angle) {
             connection.videoRotationAngle = angle
+            appliedRotationAngle = angle
         }
         videoDevice = device
         zoomMultiplier = device.displayVideoZoomFactorMultiplier
