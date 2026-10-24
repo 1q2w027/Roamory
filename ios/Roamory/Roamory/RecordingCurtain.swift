@@ -67,7 +67,6 @@ struct RecordingCurtain: View {
                 .allowsHitTesting(false)
         }
         .opacity(awake ? 0 : 1)
-        .allowsHitTesting(!awake)
         .contentShape(Rectangle())
         .onLongPressGesture(minimumDuration: 0.6) {
             holdProgress = 0
@@ -75,6 +74,8 @@ struct RecordingCurtain: View {
         } onPressingChanged: { pressing in
             withAnimation(pressing ? .linear(duration: 0.6) : .easeOut(duration: 0.2)) { holdProgress = pressing ? 1 : 0 }
         }
+        // Outside the content shape and gesture, or they would still take touches meant for the camera UI.
+        .allowsHitTesting(!awake)
         .sensoryFeedback(.impact(weight: .light), trigger: awake)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
