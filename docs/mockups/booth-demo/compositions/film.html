@@ -211,7 +211,7 @@
     #scr-curtain .hint { position: absolute; left: 30px; right: 30px; bottom: 64px; font-size: 15px; line-height: 1.45; color: #7a7a85; }
 
     /* Chest mount: one strap behind the phone and clamps on its sides. */
-    #mount { position: absolute; inset: 0; transform: translateZ(-24px); }
+    #mount { position: absolute; inset: 0; transform: translateZ(-24px); opacity: 0; }
     #mount .strap { position: absolute; left: 150px; width: 130px; top: -700px; height: 2300px; border-radius: 12px; background: linear-gradient(90deg, #1d1d24, #2a2a33 50%, #1d1d24); }
     #mount .strap::before, #mount .strap::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(#45454f 0 10px, transparent 10px 18px); }
     #mount .strap::before { left: 10px; }
@@ -254,6 +254,31 @@
       background: var(--red); color: #fff; font-size: 24px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 10px;
     }
 
+    /* Beat 6: Roamory Studio runs in a terminal on a generic laptop. */
+    #laptop { position: absolute; left: 1020px; top: 300px; width: 560px; z-index: 6; }
+    #laptop .lid { height: 360px; border-radius: 22px 22px 8px 8px; background: #1d1d24; border: 2px solid #34343f; padding: 14px; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 80px rgba(3, 252, 115, 0.12); }
+    #terminal { height: 100%; border-radius: 10px; background: #07070a; padding: 18px 20px; font-family: 'JetBrains Mono', monospace; font-size: 19px; line-height: 1.75; color: #c9c9d2; overflow: hidden; }
+    #terminal .ln { white-space: nowrap; }
+    #terminal .dim { color: #6c6c78; }
+    #terminal .ok { color: var(--g); }
+    #laptop .base { height: 16px; margin: 0 -34px; border-radius: 0 0 20px 20px; background: linear-gradient(#34343e, #1a1a20); }
+    .fly { position: absolute; left: 0; top: 0; width: 96px; height: 64px; border-radius: 10px; overflow: hidden; border: 3px solid var(--g); box-shadow: 0 0 18px rgba(3, 252, 115, 0.6); z-index: 8; }
+    .fly img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* Make video sheet (StudioSheet.swift) and the Gallery with the finished video. */
+    .sheet-title { font-size: 34px; font-weight: 900; margin: 6px 0 18px; }
+    .group { border-radius: 18px; background: var(--card); padding: 16px 18px; margin-bottom: 14px; font-size: 19px; font-weight: 700; }
+    .group .row { display: flex; justify-content: space-between; align-items: center; }
+    .group .row small { color: var(--mute); font-size: 17px; }
+    .group-label { font-size: 14px; font-weight: 800; letter-spacing: 1.6px; color: var(--mute); margin: 4px 0 8px 6px; }
+    #make-stage { color: var(--g2); }
+    .foot { font-size: 15px; line-height: 1.45; color: var(--mute); padding: 0 6px; }
+    .video { position: relative; height: 470px; border-radius: 24px; overflow: hidden; box-shadow: 0 0 30px rgba(3, 252, 115, 0.35); }
+    .video img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .video .play { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -38px 0 0 -38px; border-radius: 50%; background: rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; font-size: 30px; }
+    .video-cap { margin-top: 14px; font-size: 20px; font-weight: 800; }
+    .video-cap small { display: block; color: var(--mute); font-size: 16px; font-weight: 700; margin-top: 2px; }
+
     /* Roamy, rebuilt from ios/Roamory/Roamory/Ask/RoamyMascot.swift. */
     #roamy {
       position: absolute;
@@ -263,6 +288,10 @@
       height: 223px;
       z-index: 20;
     }
+    /* Frame-0 state lives in CSS, not in timeline sets at t = 0 (those revert when the renderer seeks back). */
+    #roamy .face { opacity: 0; }
+    #roamy #face-wave { opacity: 1; }
+
     #roamy svg {
       width: 100%;
       height: 100%;
@@ -330,11 +359,36 @@
       <div class="ping"></div>
       <div class="disc"><svg viewBox="0 0 24 24" fill="#fff"><ellipse cx="7.6" cy="7" rx="3.4" ry="3.9" /><rect x="8.2" y="8" width="2.6" height="12" rx="1.3" /><ellipse cx="16.4" cy="7" rx="3.4" ry="3.9" /><rect x="13.2" y="8" width="2.6" height="12" rx="1.3" /></svg></div>
     </div>
-    <div id="gallery-tile" class="clip" data-start="22.9" data-duration="3.4" data-track-index="7">
+    <div id="gallery-tile" class="clip" data-start="22.9" data-duration="2.3" data-track-index="7">
       <div class="tile">
         <div class="thumb"><img src="assets/footage/kyoto-torii-path.jpg" alt="" /></div>
         <div class="cap">Saved to <span>Photos</span></div>
       </div>
+    </div>
+
+    <!-- Beat 6: the clips go to Roamory Studio on the Mac. -->
+    <div id="laptop" class="clip" data-start="24.8" data-duration="4.9" data-track-index="8">
+      <div class="lid">
+        <div id="terminal">
+          <div class="ln dim">$ python -m studio.server</div>
+          <div class="ln">Roamory Studio pairing code: <span class="ok">4821</span></div>
+          <div class="ln">Received 6 clips</div>
+          <div class="ln">Claude: watching the clips…</div>
+          <div class="ln">Claude: cutting to Reels…</div>
+          <div class="ln">Claude: rendering the video…</div>
+          <div class="ln ok">✓ Done</div>
+        </div>
+      </div>
+      <div class="base"></div>
+    </div>
+    <div id="flights" class="clip" data-start="25.2" data-duration="2.9" data-track-index="9" data-layout-ignore>
+      <div class="fly"><img src="assets/footage/kyoto-kinkakuji.jpg" alt="" /></div>
+      <div class="fly"><img src="assets/footage/kyoto-gion-street.jpg" alt="" /></div>
+      <div class="fly"><img src="assets/footage/kyoto-kamo-river.jpg" alt="" /></div>
+      <div class="fly"><img src="assets/footage/kyoto-kiyomizu.jpg" alt="" /></div>
+      <div class="fly"><img src="assets/footage/kyoto-lane.jpg" alt="" /></div>
+      <div class="fly"><img src="assets/footage/kyoto-torii.jpg" alt="" /></div>
+      <div class="fly" id="fly-back"><img src="assets/footage/kyoto-torii-path.jpg" alt="" /></div>
     </div>
 
     <div id="stage">
@@ -463,6 +517,29 @@
               <div class="pill">■ Stop saving · <span id="saving-time">0:00</span></div>
             </div>
 
+            <!-- Beat 6: Make video on the phone, then the finished video in the Gallery. -->
+            <div id="scr-make" class="scr clip" data-start="24.8" data-duration="3.4" data-track-index="2">
+              <div class="in">
+                <div class="sheet-title">Make video</div>
+                <div class="group"><div class="row">6 clips saved this trip</div></div>
+                <div class="group-label">MAC</div>
+                <div class="group"><div class="row">🖥 Studio Mac <small>Paired</small></div></div>
+                <div class="group"><div class="row" id="make-stage">✨ Sending clips · 0:02</div></div>
+                <div class="foot">Claude watches the clips, cuts them to your style and renders the video. This takes a few minutes; keep Roamory open.</div>
+              </div>
+            </div>
+            <div id="scr-gallery" class="scr clip" data-start="27.9" data-duration="1.8" data-track-index="2">
+              <div class="in">
+                <div class="sheet-title">Gallery</div>
+                <div class="video">
+                  <img id="vid-a" src="assets/footage/kyoto-torii-path.jpg" alt="" />
+                  <img id="vid-b" src="assets/footage/kyoto-kinkakuji.jpg" alt="" />
+                  <div class="play">▶</div>
+                </div>
+                <div class="video-cap">Kyoto · 4 days<small>Made in Roamory Studio · 0:30</small></div>
+              </div>
+            </div>
+
             <div id="island"></div>
           </div>
         </div>
@@ -581,12 +658,11 @@
       beats.forEach((b) => {
         fillHeadline(b);
         showHeadline(b);
-        setMood(b.mood, b.start);
+        if (b.start > 0) setMood(b.mood, b.start); // the first mood is the CSS default
       });
 
-      // Home poses at t = 0; the loop returns here at the end.
-      tl.set('#phone', { rotationY: -18, rotationX: 6, rotationZ: -2, x: 0, y: 0, scale: 1 }, 0);
-      tl.set('#glow', { x: 0, y: 0 }, 0);
+      // Home pose at t = 0, set once outside the timeline; the loop returns here at the end.
+      gsap.set('#phone', { rotationY: -18, rotationX: 6, rotationZ: -2, x: 0, y: 0, scale: 1 });
 
       // Roamy's idle: a bob that ends where it starts, a wave in the hook, and blinks at fixed times.
       const halves = Math.round(total / 1.5);
@@ -670,8 +746,6 @@
       }
 
       // ---- Beat 1 · hook: the welcome page builds while the phone turns slowly.
-      tl.set('#mount', { opacity: 0 }, 0);
-      tl.set('#roamy', { x: 0, y: 0, scale: 1 }, 0);
       tl.fromTo('#scr-welcome .in > *', { opacity: 0, y: 26, filter: 'blur(6px)' },
         { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.6, stagger: 0.1, ease: 'expo.out' }, 0.2);
       tl.fromTo('#scr-welcome .wash', { opacity: 0 }, { opacity: 1, duration: 0.8, ease: 'power2.out' }, 0.1);
@@ -823,6 +897,48 @@
       tl.to('#gallery-tile .thumb', { scale: 1, duration: 0.3, ease: 'back.out(2)' }, PRESS2 + 0.87);
       tl.to('#strip', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 24.3);
       tl.to('.press .disc', { opacity: 0, scale: 0.7, duration: 0.25, stagger: 0.05, ease: 'power2.in' }, 24.3);
+
+      // ---- Beat 6 · Studio: the clips fly to the laptop, Claude edits in the terminal, the video comes back.
+      const PHONE6 = { x: 1760, y: 500 }, MAC_SCREEN = { x: 1300, y: 470 };
+      tl.to('#gallery-tile .tile', { opacity: 0, scale: 0.85, duration: 0.25, ease: 'power2.in' }, 24.8);
+      tl.to('#phone', { scale: 0.55, x: 375, y: -40, rotationY: -14, rotationX: 2, duration: 0.7, ease: 'power2.inOut' }, 24.7);
+      tl.to('#roamy', { x: 470, y: -60, scale: 0.6, duration: 0.7, ease: 'power3.inOut' }, 24.75);
+      tl.fromTo('#laptop', { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.6, ease: 'expo.out' }, 24.85);
+      tl.to('#scr-curtain .in, #scr-curtain .black', { opacity: 0, duration: 0.3 }, 24.7);
+      tl.fromTo('#scr-make .in', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.4, ease: 'expo.out' }, 24.9);
+      // Terminal lines type in (a stepped reveal per line).
+      [25.15, 25.4, 26.0, 26.4, 26.9, 27.35, 27.8].forEach((at, i) => {
+        const ln = document.querySelectorAll('#terminal .ln')[i];
+        tl.fromTo(ln, { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 0.28, ease: 'steps(14)' }, at);
+      });
+      // Six clips arc from the phone into the laptop.
+      document.querySelectorAll('#flights .fly:not(#fly-back)').forEach((el, i) => {
+        const at = 25.35 + i * 0.07;
+        tl.fromTo(el, { x: PHONE6.x - 48, opacity: 0, scale: 0.6 }, { x: MAC_SCREEN.x - 48, duration: 0.6, ease: 'power2.inOut' }, at);
+        tl.fromTo(el, { y: PHONE6.y - 32 }, { y: 300, duration: 0.3, ease: 'power2.out' }, at);
+        tl.to(el, { y: MAC_SCREEN.y - 32, duration: 0.3, ease: 'power2.in' }, at + 0.3);
+        tl.to(el, { opacity: 1, scale: 1, duration: 0.15 }, at);
+        tl.to(el, { opacity: 0, scale: 0.5, duration: 0.12, ease: 'power2.in' }, at + 0.5);
+      });
+      tl.set('#make-stage', { textContent: '✨ Starting Claude · 0:04' }, 26.0);
+      tl.set('#make-stage', { textContent: '✨ Cutting the clips · 0:21' }, 26.9);
+      tl.set('#make-stage', { textContent: '✨ Rendering · 0:38' }, 27.35);
+      tl.set('#make-stage', { textContent: '✨ Done · 0:47' }, 27.8);
+      // The finished video flies back and plays in the Gallery.
+      tl.fromTo('#fly-back', { x: MAC_SCREEN.x - 48, y: MAC_SCREEN.y - 32, opacity: 0, scale: 0.6 },
+        { x: PHONE6.x - 48, y: PHONE6.y - 32, opacity: 1, scale: 1, duration: 0.45, ease: 'power3.inOut' }, 27.55);
+      tl.to('#fly-back', { opacity: 0, scale: 1.6, duration: 0.15, ease: 'power2.in' }, 28.0);
+      tl.to('#scr-make .in', { opacity: 0, duration: 0.15 }, 27.85);
+      tl.fromTo('#scr-gallery .in', { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(1.4)' }, 27.95);
+      tl.fromTo('#vid-a', { scale: 1.12, opacity: 1 }, { scale: 1, duration: 1.6, ease: 'none' }, 27.95);
+      tl.fromTo('#vid-b', { opacity: 0, scale: 1.1 }, { opacity: 1, scale: 1, duration: 0.5, ease: 'power1.inOut' }, 28.6);
+
+      // ---- Loop: everything eases back to the frame-0 state so the cut is invisible.
+      tl.to('#laptop', { opacity: 0, y: 40, duration: 0.45, ease: 'power2.in' }, 29.0);
+      tl.to('#scr-gallery .in', { opacity: 0, duration: 0.4, ease: 'power2.in' }, 29.1);
+      tl.to('#phone', { rotationY: -18, rotationX: 6, rotationZ: -2, x: 0, y: 0, scale: 1, duration: 1.1, ease: 'power2.inOut' }, 28.85);
+      tl.to('#roamy', { x: 0, y: 0, scale: 1, duration: 1.0, ease: 'power3.inOut' }, 28.9);
+      setMood('wave', 29.5);
 
       window.__timelines['film'] = tl;
     })();

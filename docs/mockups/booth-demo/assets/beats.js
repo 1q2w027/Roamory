@@ -18,5 +18,5 @@
   ];
   root.ROAMORY_BEATS = beats;
   // Headline words are fully in by start + IN, start leaving at end - OUT; PX is the headline size.
-  root.ROAMORY_HEADLINE = { IN: 1.2, OUT: 0.3, PX: 80 };
+  root.ROAMORY_HEADLINE = { IN: 1.2, OUT: 0.4, PX: 80 };
 })(this);
