@@ -12,6 +12,10 @@ handle /internal/* {
 handle /v1/render* {
 	reverse_proxy 127.0.0.1:3001
 }
+# Agent mode runs in the render service too (TRD 9.3).
+handle /v1/agent* {
+	reverse_proxy 127.0.0.1:3001
+}
 handle /render/healthz {
 	rewrite * /healthz
 	reverse_proxy 127.0.0.1:3001

@@ -8,11 +8,11 @@ FROM caddy:2 AS caddy
 FROM node:22-bookworm-slim
 COPY --from=caddy /usr/bin/caddy /usr/local/bin/caddy
 
-# Chrome Headless Shell's shared libraries (remotion.dev/docs/docker), and Python 3.11 for the backend.
+# Chrome Headless Shell's shared libraries (remotion.dev/docs/docker), ffmpeg for agent mode's frames and ffprobe, and Python 3.11 for the backend.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libnss3 libdbus-1-3 libatk1.0-0 libgbm-dev libasound2 libxrandr2 libxkbcommon-dev \
       libxfixes3 libxcomposite1 libxdamage1 libatk-bridge2.0-0 libpango-1.0-0 libcairo2 libcups2 \
-      ca-certificates python3 python3-venv \
+      ca-certificates python3 python3-venv ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

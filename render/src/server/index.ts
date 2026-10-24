@@ -7,8 +7,11 @@ import { pathToFileURL } from "node:url";
 import express, { type ErrorRequestHandler, type RequestHandler, type Response } from "express";
 import multer from "multer";
 import { loadConfig, type Config } from "./config";
-import { Jobs, type RenderFn, type Reservation } from "./jobs";
+import { Jobs, type AgentFn, type JobKind, type RenderFn, type Reservation } from "./jobs";
 import { validateRequest } from "./validate";
+import { presets, validateAgentRequestParts } from "./validateAgent";
+
+type Upload = { reservation: Reservation; raw: string | undefined; clipParts: string[] };
 
 /** Error body (contracts/error.schema.json). */
 function fail(res: Response, status: number, code: string, message: string, retryable = false) {
@@ -55,14 +58,18 @@ export function createApp(config: Config, jobs: Jobs) {
     limits: { fileSize: config.maxUploadBytes, fieldSize: 1024 * 1024, fields: 4, files: 200 },
   });
 
-  app.post(
-    "/v1/render",
+  /**
+   * Holds a slot of `kind`, then takes the multipart upload into its clips dir: 413 over MAX_UPLOAD_MB,
+   * 429 busy with no slot. Leaves `request` and the clip part names on `req.upload`; the slot is the
+   * route's to start or cancel from then on.
+   */
+  const receive = (kind: JobKind): RequestHandler[] => [
     (req, res, next) => {
       if (Number(req.get("content-length") ?? 0) > config.maxUploadBytes) {
         return fail(res, 413, "upload_too_large", `upload is over ${config.maxUploadBytes} bytes`);
       }
       // Hold a slot before reading the upload, so a busy server doesn't take 30 MB it will drop.
-      const reservation = jobs.reserve();
+      const reservation = jobs.reserve(kind);
       if (!reservation) return fail(res, 429, "busy", "already rendering", true);
       (req as { reservation?: Reservation }).reservation = reservation;
       upload.any()(req, res, (err?: unknown) => {
@@ -74,7 +81,7 @@ export function createApp(config: Config, jobs: Jobs) {
         fail(res, 400, "bad_request", err instanceof Error ? err.message : "bad upload");
       });
     },
-    (req, res) => {
+    (req, res, next) => {
       const reservation = (req as { reservation?: Reservation }).reservation!;
       const files = (req.files as Express.Multer.File[] | undefined) ?? [];
       const total = files.reduce((sum, f) => sum + f.size, 0);
@@ -87,15 +94,22 @@ export function createApp(config: Config, jobs: Jobs) {
       const raw: string | undefined = requestFile ? fs.readFileSync(requestFile.path, "utf8") : req.body?.request;
       if (requestFile) fs.rmSync(requestFile.path);
       const clipParts = files.filter((f) => f !== requestFile).map((f) => f.fieldname);
-      const result = validateRequest(raw, clipParts);
-      if (!result.ok) {
-        jobs.cancel(reservation);
-        return fail(res, 400, "bad_request", result.message);
-      }
-      const job = jobs.start(reservation, result.request);
-      res.status(202).json({ job_id: job.job_id });
+      (req as { upload?: Upload }).upload = { reservation, raw, clipParts };
+      next();
     },
-  );
+  ];
+  const uploaded = (req: express.Request) => (req as { upload?: Upload }).upload!;
+
+  app.post("/v1/render", ...receive("render"), (req, res) => {
+    const { reservation, raw, clipParts } = uploaded(req);
+    const result = validateRequest(raw, clipParts);
+    if (!result.ok) {
+      jobs.cancel(reservation);
+      return fail(res, 400, "bad_request", result.message);
+    }
+    const job = jobs.start(reservation, result.request);
+    res.status(202).json({ job_id: job.job_id });
+  });
 
   app.get("/v1/render/:id", (req, res) => {
     const job = jobs.get(req.params.id);
@@ -103,15 +117,49 @@ export function createApp(config: Config, jobs: Jobs) {
     res.json(job);
   });
 
-  app.get("/v1/render/:id/video", (req, res) => {
-    const id = req.params.id;
-    const file = jobs.videoPath(id);
+  const sendVideo = (id: string, kind: JobKind, res: Response) => {
+    const file = jobs.videoPath(id, kind);
     if (!file) return fail(res, 404, "not_found", "no video for this job (unknown, not completed, or already downloaded)");
     res.type("video/mp4").sendFile(file, (err) => {
       // Delete once sent. If the download broke, keep it for a retry until the TTL sweep.
       if (!err) jobs.delete(id);
     });
+  };
+  app.get("/v1/render/:id/video", (req, res) => sendVideo(req.params.id, "render", res));
+
+  // Agent mode (contracts README, "Agent mode: /v1/agent"). Agent jobs per trip, since the server started.
+  const agentsByTrip = new Map<string, number>();
+  app.post("/v1/agent", ...receive("agent"), (req, res) => {
+    const { reservation, raw, clipParts } = uploaded(req);
+    const result = validateAgentRequestParts(raw, clipParts);
+    if (!result.ok) {
+      jobs.cancel(reservation);
+      return fail(res, 400, "bad_request", result.message);
+    }
+    const { request } = result;
+    const count = agentsByTrip.get(request.trip_id) ?? 0;
+    if (count >= config.agent.perTrip) {
+      jobs.cancel(reservation);
+      return fail(res, 429, "rate_limited", `trip is over ${config.agent.perTrip} agent jobs`);
+    }
+    agentsByTrip.set(request.trip_id, count + 1);
+    const job = jobs.startAgent(reservation, { request, preset: presets[request.style] });
+    res.status(202).json({ job_id: job.job_id });
   });
+
+  app.get("/v1/agent/:id", (req, res) => {
+    const job = jobs.get(req.params.id, "agent");
+    if (!job) return fail(res, 404, "not_found", "unknown or deleted job");
+    res.json(job);
+  });
+
+  app.get("/v1/agent/:id/result", (req, res) => {
+    const result = jobs.result(req.params.id);
+    if (!result) return fail(res, 404, "not_found", "no result for this job (unknown, not completed, or already downloaded)");
+    res.json(result);
+  });
+
+  app.get("/v1/agent/:id/video", (req, res) => sendVideo(req.params.id, "agent", res));
 
   app.use((_req, res) => fail(res, 404, "not_found", "no such route"));
 
@@ -128,12 +176,14 @@ export function createApp(config: Config, jobs: Jobs) {
  * Builds the job store over a renderer, with the clip and music lookups the real server uses.
  * `origin()` is this server's loopback origin, known once it listens.
  */
-export function createJobs(config: Config, render: RenderFn, origin: () => string): Jobs {
+export function createJobs(config: Config, render: RenderFn, origin: () => string, agent?: AgentFn): Jobs {
   return new Jobs({
     root: config.tmpRoot,
     concurrency: config.concurrency,
     ttlS: config.ttlS,
     render,
+    agent,
+    agentTimeoutS: config.agent.timeoutS,
     clipUrl: (id, momentId) => `${origin()}/internal/clips/${id}/${encodeURIComponent(momentId)}.mp4`,
     musicSrc: (track) => {
       const src = `music/${track}.m4a`;
@@ -145,9 +195,11 @@ export function createJobs(config: Config, render: RenderFn, origin: () => strin
 async function main() {
   const config = loadConfig();
   if (!config.appToken) console.warn("APP_TOKEN is not set: every /v1 request will get 401");
+  if (!process.env.ANTHROPIC_API_KEY) console.warn("ANTHROPIC_API_KEY is not set: every agent job will fail");
   const { createRemotionRenderer } = await import("./renderer");
+  const { createAgentRunner } = await import("../agent/run");
   let origin = "";
-  const jobs = createJobs(config, await createRemotionRenderer(config.publicDir), () => origin);
+  const jobs = createJobs(config, await createRemotionRenderer(config.publicDir), () => origin, createAgentRunner(config));
   setInterval(() => jobs.sweep(), Math.min(60, config.ttlS) * 1000).unref();
   const server = createApp(config, jobs).listen(config.port, () => {
     // Reach ourselves over the family we bound: on a dual-stack bind another process can still

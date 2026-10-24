@@ -3,3 +3,4 @@ out/
 .env
 # Copied in by scripts/sync-assets.sh
 public/
+.agent-work/

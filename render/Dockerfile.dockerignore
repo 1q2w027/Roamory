@@ -5,3 +5,4 @@
 render/node_modules/
 render/out/
 render/.env
+render/.agent-work/
