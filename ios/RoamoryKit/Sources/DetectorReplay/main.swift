@@ -63,26 +63,10 @@ struct Labels: Decodable {
     }
 }
 
-/// Stands in for the rolling buffer: remembers each hold and release.
-actor LoggingHolder: MomentHolder {
-    var holds: [(id: String, triggerMs: Int, source: MomentSource)] = []
-    var released: Set<String> = []
-
-    func hold(momentId: String, triggerMs: Int, source: MomentSource) {
-        holds.append((momentId, triggerMs, source))
-        print(String(format: "%7.1fs  hold %@ (%@)", Double(triggerMs) / 1000, momentId, source.rawValue))
-    }
-
-    func release(_ momentId: String) {
-        released.insert(momentId)
-        print("          release \(momentId) (cloud said skip)")
-    }
-}
-
 let options = parseOptions()
 let config = try DetectionConfig.bundled()
 let labels = try JSONDecoder().decode(Labels.self, from: Data(contentsOf: options.labels))
-let holder = LoggingHolder()
+let holder = InMemoryMomentHolder()
 let evaluator: Evaluating? = options.server.map {
     EvaluateClient(baseURL: $0, token: options.token, timeoutS: config.evaluateTimeoutS)
 }
@@ -112,6 +96,7 @@ let intervalMs = Int(config.sampleIntervalS * 1000)
 var nextMarkMs = 0
 var samples = 0
 var latencies: [Int] = []
+var printedHolds = 0
 while let sample = output.copyNextSampleBuffer() {
     let tMs = Int(CMSampleBufferGetPresentationTimeStamp(sample).seconds * 1000)
     guard tMs >= nextMarkMs, let pixels = CMSampleBufferGetImageBuffer(sample) else { continue }
@@ -122,6 +107,10 @@ while let sample = output.copyNextSampleBuffer() {
     samples += 1
     await detector.ingest(SampledFrame(tMs: tMs, luma: luma, jpeg: jpeg, dwell: 0))
     if evaluator != nil { await detector.waitForIdle() }
+    for h in await holder.holds.dropFirst(printedHolds) {
+        print(String(format: "%7.1fs  hold %@ (%@)", Double(h.triggerMs) / 1000, h.id, h.source.rawValue))
+    }
+    printedHolds = await holder.holds.count
 }
 if reader.status == .failed { print("reader failed: \(reader.error?.localizedDescription ?? "unknown")") }
 await detector.waitForIdle()
