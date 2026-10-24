@@ -11,7 +11,7 @@ import SwiftUI
 struct RoamaryApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView().renderLabButton()
         }
     }
 }

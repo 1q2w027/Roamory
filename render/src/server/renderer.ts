@@ -1,3 +1,4 @@
+import net, { type AddressInfo } from "node:net";
 import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { ensureBrowser, renderMedia, selectComposition } from "@remotion/renderer";
@@ -13,10 +14,12 @@ export async function createRemotionRenderer(publicDir: string, log: (line: stri
 
   return async (props, outputPath, onProgress) => {
     const inputProps = props as unknown as Record<string, unknown>;
-    const composition = await selectComposition({ serveUrl, id: "Highlight", inputProps });
+    const port = await freePort();
+    const composition = await selectComposition({ serveUrl, id: "Highlight", inputProps, port });
     await renderMedia({
       composition,
       serveUrl,
+      port,
       codec: "h264",
       audioCodec: "aac",
       outputLocation: outputPath,
@@ -24,4 +27,18 @@ export async function createRemotionRenderer(publicDir: string, log: (line: stri
       onProgress: ({ progress }) => onProgress(progress),
     });
   };
+}
+
+/**
+ * A free loopback port for Remotion's bundle server. Left to its own search on macOS it can bind
+ * 127.0.0.1 on our API's port (beside our wildcard listen), and Chrome then loads our API instead.
+ */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const probe = net.createServer().once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const { port } = probe.address() as AddressInfo;
+      probe.close(() => resolve(port));
+    });
+  });
 }

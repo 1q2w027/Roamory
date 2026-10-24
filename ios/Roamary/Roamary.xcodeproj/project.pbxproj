@@ -6,7 +6,13 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5A1C0E010000000000000001 /* RoamoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1C0E010000000000000002 /* RoamoryKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
+		5A1C0E010000000000000003 /* Roamary.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Roamary.xcconfig; sourceTree = "<group>"; };
+		5A1C0E010000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		206EB9CB308C2332009D930D /* Roamary.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Roamary.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -22,6 +28,7 @@
 		206EB9C8308C2332009D930D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				5A1C0E010000000000000001 /* RoamoryKit in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -30,6 +37,7 @@
 		206EB9C2308C2332009D930D = {
 			isa = PBXGroup;
 			children = (
+				5A1C0E010000000000000004 /* Config */,
 				206EB9CD308C2332009D930D /* Roamary */,
 				206EB9CC308C2332009D930D /* Products */,
 			);
@@ -41,6 +49,15 @@
 				206EB9CB308C2332009D930D /* Roamary.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5A1C0E010000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				5A1C0E010000000000000003 /* Roamary.xcconfig */,
+				5A1C0E010000000000000006 /* Info.plist */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -60,6 +77,9 @@
 				206EB9CD308C2332009D930D /* Roamary */,
 			);
 			name = Roamary;
+			packageProductDependencies = (
+				5A1C0E010000000000000002 /* RoamoryKit */,
+			);
 			productName = Roamary;
 			productReference = 206EB9CB308C2332009D930D /* Roamary.app */;
 			productType = "com.apple.product-type.application";
@@ -88,6 +108,9 @@
 			);
 			mainGroup = 206EB9C2308C2332009D930D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5A1C0E010000000000000005 /* XCLocalSwiftPackageReference "../RoamoryKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 206EB9CC308C2332009D930D /* Products */;
 			projectDirPath = "";
@@ -238,6 +261,7 @@
 		};
 		206EB9D7308C2333009D930D /* Debug configuration for PBXNativeTarget "Roamary" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5A1C0E010000000000000003 /* Roamary.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -246,6 +270,7 @@
 				DEVELOPMENT_TEAM = B2CCNZP93F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamary needs the camera to record your trip.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamary needs the microphone to record sound during your trip.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamary needs access to save recorded videos to your Photos.";
@@ -274,6 +299,7 @@
 		};
 		206EB9D8308C2333009D930D /* Release configuration for PBXNativeTarget "Roamary" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5A1C0E010000000000000003 /* Roamary.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -282,6 +308,7 @@
 				DEVELOPMENT_TEAM = B2CCNZP93F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamary needs the camera to record your trip.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamary needs the microphone to record sound during your trip.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamary needs access to save recorded videos to your Photos.";
@@ -328,6 +355,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5A1C0E010000000000000005 /* XCLocalSwiftPackageReference "../RoamoryKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RoamoryKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5A1C0E010000000000000002 /* RoamoryKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RoamoryKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 206EB9C3308C2332009D930D /* Project object */;
 	validationLevel = 1;
