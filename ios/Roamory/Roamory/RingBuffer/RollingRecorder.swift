@@ -18,15 +18,24 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     }
 
     nonisolated enum RecorderError: LocalizedError {
-        case bufferEmpty, alreadySaving, notSaving
+        case bufferEmpty, alreadySaving, notSaving, footageGone
 
         var errorDescription: String? {
             switch self {
             case .bufferEmpty: "Nothing in the buffer yet."
             case .alreadySaving: "Already saving."
             case .notSaving: "Not saving."
+            case .footageGone: "That footage is no longer in the buffer."
             }
         }
+    }
+
+    /// A file written by `writeClip`. `start` and `end` are the presentation times (seconds) of its first and last video sample.
+    nonisolated struct SavedClip: Sendable {
+        let url: URL
+        let start: Double
+        let end: Double
+        let hasAudio: Bool
     }
 
     /// Called (on an arbitrary queue) with a problem that does not end a save, such as an encoder error.
@@ -108,6 +117,36 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
             }
         }
         return try await writer.finish()
+    }
+
+    /// Writes the buffered footage from the keyframe at or before `start` up to `end` (both presentation times in
+    /// seconds) to a new mp4, and returns once the file is finished. An `end` past the newest sample writes up to it.
+    /// The buffer and a save started with `start()` are untouched.
+    func writeClip(from start: Double, to end: Double, url: URL) async throws -> SavedClip {
+        let (writer, clip): (ClipWriter, SavedClip) = try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    let videoSnapshot = self.video.range(from: start, to: end)
+                    guard let first = videoSnapshot.first, let last = videoSnapshot.last, let videoFormat = self.videoFormat else {
+                        throw RecorderError.footageGone
+                    }
+                    let audioSnapshot = self.audio.range(from: first.time, to: end)
+                    let writer = try ClipWriter(url: url, videoFormat: videoFormat, audioFormat: self.audioFormat,
+                                                start: CMSampleBufferGetPresentationTimeStamp(first.payload), queue: self.queue)
+                    for entry in videoSnapshot { writer.appendVideo(entry.payload) }
+                    for entry in audioSnapshot { writer.appendAudio(entry.payload) }
+                    let hasAudio = self.audioFormat != nil && !audioSnapshot.isEmpty
+                    return (writer, SavedClip(url: url, start: first.time, end: last.time, hasAudio: hasAudio))
+                })
+            }
+        }
+        do {
+            _ = try await writer.finish()
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            throw error
+        }
+        return clip
     }
 
     var isSaving: Bool { queue.sync { writer != nil } }
