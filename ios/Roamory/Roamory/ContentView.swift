@@ -12,6 +12,7 @@ struct ContentView: View {
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
     @StateObject private var detection = DetectionController()
+    @State private var headphones = HeadphoneButton()
     @State private var showDetectionSettings = false
     @State private var pinchStartZoom: CGFloat?
     @State private var dragStartZoom: CGFloat?
@@ -90,6 +91,9 @@ struct ContentView: View {
             let sink = detection.sink
             camera.onFrame = { sink.handle($0) }
             await camera.prepare()
+            // AirPods stem press starts or stops saving, like the on-screen button.
+            headphones.onPress = { [camera] in camera.toggleSaving() }
+            headphones.start()
         }
     }
 
@@ -214,7 +218,7 @@ struct ContentView: View {
     /// Stand-in for the trigger that will come from the agent: saves the buffer and what follows until tapped again.
     private var debugSaveButton: some View {
         Button {
-            camera.isSaving ? camera.stopSaving() : camera.startSaving()
+            camera.toggleSaving()
         } label: {
             Label(camera.isSaving ? "Stop saving" : "Save buffer",
                   systemImage: camera.isSaving ? "stop.fill" : "record.circle")
