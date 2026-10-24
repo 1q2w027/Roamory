@@ -1,5 +1,5 @@
 //
-//  ContentView.swift
+//  RecordingView.swift
 //  Roamory
 //
 //  Created by Yifan Liu on 10/23/26.
@@ -9,7 +9,7 @@ import AVKit
 import RoamoryKit
 import SwiftUI
 
-struct ContentView: View {
+struct RecordingView: View {
     /// Back to trip setup, after the trip has ended and the camera stopped.
     let onBackToSetup: () -> Void
     @StateObject private var camera = CameraService()
@@ -292,5 +292,5 @@ private struct BottomStrip: Shape {
 }
 
 #Preview {
-    ContentView {}
+    RecordingView {}
 }
