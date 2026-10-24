@@ -11,14 +11,14 @@ final class TripPipelineTests: XCTestCase {
     }
 
     private func pipeline(_ clips: [ClipInfo], style: Style = .reels) -> TripPipeline {
-        var trip = RenderLab.trip
+        var trip = SampleTrip.trip
         trip.style = style
         trip.allowCloudAnalysis = false
         return TripPipeline(trip: trip, folder: folder, clips: clips, planService: nil, remoteRenderer: { _ in nil })
     }
 
     func testClipsMakeAVideoInTheTripFolder() async throws {
-        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 2, from: BundledResources.sampleClipURLs)
         let p = pipeline(clips)
         await p.start()
 
@@ -40,7 +40,7 @@ final class TripPipelineTests: XCTestCase {
     }
 
     func testRerenderUsesTheSameClipsInAnotherStyle() async throws {
-        let clips = try await RenderLab.clips(count: 2, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: 2, from: BundledResources.sampleClipURLs)
         let p = pipeline(clips, style: .reels)
         await p.start()
         let first = try XCTUnwrap(p.coordinator?.video?.outputPath)

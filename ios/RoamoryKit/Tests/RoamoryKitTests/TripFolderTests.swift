@@ -72,7 +72,7 @@ final class TripFolderTests: XCTestCase {
                         toMs: fromMs + durationMs, mp4: false)
         }
 
-        var trip = RenderLab.trip
+        var trip = SampleTrip.trip
         trip.style = .reels
         trip.allowCloudAnalysis = false
         let c = EditCoordinator(trip: trip, clips: TripFolder.loadClips(in: folder),

@@ -73,7 +73,7 @@ final class PrePassTests: XCTestCase {
         let landscape = try XCTUnwrap(files.first { $0.lastPathComponent == "sample_a.mp4" })
         let rotated = try XCTUnwrap(files.first { $0.lastPathComponent == "sample_c.mp4" })
         for (file, portrait) in [(landscape, false), (rotated, true)] {
-            var info = try await RenderLab.clipInfo(file: file, momentId: "m", source: .ai, score: 0.5, fromMs: 0)
+            var info = try await SampleTrip.clipInfo(file: file, momentId: "m", source: .ai, score: 0.5, fromMs: 0)
             (info.proposedInS, info.proposedOutS) = (4, 8)
             let thumbs = try await PrePass.thumbnails(for: info, config: config)
             XCTAssertEqual(thumbs.count, 4)

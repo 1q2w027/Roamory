@@ -1,15 +1,16 @@
 import AVFoundation
 import Foundation
+@testable import RoamoryKit
 
-/// Dev harness inputs: `ClipInfo`s from plain .mp4 files, so the renderer can be built and timed before capture exists.
-public enum RenderLab {
-    public static let trip = TripContext(
-        tripId: "t_lab", style: .cinematic, tripType: "friends", destination: Destination(country: "Japan", city: "Kyoto"),
+/// Test inputs: a trip, and `ClipInfo`s from plain .mp4 files such as the bundled sample clips.
+enum SampleTrip {
+    static let trip = TripContext(
+        tripId: "t_sample", style: .cinematic, tripType: "friends", destination: Destination(country: "Japan", city: "Kyoto"),
         startDate: "2026-10-12", allowCloudAnalysis: false
     )
 
     /// A clip for a file without a sidecar: trigger in the middle, full frame rate, no Stage 1 samples.
-    public static func clipInfo(file: URL, momentId: String, source: MomentSource, score: Double?, fromMs: Int) async throws -> ClipInfo {
+    static func clipInfo(file: URL, momentId: String, source: MomentSource, score: Double?, fromMs: Int) async throws -> ClipInfo {
         let asset = AVURLAsset(url: file)
         let duration = try await asset.load(.duration).seconds
         let hasAudio = try await !asset.loadTracks(withMediaType: .audio).isEmpty
@@ -20,7 +21,7 @@ public enum RenderLab {
     }
 
     /// `count` clips cycling through `files`, one every 5 trip minutes. Every fourth is a button moment.
-    public static func clips(count: Int, from files: [URL]) async throws -> [ClipInfo] {
+    static func clips(count: Int, from files: [URL]) async throws -> [ClipInfo] {
         guard !files.isEmpty else { return [] }
         var clips: [ClipInfo] = []
         for i in 0..<count {
@@ -30,14 +31,5 @@ public enum RenderLab {
             ))
         }
         return clips
-    }
-
-    /// Any .mp4 in the app's Documents folder (added through Files or Finder), then the bundled samples.
-    public static func sourceFiles() -> [URL] {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first
-        let own = (documents.flatMap { try? FileManager.default.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil) } ?? [])
-            .filter { $0.pathExtension.lowercased() == "mp4" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-        return own.isEmpty ? BundledResources.sampleClipURLs : own
     }
 }

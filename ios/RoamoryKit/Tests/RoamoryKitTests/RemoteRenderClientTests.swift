@@ -17,9 +17,9 @@ final class RemoteRenderClientTests: XCTestCase {
 
     /// A fallback-planned reels spec over the sample clips.
     static func plan(clips count: Int) async throws -> (EditSpec, [String: URL]) {
-        let clips = try await RenderLab.clips(count: count, from: BundledResources.sampleClipURLs)
+        let clips = try await SampleTrip.clips(count: count, from: BundledResources.sampleClipURLs)
         let presets = try StylePresets.bundled()
-        var trip = RenderLab.trip
+        var trip = SampleTrip.trip
         trip.style = .reels
         let request = PlanRequest(trip: trip, clips: clips, preset: presets[.reels], config: Fixtures.config)
         let spec = FallbackPlanner.plan(request, preset: presets[.reels], endCardText: Fixtures.config.endCardText)
@@ -32,7 +32,7 @@ final class RemoteRenderClientTests: XCTestCase {
         config.remoteRenderPollS = 0.05
         return RemoteRenderClient(
             baseURL: URL(string: "https://render.example.test")!, appToken: "secret",
-            context: RenderRequest.Context(trip: RenderLab.trip), config: config, session: HTTPStub.session()
+            context: RenderRequest.Context(trip: SampleTrip.trip), config: config, session: HTTPStub.session()
         )
     }
 
@@ -86,7 +86,7 @@ final class RemoteRenderClientTests: XCTestCase {
         let (sent, body) = try XCTUnwrap(upload.value)
         XCTAssertTrue(try XCTUnwrap(sent.value(forHTTPHeaderField: "Content-Type")).hasPrefix("multipart/form-data; boundary="))
         let request = try JSONDecoder().decode(RenderRequest.self, from: try XCTUnwrap(Self.part("request", in: body)))
-        XCTAssertEqual(request.context, RenderRequest.Context(trip: RenderLab.trip))
+        XCTAssertEqual(request.context, RenderRequest.Context(trip: SampleTrip.trip))
         XCTAssertEqual(request.editSpec.clips.map(\.momentId), spec.clips.map(\.momentId))
         XCTAssertTrue(request.editSpec.clips.allSatisfy { $0.inS == 0 })
         XCTAssertEqual(request.clips.map(\.momentId), spec.clips.map(\.momentId))
