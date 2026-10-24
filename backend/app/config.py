@@ -16,7 +16,7 @@ class Settings(BaseSettings):
 
     APP_TOKEN: str = ""
     ANTHROPIC_API_KEY: str = ""
-    PLANNER_MODEL: str = "claude-opus-5-5"
+    PLANNER_MODEL: str = "claude-sonnet-5-5"
     PLANNER_EFFORT: str = "medium"
     PLAN_TIMEOUT_S: float = 25.0
     # 4 thumbnails per clip; keep clips x 4 under the API's per-request image limit.
