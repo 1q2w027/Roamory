@@ -73,3 +73,16 @@ def multipart(plan_request: dict, thumbs: bool = True) -> dict:
                 name = f"{c['moment_id']}_{k}.jpg"
                 files.append((name, (name, b"\xff\xd8\xff\xe0fake-jpeg", "image/jpeg")))
     return {"files": files, "headers": {"Authorization": f"Bearer {TOKEN}"}}
+
+
+def verdict(**kw):
+    """A valid Stage 2 verdict (contracts/evaluation verdict) with overrides."""
+    from app.evaluate.models import ModelVerdict
+
+    base = dict(
+        event_type="scenery", matched_preferences=["scenery"], preference_alignment=0.8,
+        visual_interest=0.6, significance=0.5, visual_quality=0.9, save_decision="save",
+        best_frame_index=2, window_hint_s={"pre": 15, "post": 15},
+        description="A temple gate at dusk", reason="Scenic landmark",
+    )
+    return ModelVerdict.model_validate(base | kw)
