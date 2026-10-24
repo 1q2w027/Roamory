@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The app's two tabs, chosen from the glass bar at the bottom.
+/// The app's three tabs, chosen from the glass bar at the bottom.
 enum AppTab: String, CaseIterable {
-    case gallery, create
+    case gallery, create, ask
 
     var title: String { rawValue.capitalized }
 
@@ -10,6 +10,7 @@ enum AppTab: String, CaseIterable {
         switch self {
         case .gallery: "square.grid.2x2.fill"
         case .create: "video.badge.plus"
+        case .ask: "bubble.left.and.bubble.right.fill"
         }
     }
 }
@@ -42,6 +43,8 @@ struct RootView: View {
                     case .create:
                         OnboardingView(onStart: { withAnimation(.easeInOut(duration: 0.6)) { recording = true } },
                                        onClose: { select(.gallery) })
+                    case .ask:
+                        AskView()
                     }
                 }
                 .transition(.opacity)
@@ -62,7 +65,7 @@ struct RootView: View {
     }
 }
 
-/// A floating Liquid Glass capsule with one button per tab; the chosen one sits on a green pill.
+/// A floating Liquid Glass capsule with one button per tab; the chosen one sits on a green gradient pill.
 struct GlassTabBar: View {
     @Binding var tab: AppTab
     @Namespace private var pill
@@ -81,7 +84,7 @@ struct GlassTabBar: View {
                     .padding(.vertical, 9)
                     .background {
                         if on {
-                            Capsule().fill(Theme.accent)
+                            Capsule().fill(Theme.accentGradient)
                                 .shadow(color: Theme.accent.opacity(0.5), radius: 10)
                                 .matchedGeometryEffect(id: "pill", in: pill)
                         }
