@@ -19,7 +19,7 @@ enum SummaryClient {
         """
 
     static func summarize(frames: [Data]) async throws -> String {
-        switch SummarySettings.provider {
+        switch await SummarySettings.resolvedProvider() {
         case .claude: try await summarizeWithClaude(frames: frames)
         case .onDevice: try await OnDeviceSummarizer.summarize(frames: frames)
         }

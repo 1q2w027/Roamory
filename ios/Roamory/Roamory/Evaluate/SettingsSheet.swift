@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SummarySettings.providerKey) private var provider = SummaryProvider.claude
+    @AppStorage(SummarySettings.offWiFiKey) private var onDeviceOffWiFi = true
     @State private var key = ""
     @State private var hasKey = APIKeyStore.load() != nil
 
@@ -63,6 +64,11 @@ struct SettingsSheet: View {
             Text("Anthropic API key")
         } footer: {
             Text("Kept in this iPhone's Keychain, not in the app. Evaluate sends frames from the buffer to Anthropic with it.")
+        }
+        Section {
+            Toggle("On device when not on Wi-Fi", isOn: $onDeviceOffWiFi)
+        } footer: {
+            Text("Without Wi-Fi, Evaluate uses the on-device model instead, when it is available.")
         }
     }
 
