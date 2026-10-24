@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/style_presets.schema.json",
   "title": "StylePresets",
-  "description": "Shape of style_presets.json (TRD 9.2). The planner prompt and the phone read the same file verbatim.",
+  "description": "Shape of style_presets.json (TRD §9). Roamory Studio gives the chosen preset to Claude verbatim; the phone reads it for the capture orientation.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "presets"],
@@ -52,11 +52,11 @@
       "properties": {
         "target_s": {
           "$ref": "#/$defs/range",
-          "description": "Video length. default is what target_s in the plan request carries."
+          "description": "Video length. default feeds the studio effective target (README)."
         },
         "clip_s": {
           "$ref": "#/$defs/range",
-          "description": "Per-clip source length (out_s - in_s). default is the fallback planner's length."
+          "description": "Time each clip is on screen. min feeds the studio effective target (README)."
         },
         "transition": {"type": "string", "enum": ["cut", "fade", "dissolve"]},
         "transition_s": {"$ref": "#/$defs/range"},
@@ -77,15 +77,15 @@
         "music_gain_db": {"type": "number", "maximum": 0},
         "keep_original_audio": {
           "type": "boolean",
-          "description": "Edit spec music.duck_original_audio is the negation of this."
+          "description": "True keeps the clips' own sound in the video."
         },
         "captions": {
           "type": "boolean",
-          "description": "False means every edit-spec caption must be null."
+          "description": "Whether the style may show captions (Studio draws only the title and end cards for now)."
         },
         "allow_speed_ramp": {
           "type": "boolean",
-          "description": "False means every edit-spec speed_ramp must be null."
+          "description": "Whether the style may speed-ramp footage."
         }
       }
     }

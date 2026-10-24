@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roamory.app/contracts/studio_job.schema.json",
+  "title": "StudioJob",
+  "description": "Body of GET /v1/studio/jobs/{job_id}. The phone polls it until status is completed (then fetches the result and the video) or failed.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["job_id", "status", "stage", "elapsed_s", "error"],
+  "properties": {
+    "job_id": {"type": "string", "minLength": 1},
+    "status": {
+      "type": "string",
+      "enum": ["uploading", "editing", "completed", "failed"],
+      "description": "uploading until POST /start; editing while Claude works."
+    },
+    "stage": {
+      "type": ["string", "null"],
+      "maxLength": 80,
+      "description": "A short line about what Claude is doing now, for the phone's progress text."
+    },
+    "elapsed_s": {"type": "number", "minimum": 0, "description": "Seconds since /start, 0 before it."},
+    "error": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "error.schema.json"}
+      ],
+      "description": "Null unless status is failed; then code is agent_failed, agent_timeout or internal."
+    }
+  }
+}

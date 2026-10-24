@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/evaluate_context.schema.json",
   "title": "EvaluateContext",
-  "description": "The `context` part of POST /v1/evaluate (TRD 8.1). Frames travel as separate multipart parts (see README). trip_id and install_id are for budget caps and logs only; the backend never sends them to the model.",
+  "description": "The `context` part of POST /v1/evaluate (TRD §8). Frames travel as separate multipart parts (see README). trip_id and install_id are for budget caps and logs only; the evaluator never sends them to the model.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -29,7 +29,7 @@
     "purpose": {
       "type": "string",
       "enum": ["select", "describe"],
-      "description": "select: a Stage 1 candidate; the backend decides keep or skip. describe: a button moment (TRD 7), already kept; the backend only fills in event_type and description, and always returns keep = true."
+      "description": "select: a Stage 1 candidate; the evaluator decides keep or skip. describe: a button moment (TRD 7), already kept; the evaluator only fills in event_type and description, and always returns keep = true."
     },
     "sample_t_ms": {
       "type": "integer",
@@ -67,7 +67,7 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1,
-          "description": "Normalized dhash distance from recent escalated frames. Used in S2 (TRD 8.2)."
+          "description": "Normalized dhash distance from recent escalated frames. Used in S2 (TRD §8)."
         },
         "sharpness": {"type": "number", "minimum": 0},
         "change": {"type": "number", "minimum": 0},

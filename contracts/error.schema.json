@@ -2,10 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/error.schema.json",
   "title": "Error",
-  "description": "Body of every non-2xx response from the backend.",
+  "description": "Body of every non-2xx response from a Roamory service.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["code", "message", "retryable"],
+  "required": [
+    "code",
+    "message",
+    "retryable"
+  ],
   "properties": {
     "code": {
       "type": "string",
@@ -13,16 +17,14 @@
       "examples": [
         "unauthorized",
         "bad_request",
-        "too_many_clips",
-        "invalid_plan",
+        "not_found",
+        "conflict",
+        "busy",
+        "upload_too_large",
         "rate_limited",
         "upstream_timeout",
         "upstream_error",
         "internal",
-        "upload_too_large",
-        "busy",
-        "not_found",
-        "render_failed",
         "agent_failed",
         "agent_timeout"
       ]

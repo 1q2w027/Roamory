@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roamory.app/contracts/studio_request.schema.json",
+  "title": "StudioRequest",
+  "description": "Body of POST /v1/studio/jobs (Mac bridge, studio/). The trip's saved clips, which the phone then uploads one by one. Claude Code on the Mac selects, trims, edits and renders the video with FFmpeg. Rules the schema cannot express are in README.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "trip_id",
+    "style",
+    "context",
+    "clips"
+  ],
+  "properties": {
+    "trip_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "style": {
+      "type": "string",
+      "enum": [
+        "cinematic",
+        "reels",
+        "documentary",
+        "vlog"
+      ],
+      "description": "The style preset (style_presets.json) the video follows."
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "destination",
+        "trip_type",
+        "start_date"
+      ],
+      "description": "Trip details for the title card.",
+      "properties": {
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "country",
+            "city"
+          ],
+          "properties": {
+            "country": {
+              "type": "string",
+              "minLength": 1
+            },
+            "city": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            }
+          }
+        },
+        "trip_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "clips": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "description": "Every clip saved during the trip, oldest first. The user chose to save each one, so each is treated as a button moment.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clip_id",
+          "recorded_at",
+          "duration_s",
+          "has_audio"
+        ],
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "description": "Also the uploaded file's name, {clip_id}.mp4."
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the clip starts (the oldest buffered frame)."
+          },
+          "duration_s": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "has_audio": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roamory.app/contracts/studio_result.schema.json",
+  "title": "StudioResult",
+  "description": "Body of GET /v1/studio/jobs/{job_id}/result once the job is completed: what Claude put in the video. Rules the schema cannot express are in README.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "total_s",
+    "title",
+    "moments"
+  ],
+  "properties": {
+    "total_s": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Duration of the video in seconds. Within 0.5 s of the rendered file and ±10 % of the effective target (README)."
+    },
+    "title": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "text",
+        "subtitle"
+      ],
+      "description": "The title the video shows, drawn only from the destination, trip type and start_date.",
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "subtitle": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 60
+        }
+      }
+    },
+    "moments": {
+      "type": "array",
+      "minItems": 1,
+      "description": "In playback order, one per clip. Output seconds, the span where the clip is on screen (overlaps from transitions allowed).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "clip_id",
+          "start_s",
+          "end_s"
+        ],
+        "properties": {
+          "clip_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "start_s": {
+            "type": "number",
+            "minimum": 0
+          },
+          "end_s": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
+    }
+  }
+}
