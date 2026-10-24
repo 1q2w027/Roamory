@@ -19,3 +19,15 @@ Needs a full Xcode (the command line tools ship no XCTest):
 - `xcodebuild test -scheme RoamoryKit -destination 'platform=iOS Simulator,name=iPhone 17'` runs on iOS.
 
 Tests read `contracts/examples` straight from the repo. `ContractsTests` fails if the bundled presets drift from `contracts/style_presets.json`; run `scripts/sync-contracts.sh`.
+
+## Replay
+
+`detector-replay` runs a recorded walk through Stage 1 detection on the Mac (TRD §12.1 gate 6, §12.4):
+
+```sh
+swift run detector-replay walk.mp4 --labels labels.json                    # gate only, no cloud
+swift run detector-replay walk.mp4 --labels labels.json \
+    --server http://localhost:8000 --token "$APP_TOKEN" --trip-type honeymoon   # with the backend
+```
+
+`labels.json` is `{"should_save_ms": [...], "tolerance_ms": 10000}`. It prints every hold, the final keep or release decision, the escalation rate (gate 6 wants at most 10 %) and whether each labeled moment was escalated and kept. Motion sensors aren't replayed, so `dwell` is 0. With `--server`, each request finishes before the next sample; start the backend with the trip budget raised (see `backend/tools/replay_eval.py`). Tune `Resources/detection_config.json`, not the code.

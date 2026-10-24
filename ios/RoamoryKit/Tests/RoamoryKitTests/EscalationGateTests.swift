@@ -15,12 +15,19 @@ final class EscalationGateTests: XCTestCase {
     }
 
     func testSustainedRiseEscalatesAtPeakOneSampleLate() {
-        // S = 0, 0, .54, .756, .842, .457: peak at index 4 (8000 ms), known on the next push
+        // S = 0, 0, .72, .864, .893, .339: peak at index 4 (8000 ms), known on the next push
         XCTAssertEqual(feed([0, 0, 0.9, 0.9, 0.9, 0.2]), [Escalation(tMs: 8000, dhash: 0, l: 0.9, forced: false)])
     }
 
-    func testSingleSpikeIsSmoothedAway() {
-        XCTAssertEqual(feed([0, 0, 0.9, 0, 0]), [])
+    func testSingleStrongSpikeEscalates() {
+        // A scene change is one sample of high change: the next sample of the new view has change ~0.
+        // S = 0, 0, .72, .144: peak at index 2 (4000 ms)
+        XCTAssertEqual(feed([0, 0, 0.9, 0, 0]), [Escalation(tMs: 4000, dhash: 0, l: 0.9, forced: false)])
+    }
+
+    func testWeakBlipIsSmoothedAway() {
+        // S = .24, .288, .538, .348, .31: the blip stays under tau 0.55
+        XCTAssertEqual(feed([0.3, 0.3, 0.6, 0.3, 0.3]), [])
     }
 
     func testCooldownBlocksSecondPeak() {

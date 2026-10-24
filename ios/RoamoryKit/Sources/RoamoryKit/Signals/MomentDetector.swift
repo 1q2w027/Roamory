@@ -198,7 +198,7 @@ public actor MomentDetector {
     }
 
     /// Returns when no request is queued or in flight. For tests and the replay tool.
-    func waitForIdle() async {
+    public func waitForIdle() async {
         if isIdle { return }
         await withCheckedContinuation { idleWaiters.append($0) }
     }
