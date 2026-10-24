@@ -84,11 +84,14 @@ struct ContentView: View {
         }
         .overlay {
             if camera.isReady {
-                RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch)
+                RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
+                                 paused: confirmBack)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
+        // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
+        .onChange(of: confirmBack) { lastTouch = .now }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { camera.toggleSaving() }
