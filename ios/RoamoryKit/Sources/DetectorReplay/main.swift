@@ -68,11 +68,9 @@ actor LoggingHolder: MomentHolder {
     var holds: [(id: String, triggerMs: Int, source: MomentSource)] = []
     var released: Set<String> = []
 
-    func hold(triggerMs: Int, source: MomentSource) -> String {
-        let id = "m_\(holds.count + 1)"
-        holds.append((id, triggerMs, source))
-        print(String(format: "%7.1fs  hold %@ (%@)", Double(triggerMs) / 1000, id, source.rawValue))
-        return id
+    func hold(momentId: String, triggerMs: Int, source: MomentSource) {
+        holds.append((momentId, triggerMs, source))
+        print(String(format: "%7.1fs  hold %@ (%@)", Double(triggerMs) / 1000, momentId, source.rawValue))
     }
 
     func release(_ momentId: String) {
@@ -93,7 +91,7 @@ let trip = TripInfo(
     tripType: options.tripType, destination: .init(continent: nil, country: options.country, city: options.city), lengthDays: 1
 )
 let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
-                              cloudAllowed: evaluator != nil, demoMode: options.demo)
+                              cloudAllowed: evaluator != nil, demoMode: options.demo, momentIdPrefix: "m")
 
 let asset = AVURLAsset(url: options.video)
 guard let track = try await asset.loadTracks(withMediaType: .video).first else {

@@ -2,12 +2,11 @@ import XCTest
 @testable import RoamoryKit
 
 actor FakeHolder: MomentHolder {
-    var holds: [(triggerMs: Int, source: MomentSource)] = []
+    var holds: [(id: String, triggerMs: Int, source: MomentSource)] = []
     var released: [String] = []
 
-    func hold(triggerMs: Int, source: MomentSource) -> String {
-        holds.append((triggerMs, source))
-        return "m_\(holds.count)"
+    func hold(momentId: String, triggerMs: Int, source: MomentSource) {
+        holds.append((momentId, triggerMs, source))
     }
 
     func release(_ momentId: String) {
@@ -76,7 +75,8 @@ final class MomentDetectorTests: XCTestCase {
     override func setUp() async throws {
         holder = FakeHolder()
         evaluator = FakeEvaluator()
-        detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator, cloudAllowed: true)
+        detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator, cloudAllowed: true,
+                                  momentIdPrefix: "m")
     }
 
     func decode(_ name: String) -> Evaluation {
@@ -212,7 +212,8 @@ final class MomentDetectorTests: XCTestCase {
     }
 
     func testNoConsentHoldsLocallyWithoutRequests() async {
-        let local = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator, cloudAllowed: false)
+        let local = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator, cloudAllowed: false,
+                                   momentIdPrefix: "m")
         await local.escalate(esc(0, l: 0.9), novelty: 1, frames: [jpeg])
         await local.ingest(frame(1000))
         _ = await local.buttonPressed(atMs: 1500)
@@ -238,5 +239,54 @@ final class MomentDetectorTests: XCTestCase {
         await detector.waitForIdle()
         let holds = await holder.holds
         XCTAssertTrue(holds.allSatisfy { $0.triggerMs < 16_000 }, "escalated a black frame: \(holds.map(\.triggerMs))")
+    }
+
+    func testDetectorMintsUniqueIds() async {
+        let other = MomentDetector(trip: trip, config: config, holder: holder, evaluator: nil, cloudAllowed: false)
+        let a = await other.buttonPressed(atMs: 0)
+        let b = await other.buttonPressed(atMs: 1000)
+        XCTAssertNotEqual(a, b)
+        XCTAssertNotNil(a.range(of: "^[A-Za-z0-9_-]+$", options: .regularExpression))  // contract moment_id pattern
+        let holds = await holder.holds
+        XCTAssertEqual(holds.map(\.id), [a, b])
+    }
+
+    func testFinalizeWhileHoldIsPendingStillKeepsButton() async throws {
+        let slow = SlowHolder()
+        let d = MomentDetector(trip: trip, config: config, holder: slow, evaluator: nil, cloudAllowed: false, momentIdPrefix: "m")
+        let press = Task { await d.buttonPressed(atMs: 0) }
+        let id = try await slow.firstHoldId()          // the buffer is still inside hold()
+        let decision = await d.finalDecision(for: id)  // e.g. the trip paused right now
+        XCTAssertEqual(decision, .keep(source: .button, eventType: nil, description: nil, score: nil))
+        await slow.open()
+        _ = await press.value
+    }
+}
+
+/// A holder whose hold() does not return until open(), like a buffer busy writing a segment.
+actor SlowHolder: MomentHolder {
+    private var ids: [String] = []
+    private var idWaiters: [CheckedContinuation<String, Never>] = []
+    private var gate: [CheckedContinuation<Void, Never>] = []
+    private var opened = false
+
+    func hold(momentId: String, triggerMs: Int, source: MomentSource) async {
+        ids.append(momentId)
+        idWaiters.forEach { $0.resume(returning: momentId) }
+        idWaiters.removeAll()
+        if !opened { await withCheckedContinuation { gate.append($0) } }
+    }
+
+    func release(_ momentId: String) {}
+
+    func firstHoldId() async throws -> String {
+        if let first = ids.first { return first }
+        return await withCheckedContinuation { idWaiters.append($0) }
+    }
+
+    func open() {
+        opened = true
+        gate.forEach { $0.resume() }
+        gate.removeAll()
     }
 }

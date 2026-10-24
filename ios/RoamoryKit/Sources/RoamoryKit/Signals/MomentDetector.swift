@@ -1,10 +1,15 @@
 import Foundation
 
 /// The rolling buffer's side of detection (TRD 5.3). The buffer implements it; the detector never touches footage.
+///
+/// The detector mints every moment id, unique per call. If the buffer merges overlapping moments (TRD 5.3 rule 4),
+/// it does so internally and keeps each id's protection separate: releasing one id never drops footage another id
+/// still protects. When a moment's window closes, the buffer asks `MomentDetector.finalDecision(for:)`.
+/// `release` can arrive before that, and the final decision may then also be `.release`; treat both as idempotent.
 public protocol MomentHolder: Sendable {
-    /// Protect [triggerMs − pre, triggerMs + post] now and return the new moment's id.
-    func hold(triggerMs: Int, source: MomentSource) async -> String
-    /// The cloud said skip: drop the protection (the footage then ages out of the buffer).
+    /// Protect [triggerMs − pre, triggerMs + post] now under `momentId`.
+    func hold(momentId: String, triggerMs: Int, source: MomentSource) async
+    /// The cloud said skip: drop this id's protection (the footage then ages out of the buffer).
     func release(_ momentId: String) async
 }
 
@@ -55,6 +60,7 @@ public enum MomentDecision: Sendable, Equatable {
 
 /// Stage 1 on the phone (TRD 6): signals → local score → gate → hold → evaluate → keep or release.
 /// Recording never waits on it: holds are placed before any request, and requests run in child tasks.
+/// Call `ingest` from one task, awaiting each call in order; the peak and change logic depend on sample order.
 public actor MomentDetector {
     private enum Status {
         case pending
@@ -102,14 +108,19 @@ public actor MomentDetector {
     private var describeQueue: [Job] = []
     private var inFlight = 0
     private var idleWaiters: [CheckedContinuation<Void, Never>] = []
+    private let momentIdPrefix: String
+    private var momentCount = 0
 
     private static let samplesKept = 4
     private static let recentEscalatedKept = 5
 
     /// - Parameter cloudAllowed: the user's "Allow cloud analysis" setting. Off (or no evaluator), candidates are
     ///   still held and settled by the local fallback when they finalize; no request is sent.
+    /// - Parameter momentIdPrefix: ids are `{prefix}_{n}`; the default random prefix keeps ids unique across app runs.
     public init(trip: TripInfo, config: DetectionConfig, holder: MomentHolder, evaluator: Evaluating?,
-                cloudAllowed: Bool, demoMode: Bool = false) {
+                cloudAllowed: Bool, demoMode: Bool = false,
+                momentIdPrefix: String = "m\(UUID().uuidString.prefix(6).lowercased())") {
+        self.momentIdPrefix = momentIdPrefix
         self.trip = trip
         self.config = config
         self.holder = holder
@@ -146,12 +157,19 @@ public actor MomentDetector {
         await escalate(e, novelty: novelty, frames: framesEnding(at: e.tMs))
     }
 
+    private func newMomentId() -> String {
+        momentCount += 1
+        return "\(momentIdPrefix)_\(momentCount)"
+    }
+
     /// Hold first, then queue the select request (TRD 6, speculative hold).
     func escalate(_ e: Escalation, novelty: Double, frames: [Data]) async {
-        let id = await holder.hold(triggerMs: e.tMs, source: .ai)
+        // Register and read state before the await: other calls can run on the actor while the buffer holds.
+        let id = newMomentId()
         moments[id] = Moment(source: .ai, l: e.l, status: .pending)
-        guard canSend, !frames.isEmpty else { return }
         let sample = samples.first { $0.tMs == e.tMs }
+        await holder.hold(momentId: id, triggerMs: e.tMs, source: .ai)
+        guard canSend, !frames.isEmpty, moments[id]?.finalized == false else { return }
         selectQueue.append(Job(momentId: id, context: context(.select, tMs: e.tMs, l: e.l, novelty: novelty,
                                                               sample: sample, forced: e.forced), frames: frames))
         if selectQueue.count > config.maxQueued {
@@ -162,10 +180,12 @@ public actor MomentDetector {
 
     /// A button moment is always kept (TRD 7); the cloud is asked only for a description, after any select work.
     public func buttonPressed(atMs: Int) async -> String {
-        let id = await holder.hold(triggerMs: atMs, source: .button)
+        let id = newMomentId()
         moments[id] = Moment(source: .button, l: 0, status: .pending)
         let frames = framesEnding(at: atMs)
-        guard canSend, !frames.isEmpty, let last = samples.last(where: { $0.tMs <= atMs }) else { return id }
+        let last = samples.last(where: { $0.tMs <= atMs })
+        await holder.hold(momentId: id, triggerMs: atMs, source: .button)
+        guard canSend, !frames.isEmpty, let last, moments[id]?.finalized == false else { return id }
         describeQueue.append(Job(momentId: id, context: context(.describe, tMs: last.tMs, l: last.score.l,
                                                                 novelty: last.score.novelty, sample: last, forced: false),
                                  frames: frames))
@@ -174,6 +194,7 @@ public actor MomentDetector {
     }
 
     /// Called by the buffer when the moment's window closes (TRD 5.3 step 3). Final: later answers are ignored.
+    /// An id this detector never minted is released.
     public func finalDecision(for momentId: String) -> MomentDecision {
         guard var m = moments[momentId] else { return .release }
         m.finalized = true
