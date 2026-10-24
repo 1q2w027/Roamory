@@ -6,8 +6,8 @@
 import AVFoundation
 import SwiftUI
 
-/// Live camera feed backed by AVCaptureVideoPreviewLayer. The UI is portrait only, so the preview follows how the phone
-/// is held (a `RotationCoordinator`) and stays level when it is turned sideways for a 16:9 style.
+/// Live camera feed backed by AVCaptureVideoPreviewLayer. The preview follows how the phone is held (a
+/// `RotationCoordinator`), so it stays level whether the interface is portrait or turned landscape for a 16:9 style.
 struct CameraPreview: UIViewRepresentable {
     let session: AVCaptureSession
     /// The camera, once configured; until then the preview is upright for a portrait phone.
