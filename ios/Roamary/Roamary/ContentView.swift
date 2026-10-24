@@ -6,6 +6,7 @@
 //
 
 import AVKit
+import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
@@ -15,7 +16,9 @@ struct ContentView: View {
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
-    @State private var status: String?
+    @State private var trip: TripPipeline?
+    @State private var showSetup = false
+    @AppStorage("roamory.setupDone") private var setupDone = false
 
     var body: some View {
         ZStack {
@@ -46,7 +49,7 @@ struct ContentView: View {
                 if !guidedAccess.isEnabled {
                     guidedAccessHint
                 }
-                if let message = camera.message ?? status {
+                if let message = camera.message {
                     Text(message)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -64,17 +67,34 @@ struct ContentView: View {
             if event.phase == .ended { camera.markMoment() }
         }
         .sensoryFeedback(.impact(weight: .heavy), trigger: camera.buttonPressesMs.count) { _, new in new > 0 }
-        .onChange(of: camera.isRecording) { _, recording in
-            if recording { status = nil }
-        }
         .onChange(of: camera.finishedRecording) { _, recording in
             guard let recording else { return }
             camera.finishedRecording = nil
-            Task {
-                status = await PhotoLibrary.saveVideo(recording.url)
-                try? FileManager.default.removeItem(at: recording.url)
+            let pipeline = TripPipeline(settings: TripSettings.load())
+            trip = pipeline
+            Task { await pipeline.start(video: recording.url, buttonPressesMs: recording.buttonPressesMs) }
+        }
+        .overlay(alignment: .topLeading) {
+            if !camera.isRecording {
+                Button { showSetup = true } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.white)
+                        .frame(width: 44, height: 44)
+                        .background(.black.opacity(0.5), in: Circle())
+                }
+                .accessibilityLabel("Trip setup")
+                .padding(.leading, 16)
             }
         }
+        .sheet(isPresented: $showSetup) {
+            TripSetupView { setupDone = true }
+        }
+        .fullScreenCover(isPresented: Binding(get: { trip != nil }, set: { if !$0 { trip = nil } })) {
+            if let trip {
+                TripFlowView(pipeline: trip) { self.trip = nil }
+            }
+        }
+        .onAppear { if !setupDone { showSetup = true } }
     }
 
     private var guidedAccessHint: some View {
