@@ -128,7 +128,7 @@ Interaction ideas under consideration (author's proposals):
 
 ### 4.5a Permissions and Consent (Proposed)
 
-**FR-005a.** Before the first recording, the app asks for what it needs, each with a one-line reason: camera (required), motion (for frame-rate ramp-up), notifications (to say recording stopped), and adding to Photos (when the user saves the video). Microphone and location are asked only if the user turns on audio or landmark detection. A consent screen explains cloud analysis (what leaves the phone: small still frames, never full video) and sets the "Allow cloud analysis" setting. Denying camera blocks recording with a clear explanation; denying anything else turns that feature off.
+**FR-005a.** Before the first recording, the app asks for what it needs, each with a one-line reason: camera (required), motion (for frame-rate ramp-up), notifications (to say recording stopped), and adding to Photos (when the user saves the video). Microphone and location are asked only if the user turns on audio or landmark detection. A consent screen explains what leaves the phone (small still frames during the trip; the kept clips when the trip ends, uploaded to make the video and then deleted) and sets the "Allow cloud analysis" setting. Denying camera blocks recording with a clear explanation; denying anything else turns that feature off.
 
 ### 4.6 Personal Preference Data (Decided)
 
@@ -233,7 +233,7 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 
 **FR-016 (Proposed).** Output is MP4/H.264, 30–60 seconds for the MVP (longer only when button moments need it, FR-009), with vertical aspect for Reels and horizontal for the others, matching how the phone was worn (FR-007a).
 
-**Where processing runs** (on the phone or on a server) is open (Section 12).
+**Where processing runs:** the video is made on a server by an AI agent (decided 2026-10-24, `docs/DECISIONS.md`).
 
 ---
 
@@ -312,7 +312,7 @@ Cheap checks first; expensive models only when needed. Most of the time the app 
 |---|---|---|
 | 1 | Which on-phone signal raises the frame rate, and what are the tiers? | Frame difference and motion sensors are proposed. Needs testing. |
 | 2 | How long is the buffer, and how long is the pre-roll? | Must exceed cloud decision delay. |
-| 3 | Where is the video rendered: on the phone or on a server? | Affects processing time and consent. |
+| 3 | ~~Where is the video rendered: on the phone or on a server?~~ Decided: on a server, by an AI agent (TRD §9). | Affects processing time and consent. |
 | 4 | How is trip length used? | Pacing, selectivity, video length, or all three. |
 | 5 | Which trip-type interaction do we build? | Card deck is the current lead. |
 | 6 | Which Bluetooth button hardware, and how does it pair? | Must work with the screen at 0 brightness. |

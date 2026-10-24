@@ -66,7 +66,7 @@ struct DetectionSettingsView: View {
             } footer: {
                 Text(backend == nil
                      ? "Set ROAMORY_API_BASE_URL and ROAMORY_APP_TOKEN in ios/Roamory/Config/Local.xcconfig, then rebuild. Until then only the on-phone fallback and the button keep moments."
-                     : "Small still frames go to the backend; full video never leaves the phone.")
+                     : "Small still frames go to the backend while you film. When the trip ends, the kept clips go to the render service, where Claude edits the video.")
             }
             Section {
                 Picker("Style", selection: $style) {

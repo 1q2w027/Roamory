@@ -7,7 +7,7 @@ import { checkResult, newSession, previewFrames, submit, type ToolContext } from
 import type { AgentInput, AgentResult } from "../src/agent/types";
 import { createWorkspace, removeWorkspace } from "../src/agent/workspace";
 import { RENDER_ROOT } from "../src/server/config";
-import { presets, validateAgentRequestParts } from "../src/server/validateAgent";
+import { presets, validateAgentRequestParts } from "../src/server/validate";
 import { agentRequest, agentResult, STYLES } from "./helpers";
 
 const parts = (style = STYLES[1]) => agentRequest(style).clips.map((c) => `${c.moment_id}.mp4`);
@@ -135,7 +135,7 @@ describe("path guard", () => {
     expect(allowed("Write", { file_path: "Root.tsx" })).toBe(false);
     expect(allowed("Write", { file_path: "manifest.json" })).toBe(false);
     expect(allowed("Edit", { file_path: "src/../entry.ts" })).toBe(false);
-    expect(allowed("Write", { file_path: path.join(RENDER_ROOT, "src/remotion/Highlight.tsx") })).toBe(false);
+    expect(allowed("Write", { file_path: path.join(RENDER_ROOT, "src/remotion/styles/reels.tsx") })).toBe(false);
     expect(allowed("Write", { file_path: "/tmp/x.ts" })).toBe(false);
   });
 

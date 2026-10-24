@@ -13,6 +13,16 @@ from app.evaluate.models import EvaluateContext, Evaluation, ModelVerdict
 from app.evaluate.prompt import SYSTEM_PROMPT, build_user_content
 from app.evaluate.verdict import sanitize, should_keep
 
+
+def make_client(settings: Settings) -> anthropic.AsyncAnthropic:
+    # No SDK retries: the phone has its own timeout.
+    return anthropic.AsyncAnthropic(
+        api_key=settings.ANTHROPIC_API_KEY or None,
+        timeout=settings.STAGE2A_TIMEOUT_S,
+        max_retries=0,
+    )
+
+
 log = logging.getLogger(__name__)
 
 MAX_TOKENS = 4000

@@ -16,14 +16,6 @@ class Settings(BaseSettings):
 
     APP_TOKEN: str = ""
     ANTHROPIC_API_KEY: str = ""
-    PLANNER_MODEL: str = "claude-sonnet-5-5"
-    PLANNER_EFFORT: str = "medium"
-    PLAN_TIMEOUT_S: float = 25.0
-    # 4 thumbnails per clip; keep clips x 4 under the API's per-request image limit.
-    MAX_PLAN_CLIPS: int = 24
-    PLANS_PER_TRIP: int = 5
-    STYLE_PRESETS_PATH: Path = REPO_ROOT / "contracts" / "style_presets.json"
-
     # Moment evaluation (POST /v1/evaluate, TRD 8.2-8.3). Must fit the phone's 8 s timeout.
     STAGE2A_MODEL: str = "claude-haiku-5-5"
     STAGE2A_EFFORT: str = "low"

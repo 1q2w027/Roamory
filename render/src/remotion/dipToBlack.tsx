@@ -3,7 +3,7 @@ import { AbsoluteFill } from "remotion";
 
 type Props = Record<string, never>;
 
-/** The edit spec's `fade`: the outgoing clip fades to black over the first half, the next fades in over the second (as on iOS). */
+/** A fade through black: the outgoing clip fades to black over the first half, the next fades in over the second. */
 const DipToBlack = ({ children, presentationDirection, presentationProgress }: TransitionPresentationComponentProps<Props>) => {
   const p = presentationProgress;
   const opacity = presentationDirection === "exiting" ? Math.max(0, 1 - 2 * p) : Math.max(0, 2 * p - 1);

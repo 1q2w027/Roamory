@@ -8,7 +8,7 @@ Oct 23, 2026 · v2.1 (iPhone pivot; iOS 26 target). Replaces v1.0 (glasses + Ras
 
 Roamory is an iPhone app that films a trip with the screen dark, keeps the moments that matter in a rolling buffer, and builds a highlight video the user reviews in the app. Cloud AI (a frontier vision model) selects the moments.
 
-**In scope:** interactive onboarding, camera capture at a fixed 30 fps, in-memory ring buffer and moment saving, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
+**In scope:** interactive onboarding, camera capture at a fixed 30 fps, in-memory ring buffer and moment saving, Bluetooth button, cloud moment selection, video editing and rendering by a Claude agent in the cloud, in-app review.
 
 **Deferred:** adaptive frame rate (§4.3, PRD FR-008); per-window holds and partial clips (§5.3).
 
@@ -17,10 +17,10 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 **Design constraints that drive most decisions**
 
 - Recording never waits on the network or AI. The phone holds footage in memory and saves it locally; the cloud only says "keep" or "skip". Footage that is not selected is never written to disk.
-- Full-resolution video stays on the phone. Only small sample frames go to the cloud. The exceptions are the optional cloud render engine, which uploads the trimmed selected clips, and the optional agent mode, which uploads every candidate clip at 720p; both delete them after (§9.2, §9.3, §11.3).
+- During the trip only small sample frames go to the cloud. When the trip ends, every kept clip is uploaded at 720p to the render service, which makes the video and deletes them after (§9, §11.3).
 - The camera cannot run in the background on iOS, so the app stays in the foreground, with the screen at brightness 0 and auto-lock disabled, for the whole trip.
 - Frontier model calls are slow (1–5 s) and metered, so cheap on-phone checks decide when to ask.
-- Rendering is deterministic. The LLM produces a JSON edit spec; the phone executes it. The one exception is the optional agent mode (§9.3), where a Claude agent writes and renders its own Remotion composition; the deterministic pipeline is its fallback.
+- The video is made by a Claude agent in the render service: it watches the clips, writes and renders its own Remotion composition, and the server checks the result against fixed rules (§9.2). There is no on-phone renderer or fallback; a failed job shows an error with Retry.
 
 | Term | Meaning |
 |---|---|
@@ -35,35 +35,33 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 | Candidate | A sample that passed the on-phone gate and is sent to the cloud |
 | Moment | A kept window `[T−pre, T+post]` around a trigger time T |
 | Clip | The finalized video file for one moment |
-| Edit spec | JSON plan from the cloud planner that the on-phone renderer executes |
+| Agent result | What the video agent reports with the MP4: its length, title, and where each moment lands (§9.2) |
 
 ## 2. System architecture
 
-Two components: the **iOS app**, which does everything except the model calls, and a thin **cloud backend** that holds the model API key and calls the frontier model. A third, optional component, the **render service** (`render/`, Remotion), renders the highlight video in the cloud when that engine is chosen (§9.2).
+Three components: the **iOS app**, which does everything except the model calls and the video; a thin **cloud backend** that holds the model API key and evaluates moments; and the **render service** (`render/`), where a Claude agent makes the highlight video with Remotion (§9).
 
 ```text
  iPhone app                                   Cloud backend (FastAPI)
  ┌──────────────────────────────┐            ┌─────────────────────┐
- │ Onboarding UI (SwiftUI)      │            │ POST /v1/evaluate   │
- │ Capture (fixed 30 fps)       │  frames    │   → Stage 2 model   │
- │ Ring buffer + clip writer    │ ────────►  │ POST /v1/plan       │
- │ On-phone gate (signals)      │  keep/skip │   → planner model   │
- │ Bluetooth button             │ ◄────────  │ GET  /healthz       │
- │ Edit-spec renderer (AVFound.)│            └─────────────────────┘
- │ Review UI                    │                    │
- └──────────────────────────────┘                    ▼
-        │  trimmed clips ▲ MP4              Frontier vision model API
-        ▼  (optional)    │
- ┌──────────────────────────────┐
- │ Render service (Remotion)    │
- │ POST /v1/render, poll, video │
+ │ Onboarding UI (SwiftUI)      │  frames    │ POST /v1/evaluate   │
+ │ Capture (fixed 30 fps)       │ ────────►  │   → Stage 2 model   │
+ │ Ring buffer + clip writer    │  keep/skip │ GET  /healthz       │
+ │ On-phone gate (signals)      │ ◄────────  └─────────────────────┘
+ │ Bluetooth button             │                    │
+ │ Review UI                    │                    ▼
+ └──────────────────────────────┘           Frontier vision model API
+        │  kept clips ▲ MP4 + result                 ▲
+        ▼  (720p)     │                              │
+ ┌──────────────────────────────┐                    │
+ │ Render service (Agent SDK,   │ ───────────────────┘
+ │ Remotion) POST /v1/agent     │
  └──────────────────────────────┘
 ```
 
 - **Proposal:** the backend stores no trip data in the MVP; all trip data lives on the phone. Its only state is in-memory call counters per trip for the budget caps (§8.3), which reset if the process restarts. That is acceptable for the demo.
-- **Proposal:** the video is rendered on the phone, which settles PRD open question 3 provisionally. It avoids uploading full video and keeps footage private. Revisit if render time misses the 2-minute target.
-- **Decided:** Remotion in the cloud is an optional second engine for richer motion graphics (§9.2). Only the trimmed ranges the edit spec uses are uploaded, and they are deleted when the job ends. AVFoundation on the phone stays the default and the fallback.
-- **Decided:** the backend and the render service run together in one Fly.io app (`cloud/`, settings in `cloud/fly.toml`) on one machine (the budget counters and render jobs are in memory) that never auto-stops, so renders continue between polls. A Caddy proxy routes `/v1/render*` to the render service and the rest to the backend. Google Cloud was dropped. Redeploying restarts both, which resets the budgets and drops in-flight renders. Laptop hosting (`scripts/dev.sh`) still works for development.
+- **Decided:** the video is made in the cloud by the agent (§9), which settles PRD open question 3. The kept clips are uploaded and deleted when the job ends (§11.3). The on-phone AVFoundation renderer, the fixed Remotion composition and the `/v1/plan` planner were removed (`docs/DECISIONS.md`).
+- **Decided:** the backend and the render service run together in one Fly.io app (`cloud/`, settings in `cloud/fly.toml`) on one machine (the budget counters and agent jobs are in memory) that never auto-stops, so jobs continue between polls. A Caddy proxy routes `/v1/agent*` to the render service and the rest to the backend. Google Cloud was dropped. Redeploying restarts both, which resets the budgets and drops in-flight jobs. Laptop hosting (`scripts/dev.sh`) still works for development.
 - Backend repo folder: `backend/`. App folder: `ios/`.
 
 ## 3. iOS app
@@ -83,7 +81,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 | `Signals/` | On-phone sample signals and the escalation gate |
 | `Cloud/` | Client for the backend, budget, timeouts, fallback |
 | `Button/` | Bluetooth button input and confirmation haptic |
-| `Edit/` | Plan request, validation, fallback planner, renderer |
+| `Edit/` | Pre-pass, agent request, upload and download, video checks |
 | `Review/` | Playback, moment list, feedback |
 | `Config/` | Thresholds, model-independent settings (loaded from a bundled file, not hard-coded) |
 
@@ -198,7 +196,7 @@ Drop samples older than `BUFFER_RETENTION_S`.
 3. A skip answer releases the hold and nothing is written. When the moment is kept (button: at once; AI: cloud "keep", or the local fallback rule in §6), the clip writer saves it: an `AVAssetWriter` to `clips/{momentId}.mp4` with a passthrough video input (`outputSettings: nil`, `sourceFormatHint` from the first sample), so nothing is re-encoded, and an AAC input if audio is on. The session starts at the first sample's presentation time. If the decision arrives before `toMs`, the writer appends live samples until `toMs`; if it arrives later, the held samples are written in one pass.
 4. When the writer has the last sample up to `toMs`, or the session pauses, it finishes the file, writes the sidecar JSON, and releases the hold. If the cloud has not answered by `toMs + 2000`, apply the local fallback rule (§6) to decide keep or release.
 5. A new moment overlapping a held or still-writing moment by more than 5 s extends it, up to a 60 s cap.
-6. A clip starts on a keyframe, so it may begin up to 2 s before `fromMs`; it ends at the last sample up to `toMs`. The planner trims it. Orientation is fixed per session, so the writer sets the video input's `transform` once, from the session orientation.
+6. A clip starts on a keyframe, so it may begin up to 2 s before `fromMs`; it ends at the last sample up to `toMs`. The agent trims it. Orientation is fixed per session, so the writer sets the video input's `transform` once, from the session orientation.
 
 ### 5.4 Crash and storage safety
 
@@ -259,7 +257,6 @@ When a candidate passes the gate, the phone immediately **holds the moment windo
 | Endpoint | Request | Response |
 |---|---|---|
 | `POST /v1/evaluate` | multipart: 3 JPEG frames (512 px long edge, `t−4 s`, `t−2 s`, `t`) + JSON context | Stage 2 output (§8.2) |
-| `POST /v1/plan` | JSON clip table + 4 thumbnails per clip (384 px) | Edit spec (§9.1) |
 | `GET /healthz` | none | `{ok: true}` |
 
 **Context** sent with `/v1/evaluate`: destination, trip type, style, trip length, local score and signals, and the descriptions of every moment saved so far this trip, for redundancy. No names, no location coordinates, no device identifiers beyond a random install id.
@@ -296,37 +293,22 @@ A token bucket per trip: capacity 5, refill 1 per 30 s, with a hard cap of 100 c
 
 ## 9. Post-trip editing
 
-### 9.1 Planning
+Triggered when the trip ends and all clips are finalized. A Claude agent makes the whole video: it selects the moments, trims and edits them, writes its own Remotion composition, renders it, checks it and submits it. It runs on the Claude Agent SDK (TypeScript) inside the render service (`render/`). Plan: `docs/agentic-video-generation.md`.
 
-Triggered when the trip ends and all clips are finalized.
+### 9.1 Pre-pass on the phone
 
-1. **Pre-pass on the phone:** drop near-duplicate clips (best-frame `dhash` distance), pick a best sub-window per clip (sharpness and stability from the sampled signals), and make 4 thumbnails per clip at 384 px.
-2. **Cloud planner:** `POST /v1/plan` with the clip table (id, times, category, description, score, proposed trims, source), thumbnails, the style preset, trip type, and target duration. It returns an **edit spec**:
+Drop near-duplicate clips (best-frame `dhash` distance) and pick a best sub-window per clip (sharpness and stability from the sampled signals), sent as `proposed_in_s`/`proposed_out_s`. Button clips always go; past `max_clips` the lowest-scored others are dropped.
 
-```json
-{
-  "trip_id": "t_123",
-  "style": "cinematic",
-  "output": {"width": 1920, "height": 1080, "fps": 30},
-  "title": {"text": "Kyoto", "subtitle": "October 2026", "duration_s": 2.5},
-  "clips": [
-    {"moment_id": "m_07", "in_s": 11.0, "out_s": 17.5,
-     "transition_in": "fade", "transition_s": 0.5,
-     "speed_ramp": {"from": 0.25, "to": 1.0, "over_s": 1.5},
-     "caption": null}
-  ],
-  "music": {"track": "cinematic_01", "gain_db": -14, "duck_original_audio": true},
-  "end_card": {"text": "Made with Roamory", "duration_s": 2.0}
-}
-```
+**Target duration (Proposal):** 30–60 s in the MVP regardless of trip length. Button moments win over the target (PRD FR-009): the **effective target** is the larger of the preset target and (button moments × the preset's shortest clip length + end card). The agent is told to fill button moments first, cut them toward the shortest clip length when space is short, and add AI moments only into the time left.
 
-3. **Validate on the phone:** every clip id exists, trims fall inside clip bounds, every button moment is included, total duration is within ±10 % of the effective target (below), and captions use only the destination, trip type, or Stage 2 descriptions (PRD FR-015). On failure, a greedy fallback planner takes the top-scored clips (button moments first) until the duration is filled, orders them chronologically, and applies the preset defaults.
+### 9.2 The agent
 
-**Target duration (Proposal):** 30–60 s in the MVP regardless of trip length. Button moments win over the target (PRD FR-009): the **effective target** is the larger of the preset target and (button moments × the preset's shortest clip length + title + end card). The planner and the fallback both fill button moments first, cut them toward the shortest clip length when space is short, and add AI moments only into the time left.
-
-### 9.2 Rendering (on the phone; optional cloud engine)
-
-**Proposal:** `AVMutableComposition` assembles the trimmed clips; `AVMutableVideoComposition` handles scaling or cropping and cross-fades; titles and captions use the Core Animation tool; `scaleTimeRange` implements speed-ramps; `AVMutableAudioMix` applies music gain and ducking with volume ramps; `AVAssetExportSession` writes the MP4.
+- **Flow:** the phone re-encodes every candidate clip whole at 720p and uploads them with the trip context and clip table to `POST /v1/agent`. The agent looks at the clips by sampling frames, plans the edit, writes the composition, previews stills, renders, checks the file, and calls `submit` with the result (length, title, and where each moment lands). The phone polls the job, fetches the result, downloads the MP4 and checks it plays and its duration matches the result (§10). Review's moment list comes from the result.
+- **Rules the server enforces on `submit`:** every button moment is in the video, moment ids exist, and the length is within ±10 % of the effective target (§9.1) and matches the rendered file. The prompt carries the other rules: chronological order, title only from the destination, trip type and date, no invented events, no identifying people. The output size and fps come from the style preset.
+- **Limits (config):** `AGENT_MAX_TURNS`, `AGENT_TIMEOUT_S` (480 s), `AGENT_MAX_RENDERS` and `AGENTS_PER_TRIP`. The agent has only file tools confined to its job workspace and our own tools (look at a clip, preview frames, render, submit): no shell and no network. Its composition loads clips and music only from the workspace.
+- **Failure:** any error, timeout, failed job or failed check ends in an error on the Processing screen with Retry. There is no fallback renderer.
+- **Time:** an agent loop plus a full render will likely take 3 to 8 minutes, over the 2-minute target; the Processing screen says it takes a few minutes. An agent job holds a render slot for its whole run.
+- Contracts: `contracts/agent_request.schema.json`, `agent_result.schema.json`, `render_job.schema.json` and the `/v1/agent` section of `contracts/README.md`.
 
 | Preset | Target length | Clip length | Transition | Aspect | Music |
 |---|---|---|---|---|---|
@@ -335,29 +317,9 @@ Triggered when the trip ends and all clips are finalized.
 | Documentary | 60 s | 5–10 s | Dissolve | 16:9 | Low bed, −20 dB |
 | Vlog | 45–60 s | 3–8 s | Hard cuts | 16:9 | Light, original audio kept |
 
-All four presets allow captions; each style draws them its own way. Presets are config files sent to the planner verbatim. If rendering with transitions fails, retry once with hard cuts. Rendering needs the app in the foreground, so the processing screen keeps the screen awake. **Performance target:** a 30–60 s video in under 2 minutes on a recent iPhone, to be measured.
+All four presets allow captions; each style draws them its own way (`render/src/remotion/styles/`, which the agent imports). Presets are config files the agent gets verbatim. Uploading needs the app in the foreground, so the Processing screen keeps the screen awake.
 
-Music tracks are bundled with the app. Licensing is open.
-
-**Cloud engine (Decided, optional): Remotion.** The render service (`render/`, Node 22, Remotion) renders the whole video from the same edit spec, for motion graphics Core Animation can't do well (kinetic titles, lower thirds, animated transitions). The LLM still only produces JSON and rendering stays deterministic.
-
-- It runs only when the edit config's `render_engine` is `remotion` and "Allow cloud analysis" is on (§11.3).
-- The phone trims each clip to `[in_s, out_s]` (re-encoded, frame-exact), uploads the trimmed files with a **rebased** edit spec to `POST /v1/render`, polls the job, downloads the MP4, and runs the same playable and duration check as a local render (§10).
-- Any error, timeout or failed job falls back to the AVFoundation renderer, so the video always completes. `generated_video.json` records which engine made it.
-- Both engines test against the golden timelines in `contracts/examples/timeline_*.json`, so Review's moment times match either render.
-- Contracts: `contracts/render_request.schema.json`, `render_job.schema.json` and the `/v1/render` section of `contracts/README.md`.
-
-### 9.3 Agent mode (Decided, optional)
-
-A Claude agent makes the whole video: it selects the moments, trims and edits them, writes its own Remotion composition, renders it, checks it and submits it. There is no `/v1/plan` call in this mode. It runs on the Claude Agent SDK (TypeScript) inside the render service (`render/`), reusing its upload, job, polling and retention rules. Plan: `docs/agentic-video-generation.md`.
-
-- It runs only when the edit config's `render_engine` is `agent` and "Allow cloud analysis" is on (§11.3).
-- **Flow:** after the pre-pass (§9.1 step 1), the phone re-encodes every candidate clip whole at 720p and uploads them with the trip context and clip table to `POST /v1/agent`. The agent looks at the clips by sampling frames, plans the edit, writes the composition, previews stills, renders, checks the file, and calls `submit` with the result (length, title, and where each moment lands). The phone polls the job, fetches the result, downloads the MP4 and runs the same playable and duration check as a local render (§10). Review's moment list comes from the result.
-- **Rules the server enforces on `submit`:** every button moment is in the video, moment ids exist, and the length is within ±10 % of the effective target (§9.1) and matches the rendered file. The prompt carries the planner's other rules: chronological order, title only from the destination, trip type and date, no invented events, no identifying people. The output size and fps come from the style preset.
-- **Limits (config):** `AGENT_MAX_TURNS`, `AGENT_TIMEOUT_S` (480 s), `AGENT_MAX_RENDERS` and `AGENTS_PER_TRIP`. The agent has only file tools confined to its job workspace and our own tools (look at a clip, preview frames, render, submit): no shell and no network. Its composition loads clips and music only from the workspace.
-- **Fallback:** any error, timeout, failed job or failed check runs the normal plan (§9.1) and render (§9.2), so the video always completes. `generated_video.json` records `agent` as both the plan source and the engine when the agent made it.
-- **Time:** an agent loop plus a full render will likely take 3 to 8 minutes, over the 2-minute target, so it is opt-in and the Processing screen says it takes longer. An agent job holds a render slot for its whole run.
-- Contracts: `contracts/agent_request.schema.json`, `agent_result.schema.json`, `render_job.schema.json` and the `/v1/agent` section of `contracts/README.md`.
+Music tracks are bundled with the app and synced to the render service. Licensing is open.
 
 ## 10. App-facing states and screens
 
@@ -370,10 +332,10 @@ A Claude agent makes the whole video: it selects the moments, trims and edits th
 | PAUSED → RECORDING | Resume (user action only) | Same guards as Start Recording |
 | RECORDING or PAUSED → FINALIZING | End Trip | Capture stopped, ring buffer cleared; pending moments finalized |
 | FINALIZING → PLANNING | All moments finalized | At least 1 clip, else ERROR(no_moments) |
-| PLANNING → RENDERING | Valid edit spec or fallback plan | |
-| RENDERING → COMPLETED | Export succeeds and the file plays | "Video ready" only after this check |
+| PLANNING → RENDERING | Pre-pass done; upload to the agent starts | Render service configured, else ERROR |
+| RENDERING → COMPLETED | Agent job completes and the downloaded file plays | "Video ready" only after this check |
 
-**Screens:** Onboarding (style, destination, trip type, length, permissions, mounting guide), Recording (black, status on wake with Pause and End Trip), Paused (Resume, End Trip), Processing (finalizing, planning, rendering progress), Review (player, save or share, moment list with button moments marked, optional feedback). Review feedback adjusts saved preferences.
+**Screens:** Onboarding (style, destination, trip type, length, permissions, mounting guide), Recording (black, status on wake with Pause and End Trip), Paused (Resume, End Trip), Processing (finalizing, then the agent job's progress), Review (player, save or share, moment list with button moments marked, optional feedback). Review feedback adjusts saved preferences.
 
 **Status banner (on wake):** Recording; Paused (with reason); Thermal limit reached; Cloud analysis limited, button still works; Processing; Video ready; Error with retry.
 
@@ -401,12 +363,11 @@ Required buffer is the 15 s pre-roll plus about 4 s plus up to 2 s back to a key
 ### 11.3 Security and privacy (PRD §10)
 
 - Recording starts only after an explicit tap; a recording indicator is visible whenever the status view is shown, and iOS shows its own camera indicator.
-- Only 512 px sample frames and 384 px thumbnails leave the phone. Full video stays on the device, except in the two optional modes below.
-- **Exception (cloud render engine, §9.2):** when Remotion is chosen, the trimmed ranges of the selected clips are uploaded to the render service. It deletes the uploaded clips when the job ends, and the output after it is downloaded or `RENDER_TTL_S` (15 min) after the job ends, whichever comes first. Its logs hold ids, timings and error codes, never video. This needs "Allow cloud analysis" on, and the consent screen must say that selected clips are uploaded for rendering and then deleted.
-- **Exception (agent mode, §9.3):** every candidate clip, whole and not only the selected ones, is uploaded at 720p to the render service. The same retention rules apply: the clips and the agent's workspace are deleted when the job ends, and the output after it is downloaded or `RENDER_TTL_S` after the job ends. Frames the agent looks at go to the model API under the same provider terms as Stage 2 frames. Logs hold ids, timings, turn and render counts, cost and error codes, never video or frames. This needs "Allow cloud analysis" on, and the consent screen must say that candidate clips are uploaded for editing and then deleted.
+- During the trip only 512 px sample frames leave the phone.
+- **Video (§9):** when the trip ends, every kept clip, whole, is uploaded at 720p to the render service. The clips and the agent's workspace are deleted when the job ends, and the output after it is downloaded or `RENDER_TTL_S` (15 min) after the job ends, whichever comes first. Frames the agent looks at go to the model API under the same provider terms as Stage 2 frames. Logs hold ids, timings, turn and render counts, cost and error codes, never video or frames. This happens whatever the "Allow cloud analysis" setting, and the consent screen must say that kept clips are uploaded for editing and then deleted.
 - Model API keys live in the backend `.env`. The app holds only the app token.
 - Footage that is not selected is never written to disk: it leaves the in-memory ring buffer within `BUFFER_RETENTION_S`. Backend logs must not store frames; provider retention terms must be checked and shown to the user.
-- "Allow cloud analysis" is asked at setup. When off, only the local fallback and the button work.
+- "Allow cloud analysis" is asked at setup and covers detection: when off, only the local fallback and the button keep moments. The video is still made in the cloud.
 - Audio is off by default. Prompts forbid identifying people.
 
 ## 12. Testing, gates, risks
@@ -426,12 +387,12 @@ Required buffer is the 15 s pre-roll plus about 4 s plus up to 2 s back to a key
 
 ### 12.2 Test plan
 
-- **Unit (XCTest):** trip state machine (pause and resume), gate logic, budget bucket, ring buffer (append, trim, keyframe lookup), holds and clip writing (overlapping and pending holds, release on skip, finalize on pause), edit-spec validator (effective target), merging.
+- **Unit (XCTest):** trip state machine (pause and resume), gate logic, budget bucket, ring buffer (append, trim, keyframe lookup), holds and clip writing (overlapping and pending holds, release on skip, finalize on pause), pre-pass, the agent client and coordinator (effective target), merging.
 - **Backend (pytest):** schema validation, budget enforcement, error paths.
 - **Replay harness:** recorded sample folders with labeled "should save" timestamps; reports precision, recall and calls per minute per threshold set.
 - **Personalization check:** the same replay with "honeymoon" vs. "school" produces different top moments.
 - **Fault injection:** block the network, fill the disk, kill the app mid-trip, take a phone call, lower the battery, run hot.
-- **Render matrix:** 1, 3 and 10 clips; with and without audio; both aspect ratios.
+- **Agent matrix:** 1, 3 and 10 clips; with and without audio; both aspect ratios (`render/scripts/agent-smoke.sh`, spends API money).
 
 ### 12.3 The first spike (throwaway)
 
@@ -456,13 +417,13 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 | Phone overheats | Thermal caps and finalize |
 | Cloud latency or outage | Speculative hold and local fallback |
 | Over-escalation drains budget | Peaks, cooldowns, adaptive threshold, server caps |
-| On-device render too slow | Measure early; fall back to a hard-cut preset or cloud render |
+| Agent job too slow, fails or the service is down | Measure early; Retry on the Processing screen; a pre-rendered backup video for the demo (§12.4) |
 | Globe map takes too long | MapKit fallback |
 | App token extractable | Acceptable for the demo; per-install tokens later |
 
 ## 13. Contracts
 
-`contracts/` must be defined before the app and backend are built in parallel, in its own PR. Messages to define: evaluate request (context) and response (Stage 2 output), plan request, edit spec, style presets, error shape (code, message, retryable), and the auth header. The JSON in §8.2 and §9.1 is the starting point. The earlier contracts plan for the glasses design is obsolete.
+`contracts/` must be defined before the app and backend are built in parallel, in its own PR. Messages defined: evaluate request (context) and response (Stage 2 output), agent request and result, render job, style presets, error shape (code, message, retryable), and the auth header. The earlier contracts plan for the glasses design is obsolete.
 
 ## 14. Open questions
 
@@ -470,10 +431,8 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 - Which test devices are available? They must be iPhone 11 or later running iOS 26.
 - Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
-- Is on-phone rendering fast enough, or must it move to the cloud?
-- Is the Remotion render service on Fly.io (4 dedicated vCPU shared with the backend, decided in §2) fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
-- Agent mode (§9.3): what does one video cost (model calls with images plus the render), and is `AGENTS_PER_TRIP` the right cap?
-- Agent mode: how long does a video take from upload to download, and is that acceptable to users behind a "takes longer" Processing screen?
+- What does one video cost (agent model calls with images plus the render, §9.2), and is `AGENTS_PER_TRIP` the right cap?
+- How long does a video take from upload to download on Fly.io (4 dedicated vCPU shared with the backend), and is that acceptable to users behind a "takes a few minutes" Processing screen?
 - Does our 4-person team need a Remotion company license (free for individuals and companies of up to 3)?
 - Does the user need rendering to continue if they leave the app?
 - Are location and audio signals worth including in the MVP?

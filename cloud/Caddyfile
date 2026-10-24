@@ -5,14 +5,7 @@
 
 :{$PORT}
 
-# Proxied requests arrive from loopback, so keep the renderer's clip route private.
-handle /internal/* {
-	respond 404
-}
-handle /v1/render* {
-	reverse_proxy 127.0.0.1:3001
-}
-# Agent mode runs in the render service too (TRD 9.3).
+# The video agent runs in the render service (TRD §9).
 handle /v1/agent* {
 	reverse_proxy 127.0.0.1:3001
 }
@@ -20,7 +13,7 @@ handle /render/healthz {
 	rewrite * /healthz
 	reverse_proxy 127.0.0.1:3001
 }
-# /v1/plan, /v1/evaluate, /healthz
+# /v1/evaluate, /healthz
 handle {
 	reverse_proxy 127.0.0.1:8001
 }

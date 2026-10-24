@@ -15,11 +15,6 @@ public struct GeneratedVideo: Codable, Sendable, Equatable {
     public var tripId: String
     public var style: Style
     public var status: Status
-    public var editSpec: EditSpec?
-    /// "cloud" or "fallback".
-    public var planSource: String?
-    /// "avfoundation" or "remotion": the engine that made the file, after any fallback.
-    public var renderEngine: String?
     public var outputPath: String?
     public var durationS: Double?
     public var renderTimeS: Double?
@@ -38,8 +33,8 @@ public struct ReviewMoment: Sendable, Equatable, Identifiable {
     public var id: String { momentId }
 }
 
-/// Runs PLANNING (pre-pass, cloud plan or fallback, validation) and RENDERING for one trip (TRD 10),
-/// and reports progress for the Processing screen.
+/// Makes one trip's video (TRD §9): the pre-pass on the phone, then the agent in the render service picks, edits
+/// and renders it. Reports progress for the Processing screen.
 @MainActor @Observable
 public final class EditCoordinator {
     public enum Phase: Equatable, Sendable {
@@ -52,48 +47,39 @@ public final class EditCoordinator {
 
     public enum ErrorStage: String, Sendable {
         case noMoments = "no_moments"
-        case planning, rendering
+        case rendering
     }
 
     public private(set) var phase: Phase = .idle
     public private(set) var video: GeneratedVideo?
-    /// From the rendered `spec.clips`, for Review's moment list.
+    /// From the agent result's moments, for Review's moment list.
     public private(set) var reviewMoments: [ReviewMoment] = []
-    public private(set) var planOutcome: PlanOutcome?
     public private(set) var renderResult: RenderResult?
+    public private(set) var agentResult: AgentResult?
 
     public let trip: TripContext
     public let clips: [ClipInfo]
     public let outputDirectory: URL
     private let preset: StylePreset
     private let config: EditConfig
-    private let service: (any PlanService)?
-    private let renderer: Renderer
-    private let remoteRenderer: (any VideoRendering)?
-    /// Bumped per render attempt, so a late progress update from a failed remote render is dropped.
-    private var renderAttempt = 0
+    private let agent: (any AgentRendering)?
 
     private static let log = Logger(subsystem: "app.roamory", category: "edit")
 
     /// - Parameters:
     ///   - clips: every finalized clip of the trip.
     ///   - outputDirectory: where the MP4 and its `GeneratedVideo` JSON go.
-    ///   - service: the cloud planner; nil plans on the phone.
-    ///   - renderer: the on-phone engine, also the fallback for the remote one.
-    ///   - remoteRenderer: the render service (`RemoteRenderClient`), used when `render_engine` is "remotion"
-    ///     and cloud analysis is on; nil always renders on the phone.
+    ///   - agent: the render service (`AgentRenderClient`); nil when it is not configured, which fails the edit.
     public init(
         trip: TripContext, clips: [ClipInfo], outputDirectory: URL, presets: StylePresets, config: EditConfig,
-        service: (any PlanService)?, renderer: Renderer? = nil, remoteRenderer: (any VideoRendering)? = nil
+        agent: (any AgentRendering)?
     ) {
         self.trip = trip
         self.clips = clips
         self.outputDirectory = outputDirectory
         self.preset = presets[trip.style]
         self.config = config
-        self.service = service
-        self.renderer = renderer ?? Renderer(config: config)
-        self.remoteRenderer = remoteRenderer
+        self.agent = agent
     }
 
     public var isRunning: Bool {
@@ -107,40 +93,22 @@ public final class EditCoordinator {
     public func run() async {
         guard !isRunning else { return }
         reviewMoments = []
-        planOutcome = nil
         renderResult = nil
+        agentResult = nil
         var record = GeneratedVideo(
             id: UUID(), tripId: trip.tripId, style: trip.style, status: .planning, createdAt: Date()
         )
         guard !clips.isEmpty else {
             return fail(&record, .noMoments, "No moments were kept on this trip.")
         }
-
-        // PLANNING
-        phase = .planning(step: "Choosing the best moments")
-        let prepared = Self.capped(PrePass.run(clips, preset: preset, config: config), max: config.maxPlanClips)
-        var thumbnails: [String: [Data]] = [:]
-        if trip.allowCloudAnalysis && service != nil {
-            phase = .planning(step: "Preparing previews")
-            for clip in prepared {
-                do {
-                    thumbnails[clip.momentId] = try await PrePass.thumbnails(for: clip, config: config)
-                } catch {
-                    Self.log.error("No thumbnails for \(clip.momentId): \(String(describing: error))")
-                }
-            }
+        guard let agent else {
+            return fail(&record, .rendering, "The render service is not configured (RoamoryRenderBaseURL).")
         }
-        let request = PlanRequest(
-            trip: trip, clips: prepared, preset: preset, config: config, thumbnailCounts: thumbnails.mapValues(\.count)
-        )
-        phase = .planning(step: "Planning the edit")
-        let outcome = await EditPlanner(preset: preset, config: config, service: service)
-            .plan(request, thumbnails: thumbnails, allowCloud: trip.allowCloudAnalysis)
-        planOutcome = outcome
-        record.editSpec = outcome.spec
-        record.planSource = outcome.source == .cloud ? "cloud" : "fallback"
 
-        // RENDERING: needs the app in the foreground, so keep the screen awake (TRD 9.2).
+        phase = .planning(step: "Choosing the best moments")
+        let prepared = Self.capped(PrePass.run(clips, preset: preset, config: config), max: config.maxClips)
+
+        // RENDERING: uploading needs the app in the foreground, so keep the screen awake (TRD 9.2).
         record.status = .rendering
         phase = .rendering(progress: 0)
         let idle = Self.setIdleTimerDisabled(true)
@@ -149,43 +117,32 @@ public final class EditCoordinator {
             try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
             let url = outputDirectory.appending(path: "\(trip.tripId)_\(trip.style.rawValue).mp4")
             let urls = Dictionary(prepared.map { ($0.momentId, $0.clipURL) }, uniquingKeysWith: { first, _ in first })
-            let result = try await render(outcome.spec, clipURLs: urls, to: url)
-            renderResult = result
-            record.editSpec = result.spec
-            record.renderEngine = result.engine
+            let made = try await agent.edit(
+                AgentRequest(trip: trip, clips: prepared, preset: preset, config: config), clipURLs: urls, output: preset.output,
+                to: url, progress: progressHandler()
+            )
+            agentResult = made.result
+            renderResult = made.video
             record.status = .completed
-            record.outputPath = result.url.path
-            record.durationS = result.durationS
-            record.renderTimeS = result.elapsedS
-            reviewMoments = Self.reviewMoments(result.spec, clips: prepared)
+            record.outputPath = made.video.url.path
+            record.durationS = made.video.durationS
+            record.renderTimeS = made.video.elapsedS
+            reviewMoments = Self.reviewMoments(made.result, clips: prepared)
             video = record
             save(record)
             phase = .completed
+        } catch is CancellationError {
+            fail(&record, .rendering, "Cancelled")
         } catch {
             fail(&record, .rendering, String(describing: error))
         }
     }
 
-    /// The remote engine when chosen and allowed; on any error or timeout from it, AVFoundation, so the video always completes.
-    private func render(_ spec: EditSpec, clipURLs: [String: URL], to url: URL) async throws -> RenderResult {
-        if config.renderEngine == "remotion", trip.allowCloudAnalysis, let remoteRenderer {
-            do {
-                return try await remoteRenderer.render(spec, clipURLs: clipURLs, to: url, progress: progressHandler())
-            } catch where !(error is CancellationError) {
-                Self.log.error("Remote render failed, rendering on the phone: \(String(describing: error))")
-            }
-        }
-        return try await renderer.render(spec, clipURLs: clipURLs, to: url, progress: progressHandler())
-    }
-
-    /// Starts a render attempt (progress back to 0) and returns its progress callback.
+    /// Reports the agent's progress while the coordinator is still rendering.
     private func progressHandler() -> @Sendable (Double) -> Void {
-        renderAttempt += 1
-        let attempt = renderAttempt
-        phase = .rendering(progress: 0)
-        return { progress in
+        { [weak self] progress in
             Task { @MainActor [weak self] in
-                guard let self, attempt == self.renderAttempt, case .rendering = self.phase else { return }
+                guard let self, case .rendering = self.phase else { return }
                 self.phase = .rendering(progress: progress)
             }
         }
@@ -222,13 +179,13 @@ public final class EditCoordinator {
         return clips.filter { $0.isButton || keep.contains($0.momentId) }
     }
 
-    static func reviewMoments(_ spec: EditSpec, clips: [ClipInfo]) -> [ReviewMoment] {
+    static func reviewMoments(_ result: AgentResult, clips: [ClipInfo]) -> [ReviewMoment] {
         let byId = Dictionary(clips.map { ($0.momentId, $0) }, uniquingKeysWith: { first, _ in first })
-        return EditTimeline.slots(spec).map { slot in
-            let clip = byId[slot.momentId]
+        return result.moments.map { moment in
+            let clip = byId[moment.momentId]
             return ReviewMoment(
-                momentId: slot.momentId, isButton: clip?.isButton ?? false, description: clip?.description,
-                startS: slot.startS, endS: slot.endS
+                momentId: moment.momentId, isButton: clip?.isButton ?? false, description: clip?.description,
+                startS: moment.startS, endS: moment.endS
             )
         }
     }

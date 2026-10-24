@@ -2,28 +2,42 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/agent_request.schema.json",
   "title": "AgentRequest",
-  "description": "request part of POST /v1/agent (render service, agent mode). The phone uploads one whole {moment_id}.mp4 per candidate clip; the agent selects, trims, edits and renders the video itself. Clip fields are the plan request's clip table, minus thumbnails, plus has_audio. Rules the schema cannot express are in README.",
+  "description": "request part of POST /v1/agent (render service). The phone uploads one whole {moment_id}.mp4 per candidate clip; the agent selects, trims, edits and renders the video itself. Rules the schema cannot express are in README.",
   "type": "object",
   "additionalProperties": false,
   "required": ["trip_id", "style", "target_s", "effective_target_s", "context", "clips"],
   "properties": {
     "trip_id": {"type": "string", "minLength": 1},
-    "style": {"$ref": "plan_request.schema.json#/$defs/style"},
-    "target_s": {
-      "type": "number",
-      "exclusiveMinimum": 0,
-      "description": "The style preset's target_s.default."
-    },
+    "style": {"type": "string", "enum": ["cinematic", "reels", "documentary", "vlog"]},
+    "target_s": {"type": "number", "exclusiveMinimum": 0, "description": "The style preset's target_s.default."},
     "effective_target_s": {
       "type": "number",
       "exclusiveMinimum": 0,
-      "description": "Same rule as the plan request (README, Effective target). The video's total_s must be within ±10 % of it."
+      "description": "README, Effective target. The video's total_s must be within ±10 % of it."
     },
-    "context": {"$ref": "render_request.schema.json#/properties/context"},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["destination", "trip_type", "start_date"],
+      "description": "Trip details for the graphics (titles, captions).",
+      "properties": {
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["country", "city"],
+          "properties": {
+            "country": {"type": "string", "minLength": 1},
+            "city": {"type": ["string", "null"], "minLength": 1}
+          }
+        },
+        "trip_type": {"type": "string", "minLength": 1},
+        "start_date": {"type": "string", "format": "date"}
+      }
+    },
     "clips": {
       "type": "array",
       "minItems": 1,
-      "description": "Every candidate clip after the phone's pre-pass, not only the ones a planner would pick. One {moment_id}.mp4 part per entry.",
+      "description": "Every candidate clip after the phone's pre-pass. One {moment_id}.mp4 part per entry.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -41,21 +55,50 @@
           "low_fps_lead_in_s"
         ],
         "properties": {
-          "moment_id": {"$ref": "plan_request.schema.json#/$defs/clip/properties/moment_id"},
-          "source": {"$ref": "plan_request.schema.json#/$defs/clip/properties/source"},
-          "event_type": {"$ref": "plan_request.schema.json#/$defs/clip/properties/event_type"},
-          "description": {"$ref": "plan_request.schema.json#/$defs/clip/properties/description"},
-          "score": {"$ref": "plan_request.schema.json#/$defs/clip/properties/score"},
-          "t_from_ms": {"$ref": "plan_request.schema.json#/$defs/clip/properties/t_from_ms"},
+          "moment_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+$",
+            "description": "Also names the clip's file part, so it is restricted to filename-safe characters."
+          },
+          "source": {"type": "string", "enum": ["ai", "button", "local_fallback"]},
+          "event_type": {
+            "type": ["string", "null"],
+            "enum": ["scenery", "landmark", "activity", "food", "social", "other", null],
+            "description": "From Stage 2. Null when the cloud never described the clip (local_fallback, or a button clip whose description failed)."
+          },
+          "description": {
+            "type": ["string", "null"],
+            "maxLength": 200,
+            "description": "Stage 2 description, only what is visible. Null under the same conditions as event_type."
+          },
+          "score": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "The phone's local score L for ai and local_fallback clips; null for button clips."
+          },
+          "t_from_ms": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Clip start on the trip clock (TRD 5.1). Used for chronological order."
+          },
           "duration_s": {
             "type": "number",
             "exclusiveMinimum": 0,
             "description": "Duration of the uploaded file: the whole clip, re-encoded at the upload preset."
           },
           "has_audio": {"type": "boolean"},
-          "proposed_in_s": {"$ref": "plan_request.schema.json#/$defs/clip/properties/proposed_in_s"},
-          "proposed_out_s": {"$ref": "plan_request.schema.json#/$defs/clip/properties/proposed_out_s"},
-          "low_fps_lead_in_s": {"$ref": "plan_request.schema.json#/$defs/clip/properties/low_fps_lead_in_s"}
+          "proposed_in_s": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Pre-pass best sub-window start, seconds from the clip file's start."
+          },
+          "proposed_out_s": {"type": "number", "exclusiveMinimum": 0},
+          "low_fps_lead_in_s": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Seconds at the start of the clip file recorded below 30 fps (TRD 4.3). 0 if none. A speed ramp is allowed only inside this lead-in."
+          }
         }
       }
     }

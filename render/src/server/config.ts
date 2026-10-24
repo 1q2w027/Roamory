@@ -20,7 +20,7 @@ export type Config = {
   agent: AgentConfig;
 };
 
-/** Agent mode (POST /v1/agent, TRD §9.3). */
+/** Agent mode (POST /v1/agent, TRD §9). */
 export type AgentConfig = {
   model: string;
   effort: "low" | "medium" | "high" | "xhigh" | "max";

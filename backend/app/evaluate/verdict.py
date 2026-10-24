@@ -4,7 +4,7 @@ from typing import Any, get_args
 from app.evaluate.models import EventType, ModelVerdict, SaveDecision
 
 REQUIRED = set(ModelVerdict.model_fields)
-MAX_TEXT = 200  # plan_request clips[].description maxLength
+MAX_TEXT = 200  # agent_request clips[].description maxLength
 WINDOW_MAX_S = 30
 
 

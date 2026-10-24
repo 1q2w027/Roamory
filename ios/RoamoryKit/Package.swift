@@ -1,7 +1,7 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-// Phone-side modules that run without the app target: Edit (plan, validate, render), Signals, Cloud and Config.
+// Phone-side modules that run without the app target: Edit (pre-pass, coordinator), Signals, Cloud and Config.
 // detector-replay is a Mac tool that runs a recorded walk through Stage 1 detection.
 // The app adds this as a local package; the logic builds and tests on macOS too.
 let package = Package(

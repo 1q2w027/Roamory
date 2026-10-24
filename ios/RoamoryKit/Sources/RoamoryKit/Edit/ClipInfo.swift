@@ -92,7 +92,7 @@ public struct ClipInfo: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Trip facts the planner may use for titles and captions (PRD FR-015).
+/// Trip facts the agent may use for titles and captions (PRD FR-015).
 public struct TripContext: Sendable, Equatable {
     public var tripId: String
     public var style: Style
@@ -100,35 +100,12 @@ public struct TripContext: Sendable, Equatable {
     public var destination: Destination
     /// Local start date, YYYY-MM-DD.
     public var startDate: String
-    /// Off: no plan request leaves the phone; the fallback planner runs.
-    public var allowCloudAnalysis: Bool
 
-    public init(tripId: String, style: Style, tripType: String, destination: Destination, startDate: String, allowCloudAnalysis: Bool) {
+    public init(tripId: String, style: Style, tripType: String, destination: Destination, startDate: String) {
         self.tripId = tripId
         self.style = style
         self.tripType = tripType
         self.destination = destination
         self.startDate = startDate
-        self.allowCloudAnalysis = allowCloudAnalysis
-    }
-}
-
-extension PlanRequest {
-    /// The request for these clips; `thumbnailCounts` is how many thumbnails will be sent per moment id.
-    public init(trip: TripContext, clips: [ClipInfo], preset: StylePreset, config: EditConfig, thumbnailCounts: [String: Int] = [:]) {
-        self.init(
-            tripId: trip.tripId, style: trip.style, tripType: trip.tripType, destination: trip.destination,
-            startDate: trip.startDate, targetS: preset.targetS.default,
-            effectiveTargetS: EffectiveTarget.seconds(buttonCount: clips.count(where: \.isButton), preset: preset),
-            clips: clips.map { clip in
-                Clip(
-                    momentId: clip.momentId, tFromMs: clip.fromMs, tToMs: clip.toMs, durationS: clip.durationS,
-                    source: clip.source, eventType: clip.eventType, description: clip.description, score: clip.score,
-                    proposedInS: clip.proposedInS, proposedOutS: clip.proposedOutS,
-                    lowFpsLeadInS: clip.lowFpsLeadInS(fullFpsMin: config.fullFpsMin),
-                    thumbnailCount: thumbnailCounts[clip.momentId] ?? 0
-                )
-            }
-        )
     }
 }

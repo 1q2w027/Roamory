@@ -27,7 +27,6 @@ You make the whole video yourself: watch the candidate clips, choose and trim th
 - Load clips only with \`staticFile(clip.src)\` (for example \`staticFile("clips/m_01.mp4")\`) and music only with \`staticFile(manifest.music_src)\`. Fetch nothing else from the network.
 - Use \`OffthreadVideo\` for clips, with \`trimBefore\` (frames) to start inside a clip, \`muted\` unless you keep its audio, and \`style={{ width: "100%", height: "100%", objectFit: "cover" }}\` to fill the frame. Use \`Html5Audio\` for the music bed.
 - Working examples you may read and import (alias \`@roamory/...\` is ${EXAMPLES_DIR}/...):
-  - ${EXAMPLES_DIR}/Highlight.tsx: the standard edit (clips, transitions, title, captions, end card, music fade).
   - ${EXAMPLES_DIR}/styles/*.tsx: each style's Title, Caption and EndCard, e.g. \`import { graphics } from "@roamory/styles"\` then \`graphics.reels.Title\`. Title takes \`{ title: { text, subtitle, duration_s }, context, durationInFrames }\`.
   - ${EXAMPLES_DIR}/speedRamp.ts (a slow-motion or fast-to-real-time ramp as constant-rate segments) and ${EXAMPLES_DIR}/dipToBlack.tsx (a fade through black for @remotion/transitions).
 - Packages available: remotion, @remotion/transitions, @remotion/google-fonts, react.

@@ -1,8 +1,7 @@
 """Validate style_presets.json and every file in examples/ against its schema.
 
-Also checks what the schemas cannot: a render request's clips match its edit spec and the
-trims fit the uploaded files, a golden timeline lines up with its edit spec, and an agent
-request's clips are consistent and its example result follows the agent result rules.
+Also checks what the schemas cannot: an agent request's clips are consistent and its example
+result follows the agent result rules.
 
 Usage: pip install jsonschema && python contracts/check.py
 """
@@ -15,51 +14,20 @@ from referencing import Registry, Resource
 
 HERE = Path(__file__).parent
 SCHEMA_FOR_PREFIX = {
-    "plan_request_": "plan_request.schema.json",
-    "edit_spec_": "edit_spec.schema.json",
     "error_": "error.schema.json",
     "clip_sidecar_": "clip_sidecar.schema.json",
-    "render_request_": "render_request.schema.json",
     "render_job_": "render_job.schema.json",
-    "timeline_": "timeline.schema.json",
     "evaluate_context_": "evaluate_context.schema.json",
     "evaluation_": "evaluation.schema.json",
     "agent_request_": "agent_request.schema.json",
     "agent_result_": "agent_result.schema.json",
 }
 
-# Every schema, keyed by its $id, so "$ref": "edit_spec.schema.json" resolves locally.
+# Every schema, keyed by its $id, so "$ref": "error.schema.json" resolves locally.
 REGISTRY = Registry().with_resources(
     (schema["$id"], Resource.from_contents(schema))
     for schema in (json.loads(p.read_text()) for p in HERE.glob("*.schema.json"))
 )
-
-
-def rebased_errors(request: dict) -> list[str]:
-    """README "Render request rules" 1-2."""
-    uploads = {c["moment_id"]: c for c in request["clips"]}
-    spec_ids = [c["moment_id"] for c in request["edit_spec"]["clips"]]
-    errors = []
-    if sorted(spec_ids) != sorted(uploads) or len(uploads) != len(request["clips"]):
-        errors.append(f"clips {sorted(uploads)} do not match edit_spec.clips {sorted(spec_ids)}")
-    for c in request["edit_spec"]["clips"]:
-        upload = uploads.get(c["moment_id"])
-        if upload and not 0 <= c["in_s"] < c["out_s"] <= upload["duration_s"] + 1e-6:
-            errors.append(f"{c['moment_id']}: trim [{c['in_s']}, {c['out_s']}] outside the uploaded {upload['duration_s']} s")
-    return errors
-
-
-def timeline_errors(timeline: dict) -> list[str]:
-    spec = json.loads((HERE / "examples" / timeline["edit_spec"]).read_text())
-    slots = timeline["slots"]
-    errors = []
-    if [s["moment_id"] for s in slots] != [c["moment_id"] for c in spec["clips"]]:
-        errors.append("slot moment_ids do not match the edit spec's clips")
-    if abs(slots[-1]["end_s"] - timeline["end_card_start_s"]) > 1e-6:
-        errors.append("end_card_start_s is not the last slot's end_s")
-    if abs(timeline["end_card_start_s"] + spec["end_card"]["duration_s"] - timeline["total_s"]) > 1e-3:
-        errors.append("total_s is not end_card_start_s + end_card.duration_s")
-    return errors
 
 
 def agent_request_errors(request: dict) -> list[str]:
@@ -92,8 +60,6 @@ def agent_result_errors(result: dict, request_name: str) -> list[str]:
 
 
 EXTRA_CHECKS = {
-    "render_request_": rebased_errors,
-    "timeline_": timeline_errors,
     "agent_request_": agent_request_errors,
 }
 

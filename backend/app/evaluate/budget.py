@@ -1,4 +1,4 @@
-"""Per-trip call budget for POST /v1/evaluate (TRD 8.3), in memory like the plan counters (TRD 2)."""
+"""Per-trip call budget for POST /v1/evaluate (TRD 8.3), in memory (TRD 2)."""
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable

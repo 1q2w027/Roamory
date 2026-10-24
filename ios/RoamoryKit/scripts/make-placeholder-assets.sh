@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates the placeholder media bundled in Sources/RoamoryKit/Resources:
-# the 2 s black end-card clips, one music bed per preset, and the sample clips.
+# one music bed per preset (render/scripts/sync-assets.sh copies them to the render service) and the sample clips.
 # Placeholders until music licensing is settled (TRD 9.2). Needs ffmpeg with libx264.
 set -euo pipefail
 cd "$(dirname "$0")/../Sources/RoamoryKit/Resources"
@@ -8,11 +8,7 @@ mkdir -p Music SampleClips
 ff() { ffmpeg -hide_banner -loglevel error -y "$@"; }
 x264=(-c:v libx264 -pix_fmt yuv420p -preset veryfast -movflags +faststart)
 
-# End-card backgrounds: small, the renderer scales them to the output size.
-ff -f lavfi -i color=black:s=320x180:r=30 -t 2 "${x264[@]}" black_16x9.mp4
-ff -f lavfi -i color=black:s=180x320:r=30 -t 2 "${x264[@]}" black_9x16.mp4
-
-# Music beds: 16 s loops (a whole number of beats and pad cycles), the renderer loops them.
+# Music beds: 16 s loops (a whole number of beats and pad cycles), the agent loops them.
 music() { ff -f lavfi -i "aevalsrc='$2':s=44100:d=16" -ac 2 -c:a aac -b:a 96k "Music/$1.m4a"; }
 music cinematic_01 "0.12*(sin(2*PI*110*t)+sin(2*PI*130.81*t)+sin(2*PI*164.81*t)+0.5*sin(2*PI*220*t))*(0.6+0.4*sin(2*PI*t/8))"
 music reels_01 "0.5*sin(2*PI*55*t)*exp(-14*mod(t,0.5))+0.12*(sin(2*PI*220*t)+sin(2*PI*277.18*t)+sin(2*PI*329.63*t))*exp(-5*mod(t+0.25,0.5))"

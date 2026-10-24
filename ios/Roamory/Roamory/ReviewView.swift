@@ -82,19 +82,13 @@ struct ReviewView: View {
     }
 
     private var aspect: CGFloat {
-        guard let output = pipeline.coordinator?.renderResult?.spec.output, output.height > 0 else { return 9 / 16 }
+        guard let output = pipeline.coordinator?.renderResult?.output, output.height > 0 else { return 9 / 16 }
         return CGFloat(output.width) / CGFloat(output.height)
     }
 
     private var summary: String {
-        guard let c = pipeline.coordinator, let result = c.renderResult else { return "" }
-        let plan = switch c.planOutcome?.source {
-        case .cloud: "planned in the cloud"
-        case .fallback, nil: "planned on the phone"
-        }
-        let short = c.planOutcome.map { EditSpecValidator.onlyTooShort($0.violations) } == true
-            ? " Shorter than the style's target: not enough moments." : ""
-        return String(format: "%@, %.0f s, %@.", pipeline.trip.style.rawValue.capitalized, result.durationS, plan) + short
+        guard let result = pipeline.coordinator?.renderResult else { return "" }
+        return String(format: "%@, %.0f s, edited by Claude.", pipeline.trip.style.rawValue.capitalized, result.durationS)
     }
 
     private func play(from seconds: Double) {

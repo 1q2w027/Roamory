@@ -15,7 +15,7 @@ Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are update
 | `ios/` (camera) | iPhone camera capture, adaptive frame rate, rolling buffer | Yifan |
 | `ios/` (screens) | iPhone app UI: onboarding, trip setup, recording mode, review screen; putting all parts together | Daniel |
 | `backend/` (detection) | Cloud service: real-time moment selection with a frontier model (keeps API keys off the phone) | Daniel |
-| `backend/` (video) | Final highlight video: edit planning and rendering (render location not yet decided) | Ian |
+| `render/` (video) | Final highlight video: a Claude agent picks, edits and renders it with Remotion | Ian |
 | Figma / motion graphics | App design and demo motion graphics (assets go in `docs/mockups/`) | Andrew |
 | `contracts/` | Shared JSON schemas and API shapes between the app and the backend | Everyone, via PR |
 | `docs/` | PRD, TRD, `DECISIONS.md`, mockups | Daniel |
@@ -27,7 +27,7 @@ Specs live in `docs/`: [PRD](docs/PRD.md) · [TRD](docs/TRD.md). Both are update
 - **Ian:** AI that makes the final highlight video.
 - **Andrew:** Figma design and motion graphics for the demo.
 
-`ios/` is shared by Yifan (camera) and Daniel (screens), and `backend/` by Daniel (detection) and Ian (video); split work by subfolder to avoid conflicts. Yifan and Daniel agree how captured frames and clips reach the backend, and write it in `contracts/`.
+`ios/` is shared by Yifan (camera) and Daniel (screens); split work by subfolder to avoid conflicts. Yifan and Daniel agree how captured frames and clips reach the backend, and write it in `contracts/`.
 
 ## Workflow
 

@@ -1,4 +1,3 @@
-import ImageIO
 import XCTest
 @testable import RoamoryKit
 
@@ -64,26 +63,5 @@ final class PrePassTests: XCTestCase {
         let out = PrePass.run(clips, preset: presets[.documentary], config: config)
         XCTAssertEqual(out.count, 2)
         XCTAssertTrue(out.allSatisfy { abs($0.proposedOutS - $0.proposedInS - 7) < 1e-9 })
-    }
-
-    // MARK: Thumbnails
-
-    func testThumbnailsAreJpegsAtTheLongEdge() async throws {
-        let files = BundledResources.sampleClipURLs
-        let landscape = try XCTUnwrap(files.first { $0.lastPathComponent == "sample_a.mp4" })
-        let rotated = try XCTUnwrap(files.first { $0.lastPathComponent == "sample_c.mp4" })
-        for (file, portrait) in [(landscape, false), (rotated, true)] {
-            var info = try await SampleTrip.clipInfo(file: file, momentId: "m", source: .ai, score: 0.5, fromMs: 0)
-            (info.proposedInS, info.proposedOutS) = (4, 8)
-            let thumbs = try await PrePass.thumbnails(for: info, config: config)
-            XCTAssertEqual(thumbs.count, 4)
-            for jpeg in thumbs {
-                let source = try XCTUnwrap(CGImageSourceCreateWithData(jpeg as CFData, nil))
-                XCTAssertEqual(CGImageSourceGetType(source) as String?, "public.jpeg")
-                let image = try XCTUnwrap(CGImageSourceCreateImageAtIndex(source, 0, nil))
-                XCTAssertEqual(max(image.width, image.height), 384)
-                XCTAssertEqual(image.height > image.width, portrait, file.lastPathComponent)
-            }
-        }
     }
 }

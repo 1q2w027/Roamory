@@ -1,5 +1,7 @@
 # Plan: Remotion as a second video renderer
 
+> **Removed (2026-10-24).** The fixed `Highlight` composition, `/v1/render` and the AVFoundation fallback were removed; the agent (`docs/agentic-video-generation.md`) is the only way the app makes the video. Kept for history; see `docs/DECISIONS.md`.
+
 ## Context
 
 The highlight video is rendered on the phone today by `ios/RoamoryKit/Sources/RoamoryKit/Edit/Renderer.swift`, which uses AVFoundation and Core Animation `CATextLayer`s (`TitleOverlay.swift`). That covers cuts, fades, dissolves and plain text, but not richer motion graphics such as kinetic titles, animated lower thirds, a map intro, or slide and zoom transitions. Remotion (React → headless Chrome → ffmpeg) can do all of these, but it can't run on an iPhone.

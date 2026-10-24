@@ -13,8 +13,7 @@ final class TripPipelineTests: XCTestCase {
     private func pipeline(_ clips: [ClipInfo], style: Style = .reels) -> TripPipeline {
         var trip = SampleTrip.trip
         trip.style = style
-        trip.allowCloudAnalysis = false
-        return TripPipeline(trip: trip, folder: folder, clips: clips, planService: nil, remoteRenderer: { _ in nil })
+        return TripPipeline(trip: trip, folder: folder, clips: clips, agent: FakeAgent())
     }
 
     func testClipsMakeAVideoInTheTripFolder() async throws {

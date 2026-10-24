@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/error.schema.json",
   "title": "Error",
-  "description": "Body of every non-2xx response from the backend.",
+  "description": "Body of every non-2xx response from the backend and the render service.",
   "type": "object",
   "additionalProperties": false,
   "required": ["code", "message", "retryable"],
@@ -13,8 +13,6 @@
       "examples": [
         "unauthorized",
         "bad_request",
-        "too_many_clips",
-        "invalid_plan",
         "rate_limited",
         "upstream_timeout",
         "upstream_error",
@@ -22,7 +20,6 @@
         "upload_too_large",
         "busy",
         "not_found",
-        "render_failed",
         "agent_failed",
         "agent_timeout"
       ]
@@ -33,7 +30,7 @@
     },
     "retryable": {
       "type": "boolean",
-      "description": "True if the same request may succeed later. The phone still respects its own timeouts and falls back when false."
+      "description": "True if the same request may succeed later. The phone still respects its own timeouts."
     }
   }
 }

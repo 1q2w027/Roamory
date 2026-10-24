@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/render_job.schema.json",
   "title": "RenderJob",
-  "description": "Body of GET /v1/render/{job_id}. The phone polls it until status is completed (then downloads the video) or failed (then renders on the phone).",
+  "description": "Body of GET /v1/agent/{job_id}. The phone polls it until status is completed (then fetches the result and the video) or failed (then offers Retry).",
   "type": "object",
   "additionalProperties": false,
   "required": ["job_id", "status", "progress", "error"],
@@ -16,14 +16,14 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "Render progress. 1 when completed."
+      "description": "Job progress. 1 when completed."
     },
     "error": {
       "oneOf": [
         {"type": "null"},
         {"$ref": "error.schema.json"}
       ],
-      "description": "Null unless status is failed; then code is render_failed (or internal)."
+      "description": "Null unless status is failed; then code is agent_failed or agent_timeout (or internal)."
     }
   }
 }
