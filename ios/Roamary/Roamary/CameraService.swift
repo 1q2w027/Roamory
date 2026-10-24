@@ -5,14 +5,24 @@
 
 import AVFoundation
 import Combine
-import Photos
 import UIKit
 
-/// Owns the capture session; records one movie file at a time and saves it to Photos.
+/// A finished movie file and the moments marked while it recorded.
+struct FinishedRecording: Equatable {
+    var url: URL
+    /// From the file's start.
+    var buttonPressesMs: [Int]
+}
+
+/// Owns the capture session; records one movie file at a time and hands it over when it stops.
 final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate {
     @Published private(set) var isRecording = false
     @Published private(set) var recordingStart: Date?
     @Published private(set) var message: String?
+    /// Moments marked so far in this recording, in ms from the file's start (TRD 7).
+    @Published private(set) var buttonPressesMs: [Int] = []
+    /// Set when a recording stops with a usable file; the owner takes it and sets it back to nil.
+    @Published var finishedRecording: FinishedRecording?
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var minZoom: CGFloat = 1
@@ -109,6 +119,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString).appendingPathExtension("mov")
         message = nil
+        buttonPressesMs = []
         sessionQueue.async {
             // The UI is portrait only; rotate the file to match.
             if let connection = self.movieOutput.connection(with: .video),
@@ -128,6 +139,17 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         sessionQueue.async { self.movieOutput.stopRecording() }
     }
 
+    /// Marks a moment now (Bluetooth button, volume key or the on-screen button). Returns false when not recording.
+    @discardableResult
+    func markMoment() -> Bool {
+        guard isRecording else { return false }
+        // The file's own clock, so the mark lines up with the footage; the wall clock until the file has started.
+        let recorded = movieOutput.recordedDuration.seconds
+        let seconds = recorded.isFinite && recorded > 0 ? recorded : recordingStart.map { Date().timeIntervalSince($0) } ?? 0
+        buttonPressesMs.append(Int(seconds * 1000))
+        return true
+    }
+
     nonisolated func fileOutput(_ output: AVCaptureFileOutput,
                                 didFinishRecordingTo outputFileURL: URL,
                                 from connections: [AVCaptureConnection],
@@ -143,24 +165,8 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
                 message = "Recording failed: \(error?.localizedDescription ?? "unknown error")"
                 try? FileManager.default.removeItem(at: outputFileURL)
             } else {
-                await saveToPhotos(outputFileURL)
+                finishedRecording = FinishedRecording(url: outputFileURL, buttonPressesMs: buttonPressesMs)
             }
-        }
-    }
-
-    private func saveToPhotos(_ url: URL) async {
-        defer { try? FileManager.default.removeItem(at: url) }
-        guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
-            message = "Photos access is required to save the video."
-            return
-        }
-        do {
-            try await PHPhotoLibrary.shared().performChanges {
-                PHAssetChangeRequest.creationRequestForAssetFromVideo(atFileURL: url)
-            }
-            message = "Saved to Photos"
-        } catch {
-            message = "Save failed: \(error.localizedDescription)"
         }
     }
 }

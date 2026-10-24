@@ -5,6 +5,7 @@
 //  Created by Yifan Liu on 10/23/26.
 //
 
+import AVKit
 import SwiftUI
 
 struct ContentView: View {
@@ -14,6 +15,7 @@ struct ContentView: View {
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
+    @State private var status: String?
 
     var body: some View {
         ZStack {
@@ -44,7 +46,7 @@ struct ContentView: View {
                 if !guidedAccess.isEnabled {
                     guidedAccessHint
                 }
-                if let message = camera.message {
+                if let message = camera.message ?? status {
                     Text(message)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -52,11 +54,27 @@ struct ContentView: View {
                         .foregroundStyle(.white)
                 }
                 zoomControl
-                recordButton
+                controls
                     .padding(.bottom, 32)
             }
         }
         .task { await camera.prepare() }
+        // Volume keys, which Bluetooth shutter remotes send, and Camera Control mark a moment while recording (TRD 7).
+        .onCameraCaptureEvent(isEnabled: camera.isRecording) { event in
+            if event.phase == .ended { camera.markMoment() }
+        }
+        .sensoryFeedback(.impact(weight: .heavy), trigger: camera.buttonPressesMs.count) { _, new in new > 0 }
+        .onChange(of: camera.isRecording) { _, recording in
+            if recording { status = nil }
+        }
+        .onChange(of: camera.finishedRecording) { _, recording in
+            guard let recording else { return }
+            camera.finishedRecording = nil
+            Task {
+                status = await PhotoLibrary.saveVideo(recording.url)
+                try? FileManager.default.removeItem(at: recording.url)
+            }
+        }
     }
 
     private var guidedAccessHint: some View {
@@ -137,6 +155,41 @@ struct ContentView: View {
         .offset(x: total / 2 - activeCenter)
         .frame(maxWidth: .infinity, minHeight: 44)
         .animation(.easeInOut(duration: 0.15), value: activeIndex)
+    }
+
+    private var controls: some View {
+        ZStack {
+            recordButton
+            if camera.isRecording {
+                HStack {
+                    Spacer()
+                    markButton
+                }
+                .padding(.horizontal, 32)
+            }
+        }
+    }
+
+    /// The on-screen stand-in for the Bluetooth button; the badge counts this recording's marks.
+    private var markButton: some View {
+        Button { camera.markMoment() } label: {
+            Image(systemName: "star.fill")
+                .font(.title2)
+                .foregroundStyle(.yellow)
+                .frame(width: 56, height: 56)
+                .background(.black.opacity(0.5), in: Circle())
+                .overlay(alignment: .topTrailing) {
+                    if !camera.buttonPressesMs.isEmpty {
+                        Text("\(camera.buttonPressesMs.count)")
+                            .font(.caption2.bold().monospacedDigit())
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.yellow, in: Capsule())
+                    }
+                }
+        }
+        .accessibilityLabel("Mark moment")
     }
 
     private var recordButton: some View {
