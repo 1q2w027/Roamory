@@ -28,6 +28,19 @@ public struct EvaluateClient: Evaluating {
         self.session = session
     }
 
+    /// Reads `RoamoryAPIBaseURL` and `RoamoryAppToken` from Info.plist (set from build settings, never committed).
+    /// Nil when either is missing, and detection falls back on the phone.
+    public static func fromBundle(_ bundle: Bundle = .main, config: DetectionConfig) -> EvaluateClient? {
+        fromInfo(bundle.infoDictionary ?? [:], config: config)
+    }
+
+    static func fromInfo(_ info: [String: Any], config: DetectionConfig) -> EvaluateClient? {
+        guard let base = info["RoamoryAPIBaseURL"] as? String, !base.isEmpty, let url = URL(string: base),
+              let token = info["RoamoryAppToken"] as? String, !token.isEmpty
+        else { return nil }
+        return EvaluateClient(baseURL: url, token: token, timeoutS: config.evaluateTimeoutS)
+    }
+
     private struct ErrorBody: Decodable {
         var code: String
         var retryable: Bool

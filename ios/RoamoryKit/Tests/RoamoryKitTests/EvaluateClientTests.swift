@@ -123,3 +123,16 @@ final class EvaluateClientTests: XCTestCase {
         await XCTAssertThrowsErrorAsync(try await client.evaluate(context: ctx, frames: [jpeg]), .network)
     }
 }
+
+final class EvaluateClientBundleTests: XCTestCase {
+    func testFromBundleNeedsUrlAndToken() throws {
+        let config = try DetectionConfig.bundled()
+        XCTAssertNil(EvaluateClient.fromInfo([:], config: config))
+        XCTAssertNil(EvaluateClient.fromInfo(["RoamoryAPIBaseURL": "http://mac.local:8000", "RoamoryAppToken": ""], config: config))
+        XCTAssertNil(EvaluateClient.fromInfo(["RoamoryAPIBaseURL": "", "RoamoryAppToken": "t"], config: config))
+        let client = try XCTUnwrap(EvaluateClient.fromInfo(["RoamoryAPIBaseURL": "http://mac.local:8000", "RoamoryAppToken": "t"],
+                                                           config: config))
+        XCTAssertEqual(client.baseURL.absoluteString, "http://mac.local:8000")
+        XCTAssertEqual(client.timeoutS, config.evaluateTimeoutS)
+    }
+}
