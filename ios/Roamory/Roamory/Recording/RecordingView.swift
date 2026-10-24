@@ -28,7 +28,7 @@ struct RecordingView: View {
     private static let curtainEnabled = false
     @State private var showSettings = false
     @State private var showStudio = false
-    @State private var showFrames = false
+    @State private var showLog = false
     /// The mount level: shown when the camera opens, gone once the phone is level, back from the level button.
     @StateObject private var level = LevelMonitor()
     @State private var showLevel = false
@@ -77,16 +77,16 @@ struct RecordingView: View {
         .overlay {
             if Self.curtainEnabled, camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack || showSettings || showStudio || showFrames || showLevel)
+                                 paused: confirmBack || showSettings || showStudio || showLog || showLevel)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
         .sheet(isPresented: $showSettings) { SettingsSheet() }
         .sheet(isPresented: $showStudio) { StudioSheet() }
-        .sheet(isPresented: $showFrames) {
-            if let evaluation = camera.evaluation { SentFramesSheet(evaluation: evaluation) }
-        }
+        #if DEBUG
+        .sheet(isPresented: $showLog) { DirectorLogSheet(log: camera.directorLog) }
+        #endif
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
         .onChange(of: showLevel) { _, on in
@@ -123,6 +123,8 @@ struct RecordingView: View {
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
             headphones.start()
+            // The director picks what to save from now on; the buttons still work alongside it.
+            camera.startDirector()
         }
     }
 
@@ -135,7 +137,7 @@ struct RecordingView: View {
             if !guidedAccess.isEnabled {
                 guidedAccessHint
             }
-            summaryCard
+            directorBadge
             messageText
             zoomControl
             HStack(spacing: 12) {
@@ -143,7 +145,7 @@ struct RecordingView: View {
                 studioButton
                 if hasLevel { levelButton }
                 #if DEBUG
-                evaluateButton
+                logButton
                 settingsButton
                 #endif
             }
@@ -164,14 +166,14 @@ struct RecordingView: View {
                 if !guidedAccess.isEnabled {
                     guidedAccessHint.frame(maxWidth: 420)
                 }
-                summaryCard.frame(maxWidth: 420, alignment: .leading)
+                directorBadge.frame(maxWidth: 420, alignment: .leading)
                 messageText
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(spacing: 12) {
                 #if DEBUG
                 settingsButton
-                evaluateButton
+                logButton
                 #endif
                 if hasLevel { levelButton }
                 saveButton
@@ -196,25 +198,21 @@ struct RecordingView: View {
         }
     }
 
+    /// Debug only: the director's last decision in a line.
     @ViewBuilder
-    private var summaryCard: some View {
-        if let summary = camera.summary {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(summary)
-                if let evaluation = camera.evaluation {
-                    Button { showFrames = true } label: {
-                        Label("View the \(evaluation.frames.count) frames sent", systemImage: "photo.on.rectangle")
-                            .font(.footnote.weight(.semibold))
-                    }
-                }
-            }
-                .font(.callout)
+    private var directorBadge: some View {
+        #if DEBUG
+        if let line = camera.directorLine {
+            Text("Director: " + line)
+                .font(.caption2)
                 .foregroundStyle(.white)
-                .padding(12)
-                .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+                .lineLimit(2)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(.black.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
                 .padding(.horizontal, 16)
-                .onTapGesture { camera.summary = nil }
         }
+        #endif
     }
 
     @ViewBuilder
@@ -412,16 +410,15 @@ struct RecordingView: View {
     }
 
     #if DEBUG
-    private var evaluateButton: some View {
-        // If the chosen model is not ready (no API key, Apple Intelligence off), open settings first.
-        Button { if SummarySettings.isReady { camera.evaluate() } else { showSettings = true } } label: {
-            Label(camera.isEvaluating ? "Evaluating…" : "Evaluate", systemImage: "wand.and.sparkles")
+    private var logButton: some View {
+        Button { showLog = true } label: {
+            Image(systemName: "list.bullet.rectangle")
                 .font(.headline)
                 .foregroundStyle(.white)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .background(.black.opacity(0.5), in: Capsule())
+                .padding(12)
+                .background(.black.opacity(0.5), in: Circle())
         }
+        .accessibilityLabel("Director log")
     }
 
     private var settingsButton: some View {
