@@ -55,7 +55,7 @@ struct AskView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showKeySheet) { APIKeySheet() }
+        .sheet(isPresented: $showKeySheet) { SettingsSheet() }
     }
 
     private var header: some View {

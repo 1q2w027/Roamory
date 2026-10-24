@@ -2,17 +2,15 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Roamory finds the Mac running Roamory Studio on your Wi-Fi to send it your trip's clips.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_roamory._tcp</string>
-	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_roamory._tcp</string>
+	</array>
 	<key>RoamoryChatModel</key>
 	<string>$(ROAMORY_CHAT_MODEL)</string>
 	<key>RoamorySummaryModel</key>

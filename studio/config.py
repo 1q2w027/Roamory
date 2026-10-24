@@ -12,9 +12,9 @@ class Config:
     port: int = 8787
     claude: str = "claude"
     model: str = "claude-opus-5-5"
-    max_turns: int = 80
+    max_turns: int = 150
     max_budget_usd: float = 5.0
-    timeout_s: float = 900
+    timeout_s: float = 1500
     max_renders: int = 3
     max_clip_mb: int = 1000
     job_ttl_min: float = 60

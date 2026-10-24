@@ -86,6 +86,15 @@ struct StudioSheet: View {
                 } footer: {
                     Text("Claude watches the clips, cuts them to your style and renders the video. This takes a few minutes; keep Roamory open.")
                 }
+
+                Section {
+                    Button("Make on this iPhone") { makeOnPhone() }
+                        .disabled(clips.isEmpty || isWorking)
+                } header: {
+                    Text("Without a Mac")
+                } footer: {
+                    Text("A simpler edit made on the iPhone: evenly spaced cuts from every clip in your style, with music and a title. Keep Roamory open.")
+                }
             }
             .navigationTitle("Make video")
             .navigationBarTitleDisplayMode(.inline)
@@ -167,6 +176,32 @@ struct StudioSheet: View {
                 outcome = "Cancelled"
             } catch {
                 outcome = (error as? URLError)?.code == .cancelled ? "Cancelled" : error.localizedDescription
+            }
+        }
+    }
+
+    /// The backup: renders with AVFoundation on the phone, no Mac needed.
+    private func makeOnPhone() {
+        outcome = nil
+        startedAt = .now
+        stage = "Rendering on iPhone"
+        let clips = clips
+        work = Task {
+            defer {
+                work = nil
+                startedAt = nil
+                stage = nil
+            }
+            do {
+                let video = try await PhoneVideo.make(clips: clips, style: TripSettings.style()) { progress in
+                    Task { @MainActor in
+                        if stage != nil { stage = "Rendering on iPhone \(Int(progress * 100))%" }
+                    }
+                }
+                outcome = await PhotoLibrary.saveVideo(video)
+                try? FileManager.default.removeItem(at: video)
+            } catch {
+                outcome = Task.isCancelled ? "Cancelled" : error.localizedDescription
             }
         }
     }

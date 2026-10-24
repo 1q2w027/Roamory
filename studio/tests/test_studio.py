@@ -9,7 +9,7 @@ import pytest
 
 from studio import rules
 from studio.config import CONTRACTS, Config
-from studio.job import claude_command, stage_from_event, title_for
+from studio.job import STYLES, claude_command, stage_from_event, title_for
 from studio.server import make_server
 
 FAKE = str(Path(__file__).parent / "fake_claude.py")
@@ -137,6 +137,11 @@ def test_effective_target():
     assert rules.effective_target_s(request) == 14.5  # 10 s of footage + 2.5 title + 2 end card
 
 
+def test_every_style_has_a_guide():
+    for style in json.loads((CONTRACTS / "style_presets.json").read_text())["presets"]:
+        assert (STYLES / f"{style}.md").exists()
+
+
 def test_title_uses_only_the_context():
     assert title_for(example()) == {"text": "Kyoto", "subtitle": "City break · October 2026"}
 
@@ -153,4 +158,5 @@ def test_stage_parsing():
 def test_claude_is_confined():
     cmd = claude_command(Config(), "prompt")
     assert "--restricted" in cmd and "Bash(ffmpeg:*)" in cmd and "dontAsk" in cmd
+    assert "Bash(roamory-text:*)" in cmd and "Bash(roamory-music:*)" in cmd
     assert "Bash" not in cmd[cmd.index("--allowedTools") + 1:cmd.index("--permission-mode")]
