@@ -6,9 +6,11 @@ Oct 23, 2026 · v2.1 (iPhone pivot; iOS 26 target). Replaces v1.0 (glasses + Ras
 
 ## 1. Overview
 
-Roamory is an iPhone app that films a trip with the screen dark, adapts the camera frame rate to save battery, keeps the moments that matter in a rolling buffer, and builds a highlight video the user reviews in the app. Cloud AI (a frontier vision model) selects the moments.
+Roamory is an iPhone app that films a trip with the screen dark, keeps the moments that matter in a rolling buffer, and builds a highlight video the user reviews in the app. Cloud AI (a frontier vision model) selects the moments.
 
-**In scope:** interactive onboarding, camera capture with adaptive frame rate, rolling buffer and moment protection, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
+**In scope:** interactive onboarding, camera capture at a fixed 30 fps, rolling buffer and moment protection, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
+
+**Deferred:** adaptive frame rate (§4.3, PRD FR-008).
 
 **Out of scope (PRD §3.3):** extra hardware, Android, background camera capture, manual timeline editing, multi-user features.
 
@@ -27,7 +29,7 @@ Roamory is an iPhone app that films a trip with the screen dark, adapts the came
 | Trip clock | Wall-clock milliseconds since trip start, `t_ms`; it keeps running while paused, so sessions leave gaps |
 | Stage 1 | The on-phone signals and escalation gate (§6) |
 | Stage 2 | The cloud evaluation (§8.2): 2a is the fast model, 2b the strong one |
-| Tier | A camera frame-rate level (for example 30, 15, 10 fps) |
+| Tier | A camera frame-rate level (for example 30, 15, 10 fps); deferred with §4.3 |
 | Sample | A downscaled JPEG frame used for on-phone checks and cloud evaluation |
 | Candidate | A sample that passed the on-phone gate and is sent to the cloud |
 | Moment | A kept window `[T−pre, T+post]` around a trigger time T |
@@ -42,7 +44,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
  iPhone app                                   Cloud backend (FastAPI)
  ┌──────────────────────────────┐            ┌─────────────────────┐
  │ Onboarding UI (SwiftUI)      │            │ POST /v1/evaluate   │
- │ Capture + tier controller    │  frames    │   → Stage 2 model   │
+ │ Capture (fixed 30 fps)       │  frames    │   → Stage 2 model   │
  │ Rolling buffer + protection  │ ────────►  │ POST /v1/plan       │
  │ On-phone gate (signals)      │  keep/skip │   → planner model   │
  │ Bluetooth button             │ ◄────────  │ GET  /healthz       │
@@ -68,14 +70,14 @@ Two components: the **iOS app**, which does everything except the model calls, a
 |---|---|
 | `Onboarding/` | Style picker, destination globe, trip-type deck, trip length, permissions and consent, mounting guide, Start button |
 | `Preferences/` | Persist personal preference data |
-| `Capture/` | Camera session, segment writer, tier controller |
+| `Capture/` | Camera session, segment writer |
 | `Buffer/` | Segment index, protection set, cleanup, clip extraction |
 | `Signals/` | On-phone sample signals and the escalation gate |
 | `Cloud/` | Client for the backend, budget, timeouts, fallback |
 | `Button/` | Bluetooth button input and confirmation haptic |
 | `Edit/` | Plan request, validation, fallback planner, renderer |
 | `Review/` | Playback, moment list, feedback |
-| `Config/` | Thresholds, tier list, model-independent settings (loaded from a bundled file, not hard-coded) |
+| `Config/` | Thresholds, model-independent settings (loaded from a bundled file, not hard-coded) |
 
 ### 3.2 Onboarding implementation (PRD §4)
 
@@ -102,7 +104,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 
 The segment index is stored separately in a small JSON file, rewritten every 5 s, so crash recovery does not depend on the database.
 
-## 4. Capture, tiers and the dark screen
+## 4. Capture and the dark screen
 
 ### 4.1 Camera session (FR-007)
 
@@ -110,6 +112,8 @@ The segment index is stored separately in a small JSON file, rewritten every 5 s
 - An orientation check from `CMMotionManager` gravity runs at Start Recording and every few seconds after; a wrong orientation gives a haptic and a spoken prompt.
 - Video frames feed an `AVAssetWriter` for the buffer (§5) and a low-rate sampler for signals (§6).
 - Audio is off by default. If enabled by the user, it is written into the same segments.
+- **Fixed frame rate:** 30 fps for the whole session. Adaptive frame rate is deferred (§4.3).
+- **Safety guards:** `ProcessInfo.thermalState` of `.serious` shows a warning on the status view; `.critical` pauses the trip (§4.4). Battery under 10% pauses the trip with a notice, so the user can charge and resume.
 
 ### 4.2 Dark screen
 
@@ -118,7 +122,9 @@ The segment index is stored separately in a small JSON file, rewritten every 5 s
 - On pause, on trip end, on leaving the app, and on a crash restart, restore the stored brightness. Always restore it.
 - A visible recording indicator is required whenever the status view is shown (PRD §10).
 
-### 4.3 Adaptive frame rate (FR-008)
+### 4.3 Adaptive frame rate (FR-008) — Deferred
+
+> **Deferred.** For now the app records at a fixed 30 fps (§4.1) and none of this section is built. The design is kept for when battery data says it is needed. Everything else in this document works without it. The thermal and battery guards that were part of this section now live in §4.1.
 
 Frame rate is changed at run time by locking the device and setting `activeVideoMinFrameDuration` and `activeVideoMaxFrameDuration` to `1/fps`, clamped to the active format's `videoSupportedFrameRateRanges`. **The first spike must confirm that changing these mid-session does not drop or stall the writer.**
 
@@ -142,7 +148,7 @@ Frame rate is changed at run time by locking the device and setting `activeVideo
 | Near a landmark (optional) | `CLLocationManager` vs. bundled landmark list for the chosen city |
 | Loud sound (optional) | Microphone level, only if the user allowed audio |
 
-**Safety caps:** `ProcessInfo.thermalState` of `.serious` caps the tier at the floor; `.critical` pauses the trip (§4.4). Battery under 10% pauses the trip with a notice, so the user can charge and resume.
+**Safety caps (when tiers return):** `ProcessInfo.thermalState` of `.serious` caps the tier at the floor. The `.critical` and low-battery pauses already apply (§4.1, §4.4).
 
 Timestamps stay in real time, so low-fps footage plays at normal speed with fewer frames. The edit stage can turn low-fps lead-ins into a speed-ramp (§9).
 
@@ -161,7 +167,7 @@ Resuming takes a user action and starts a new `RecordingSession` on the same tri
 
 ### 5.1 Segments
 
-**Proposal:** `AVAssetWriter` with an HLS-style fragmented-MP4 output profile and a segment interval of 2 s. The writer's delegate returns an initialization segment and one media segment per interval; each is written to disk. Joining the initialization segment with consecutive media segments yields a playable file. The video keyframe interval is set to 2 s by duration (`AVVideoMaxKeyFrameIntervalDurationKey`), not by frame count, because the frame rate changes; segments then split by time. **Fallback if this fails in the spike:** rotate a new writer every 2 s on a keyframe.
+**Proposal:** `AVAssetWriter` with an HLS-style fragmented-MP4 output profile and a segment interval of 2 s. The writer's delegate returns an initialization segment and one media segment per interval; each is written to disk. Joining the initialization segment with consecutive media segments yields a playable file. The video keyframe interval is set to 2 s by duration (`AVVideoMaxKeyFrameIntervalDurationKey`), not by frame count, so segments split by time even if the frame rate changes later (§4.3). **Fallback if this fails in the spike:** rotate a new writer every 2 s on a keyframe.
 
 Each segment has `idx`, `sessionId`, `path`, `tStartMs`, `tEndMs`, `bytes` and `protectedBy: Set<MomentID>`. Times are on the trip clock; because sessions leave gaps, use `tStartMs`/`tEndMs`, not `idx`, to find a segment's span.
 
@@ -217,7 +223,7 @@ When a candidate passes the gate, the phone immediately **protects the moment wi
 
 - **Proposal:** use an off-the-shelf Bluetooth shutter remote, which presents as a keyboard or volume key. The app receives it as a hardware key event in the foreground, for example through `AVCaptureEventInteraction` or by observing volume changes. This must be verified with the screen at brightness 0 and a locked-to-foreground app.
 - **Alternative:** a custom BLE device using Core Bluetooth with a defined characteristic, if no off-the-shelf remote works.
-- On press: create a moment with `source = button` at the press time, jump to 30 fps, protect `[T−15 s, T+15 s]`, and give a haptic confirmation (`UIImpactFeedbackGenerator`). Button moments bypass the gate, cooldowns and budgets and are never released by the cloud.
+- On press: create a moment with `source = button` at the press time, protect `[T−15 s, T+15 s]`, and give a haptic confirmation (`UIImpactFeedbackGenerator`). Button moments bypass the gate, cooldowns and budgets and are never released by the cloud.
 - Button moments are sent to the cloud later, off the critical path, only to get a description and category.
 
 ## 8. Cloud backend and AI
@@ -354,7 +360,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 - Capture never depends on the network, and cloud failure only triggers the local fallback.
 - Crash restart reconciles the segment index and restores brightness.
-- Disk, thermal and battery guards in §4.3, §5.4.
+- Disk, thermal and battery guards in §4.1, §5.4.
 
 ### 11.3 Security and privacy (PRD §10)
 
@@ -370,7 +376,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 ### 12.1 Technical gates (no hour marks; the schedule is open)
 
 1. **Capture:** 10 minutes of 1080p30 segments with the screen at 0 brightness, no dropped segments, thermal state not above `.fair`.
-2. **Tiers and battery:** the spike (below) gives battery and heat numbers at 30, 15, 10 and 2 fps and confirms mid-session rate changes are safe. Sets the floor.
+2. **Battery:** the spike (below) gives battery and heat numbers at a fixed 30 fps. (Tier floors and mid-session rate changes wait for §4.3.)
 3. **Buffer:** a button press at T yields a clip spanning at least `T−15 s` to `T+15 s`, checked with a burned-in clock; unprotected segments older than 45 s are gone.
 4. **Button:** a Bluetooth remote press is received with the screen at 0 brightness, in the foreground, with the haptic.
 5. **Setup flow:** a new user reaches Start Recording in under 2 minutes; choices persist.
@@ -382,7 +388,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 ### 12.2 Test plan
 
-- **Unit (XCTest):** tier state machine, trip state machine (pause and resume), gate logic, budget bucket, buffer protection and cleanup (overlapping and pending protections, finalize on pause), edit-spec validator (effective target), merging.
+- **Unit (XCTest):** trip state machine (pause and resume), gate logic, budget bucket, buffer protection and cleanup (overlapping and pending protections, finalize on pause), edit-spec validator (effective target), merging.
 - **Backend (pytest):** schema validation, budget enforcement, error paths.
 - **Replay harness:** recorded sample folders with labeled "should save" timestamps; reports precision, recall and calls per minute per threshold set.
 - **Personalization check:** the same replay with "honeymoon" vs. "school" produces different top moments.
@@ -391,7 +397,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 ### 12.3 The first spike (throwaway)
 
-A small test app that records at 30, 15, 10 and 2 fps for 10 minutes each, screen at 0 brightness, logging battery level and thermal state, and changes the rate mid-session while writing segments. Run on a real iPhone. It answers the PRD battery question and the §4.3 and §5.1 assumptions.
+A small test app that records at 30 fps for 10 minutes, screen at 0 brightness, logging battery level and thermal state while writing segments. Run on a real iPhone. It answers the battery question and the §5.1 assumptions. (The mid-session rate-change test returns with §4.3.)
 
 ### 12.4 Replay mode and the demo (Decided: pre-recorded footage; mechanism Proposal)
 
@@ -403,8 +409,6 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 
 | Risk | Mitigation |
 |---|---|
-| Frame-rate changes stall or drop frames | Spike first; fall back to a fixed rate |
-| Low-fps lead-ins look choppy | Raised floor, early ramp-up, slow ramp-down, speed-ramp in the edit |
 | Segment output is not joinable | Rotating-writer fallback |
 | Bluetooth remote not received with a dark screen | Test early; custom BLE fallback |
 | User backgrounds or locks the app | Foreground-only design, pause with a notification, clear onboarding message |
