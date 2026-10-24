@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraService()
+    @StateObject private var guidedAccess = GuidedAccessMonitor()
 
     var body: some View {
         ZStack {
@@ -27,6 +28,9 @@ struct ContentView: View {
                     }
                 }
                 Spacer()
+                if !guidedAccess.isEnabled {
+                    guidedAccessHint
+                }
                 if let message = camera.message {
                     Text(message)
                         .padding(.horizontal, 12)
@@ -39,6 +43,20 @@ struct ContentView: View {
             }
         }
         .task { await camera.prepare() }
+    }
+
+    private var guidedAccessHint: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Label("Turn on Guided Access to keep Roamary in the foreground", systemImage: "lock.open")
+                .font(.subheadline.bold())
+            Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamary and tap Start.")
+                .font(.caption)
+        }
+        .foregroundStyle(.white)
+        .padding(12)
+        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
     }
 
     private var recordButton: some View {
