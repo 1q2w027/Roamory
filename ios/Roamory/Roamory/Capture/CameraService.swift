@@ -20,7 +20,7 @@ final class CameraService: NSObject, ObservableObject,
     /// When the saved clip would have started if it ran in real time, so `now - savingStart` is its length.
     @Published private(set) var savingStart: Date?
     @Published private(set) var message: String?
-    /// Claude's description of the buffer from the last `evaluate()`, until dismissed.
+    /// The chosen model's description of the buffer from the last `evaluate()`, until dismissed.
     @Published var summary: String?
     @Published private(set) var isEvaluating = false
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
@@ -197,7 +197,7 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    /// Sends frames spread over the buffer to the Anthropic Messages API and shows the description Claude returns in `summary`.
+    /// Sends frames spread over the buffer to the model chosen in settings and shows the description it returns in `summary`.
     func evaluate() {
         guard !isEvaluating else { return }
         isEvaluating = true

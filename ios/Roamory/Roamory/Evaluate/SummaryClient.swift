@@ -5,20 +5,27 @@
 
 import Foundation
 
-/// Sends frames from the buffer to the Anthropic Messages API and returns Claude's description of them.
-/// The API key comes from the Keychain (`APIKeyStore`), the model from the build settings.
+/// Describes frames from the buffer with the model chosen in settings: Claude through the Anthropic Messages API
+/// (the API key comes from the Keychain, `APIKeyStore`, the model from the build settings) or the on-device model.
 enum SummaryClient {
     struct Failure: LocalizedError {
         let errorDescription: String?
     }
 
-    private static let system = """
+    static let system = """
         You describe a short stretch of a traveler's trip from frames sampled evenly from it, oldest first.
         Reply with 2 to 3 plain sentences about what is happening and where it looks like, using only what is visible.
         Do not identify people (say "a person", "two friends") and do not name a place unless it is clearly recognizable.
         """
 
     static func summarize(frames: [Data]) async throws -> String {
+        switch SummarySettings.provider {
+        case .claude: try await summarizeWithClaude(frames: frames)
+        case .onDevice: try await OnDeviceSummarizer.summarize(frames: frames)
+        }
+    }
+
+    private static func summarizeWithClaude(frames: [Data]) async throws -> String {
         guard let key = APIKeyStore.load() else {
             throw Failure(errorDescription: "No API key saved.")
         }
