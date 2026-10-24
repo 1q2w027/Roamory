@@ -67,6 +67,7 @@ enum StudioClient {
     private struct Job: Decodable {
         let status: String
         let stage: String?
+        let eta_s: Double?
         let error: ErrorBody?
     }
 
@@ -82,10 +83,11 @@ enum StudioClient {
         mac.token.save(token)
     }
 
-    /// Sends `clips` to `mac`, reports Claude's progress through `stage`, and returns the finished video, a file
-    /// the caller owns.
+    /// Sends `clips` to `mac`, reports Claude's progress through `stage` and the Mac's estimate of the seconds left
+    /// through `eta` (nil when it has none), and returns the finished video, a file the caller owns.
     static func makeVideo(on mac: StudioMac, clips: [TripClip], style: String, context: [String: Any],
-                          stage: @escaping @MainActor (String) -> Void) async throws -> URL {
+                          stage: @escaping @MainActor (String) -> Void,
+                          eta: @escaping @MainActor (Double?) -> Void) async throws -> URL {
         guard let token = mac.token.load() else { throw Failure(errorDescription: "Pair with \(mac.name) first.") }
         let api = mac.baseURL.appending(path: "v1/studio/jobs")
 
@@ -118,12 +120,14 @@ enum StudioClient {
                 try await Task.sleep(for: .seconds(2))
                 let state = try JSONDecoder().decode(Job.self, from: try await send("GET", job, token: token))
                 if let line = state.stage { stage(line) }
+                eta(state.eta_s)
                 if state.status == "failed" {
                     throw Failure(errorDescription: state.error?.message ?? "Claude could not make the video.")
                 }
                 if state.status == "completed" { break }
             }
 
+            eta(nil)
             stage("Downloading the video")
             var download = URLRequest(url: job.appending(path: "video"), timeoutInterval: 300)
             download.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
