@@ -29,6 +29,10 @@ struct RecordingView: View {
     @State private var showSettings = false
     @State private var showStudio = false
     @State private var showFrames = false
+    /// The mount level: shown when the camera opens, gone once the phone is level, back from the level button.
+    @StateObject private var level = LevelMonitor()
+    @State private var showLevel = false
+    @State private var fadeLevel: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -44,6 +48,13 @@ struct RecordingView: View {
                         }
                         .onEnded { _ in pinchStartZoom = nil }
                 )
+
+            if showLevel {
+                LevelOverlay(pose: level.pose, isLevel: level.isLevel, bubbleRangeDeg: level.bubbleRangeDeg,
+                             toleranceDeg: level.toleranceDeg)
+                    .onTapGesture { showLevel = false }
+                    .transition(.opacity)
+            }
 
             VStack {
                 if let start = camera.savingStart {
@@ -88,6 +99,7 @@ struct RecordingView: View {
                 HStack(spacing: 12) {
                     saveButton
                     studioButton
+                    if hasLevel { levelButton }
                     #if DEBUG
                     evaluateButton
                     settingsButton
@@ -109,7 +121,7 @@ struct RecordingView: View {
         .overlay {
             if Self.curtainEnabled, camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack || showSettings || showStudio || showFrames)
+                                 paused: confirmBack || showSettings || showStudio || showFrames || showLevel)
                     .transition(.opacity)
             }
         }
@@ -121,6 +133,19 @@ struct RecordingView: View {
         }
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
+        .onChange(of: showLevel) { _, on in
+            if on, let angle = camera.captureRotationAngle { level.start(captureAngle: angle) } else { level.stop() }
+        }
+        // Once level, the level stays a moment and fades; leaving level again (a warning) keeps it up.
+        .onChange(of: level.isLevel) { _, isLevel in
+            fadeLevel?.cancel()
+            guard isLevel else { return }
+            fadeLevel = Task {
+                try? await Task.sleep(for: .seconds(level.fadeDelay))
+                if !Task.isCancelled { withAnimation { showLevel = false } }
+            }
+        }
+        .onDisappear { level.stop() }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { camera.toggleSaving() }
@@ -130,6 +155,8 @@ struct RecordingView: View {
             let style = TripSettings.style()
             let orientation = (try? StylePresets.bundled()).map { CaptureOrientation(preset: $0[style]) } ?? .portrait
             await camera.prepare(orientation: orientation)
+            // Level the phone on its mount first; the buffer is already recording.
+            if hasLevel { showLevel = true }
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
             headphones.start()
@@ -168,6 +195,8 @@ struct RecordingView: View {
         isLeaving = true
         Task {
             headphones.stop()
+            showLevel = false
+            level.stop()
             await camera.shutdown()
             onBackToSetup()
         }
@@ -279,6 +308,21 @@ struct RecordingView: View {
                 .background(.black.opacity(0.5), in: Circle())
         }
         .accessibilityLabel("Make video")
+    }
+
+    /// The mount level needs a motion sensor and the angle the session records at.
+    private var hasLevel: Bool { level.isAvailable && camera.captureRotationAngle != nil }
+
+    /// Shows the mount level again, for when the mount slips.
+    private var levelButton: some View {
+        Button { showLevel = true } label: {
+            Image(systemName: "level")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Level the phone")
     }
 
     #if DEBUG
