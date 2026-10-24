@@ -30,7 +30,7 @@ final class RendererTests: XCTestCase {
         let asset = AVURLAsset(url: result.url)
         let playable = try await asset.load(.isPlayable)
         XCTAssertTrue(playable, file: file, line: line)
-        XCTAssertEqual(result.durationS, EditTimeline.totalDurationS(result.spec), accuracy: 0.5, file: file, line: line)
+        XCTAssertEqual(result.durationS, EditTimeline.totalDurationS(try XCTUnwrap(result.spec, file: file, line: line)), accuracy: 0.5, file: file, line: line)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         let video = try XCTUnwrap(videoTracks.first, file: file, line: line)
         let size = try await video.load(.naturalSize)
@@ -82,7 +82,7 @@ final class RendererTests: XCTestCase {
         renderer.simulateTransitionFailure = true
         let result = try await renderer.render(spec, clipURLs: urls, to: outputDir.appending(path: "retry.mp4"))
         XCTAssertTrue(result.usedHardCutRetry)
-        XCTAssertTrue(result.spec.clips.allSatisfy { $0.transitionIn == .cut })
+        XCTAssertTrue(try XCTUnwrap(result.spec).clips.allSatisfy { $0.transitionIn == .cut })
         try await assertRendered(result, spec)
     }
 
