@@ -17,7 +17,25 @@ export type Config = {
   /** Job dirs live under here; it is emptied at startup. */
   tmpRoot: string;
   publicDir: string;
+  agent: AgentConfig;
 };
+
+/** Agent mode (POST /v1/agent, TRD §9.3). */
+export type AgentConfig = {
+  model: string;
+  effort: "low" | "medium" | "high" | "xhigh" | "max";
+  maxTurns: number;
+  /** The job fails with agent_timeout after this. */
+  timeoutS: number;
+  /** render_video calls per job. */
+  maxRenders: number;
+  /** Agent jobs per trip_id while the server runs; more get 429 rate_limited. */
+  perTrip: number;
+  /** Per-job workspaces. Inside render/ so the agent's code resolves render/node_modules; emptied at startup. */
+  workRoot: string;
+};
+
+const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const num = (name: string, fallback: number) => {
@@ -33,5 +51,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     maxUploadBytes: num("MAX_UPLOAD_MB", 200) * 1024 * 1024,
     tmpRoot: env.RENDER_TMP_DIR || path.join(os.tmpdir(), "roamory-render"),
     publicDir: path.join(RENDER_ROOT, "public"),
+    agent: {
+      model: env.AGENT_MODEL || "claude-opus-5-5",
+      effort: effort(env.AGENT_EFFORT || "high"),
+      maxTurns: num("AGENT_MAX_TURNS", 60),
+      timeoutS: num("AGENT_TIMEOUT_S", 480),
+      maxRenders: num("AGENT_MAX_RENDERS", 3),
+      perTrip: num("AGENTS_PER_TRIP", 3),
+      workRoot: path.resolve(RENDER_ROOT, env.AGENT_WORK_DIR || ".agent-work"),
+    },
   };
+}
+
+function effort(value: string): AgentConfig["effort"] {
+  if (!(EFFORTS as readonly string[]).includes(value)) throw new Error(`AGENT_EFFORT must be one of ${EFFORTS.join(", ")}`);
+  return value as AgentConfig["effort"];
 }

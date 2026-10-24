@@ -8,13 +8,14 @@ import { CONTRACTS_DIR } from "./config";
 // ajv-formats is CommonJS; its default export arrives wrapped under ESM.
 const addFormats = (addFormatsModule as unknown as { default?: typeof addFormatsModule }).default ?? addFormatsModule;
 
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+/** Every contracts/*.schema.json, so their cross-references resolve. Look one up with schemaId(). */
+export const ajv = new Ajv2020({ allErrors: true, strict: false });
 addFormats(ajv);
 for (const file of fs.readdirSync(CONTRACTS_DIR).filter((f) => f.endsWith(".schema.json"))) {
   ajv.addSchema(JSON.parse(fs.readFileSync(path.join(CONTRACTS_DIR, file), "utf8")));
 }
 
-const schemaId = (name: string) => `https://roamory.app/contracts/${name}.schema.json`;
+export const schemaId = (name: string) => `https://roamory.app/contracts/${name}.schema.json`;
 const validateRenderRequest = ajv.getSchema(schemaId("render_request")) as ValidateFunction<RenderRequest>;
 /** For tests: the render job shape. */
 export const validateRenderJob = ajv.getSchema(schemaId("render_job")) as ValidateFunction;
@@ -32,8 +33,7 @@ export function validateRequest(raw: string | undefined, partNames: string[]): V
   if (!parsed.ok) return { ok: false, message: "request is not JSON" };
   const request = parsed.value;
   if (!validateRenderRequest(request)) {
-    const errors = (validateRenderRequest.errors ?? []).slice(0, 5).map((e) => `${e.instancePath || "/"} ${e.message}`);
-    return { ok: false, message: `request does not match render_request.schema.json: ${errors.join("; ")}` };
+    return { ok: false, message: `request does not match render_request.schema.json: ${schemaErrors(validateRenderRequest)}` };
   }
 
   const uploads = new Map(request.clips.map((c) => [c.moment_id, c]));
@@ -65,7 +65,12 @@ export function validateRequest(raw: string | undefined, partNames: string[]): V
   return { ok: true, request };
 }
 
-function parseJson(raw: string): { ok: true; value: unknown } | { ok: false } {
+/** The first few errors of the last validation, on one line. */
+export function schemaErrors(validate: ValidateFunction): string {
+  return (validate.errors ?? []).slice(0, 5).map((e) => `${e.instancePath || "/"} ${e.message}`).join("; ");
+}
+
+export function parseJson(raw: string): { ok: true; value: unknown } | { ok: false } {
   try {
     return { ok: true, value: JSON.parse(raw) };
   } catch {

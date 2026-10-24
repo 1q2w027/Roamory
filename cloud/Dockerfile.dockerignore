@@ -10,4 +10,5 @@ backend/tests/
 render/node_modules/
 render/out/
 render/.env
+render/.agent-work/
 **/__pycache__/
