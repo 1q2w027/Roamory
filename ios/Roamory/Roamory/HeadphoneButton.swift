@@ -29,6 +29,13 @@ final class HeadphoneButton {
         update()
     }
 
+    /// Stops watching the route and gives up the headphone button.
+    func stop() {
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
+        routeObserver = nil
+        stopListening()
+    }
+
     func update() {
         if headphonesConnected { listen() } else { stopListening() }
     }

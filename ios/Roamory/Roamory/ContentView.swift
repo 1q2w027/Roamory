@@ -10,6 +10,8 @@ import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
+    /// Back to trip setup, after the trip has ended and the camera stopped.
+    let onBackToSetup: () -> Void
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
     @State private var headphones = HeadphoneButton()
@@ -17,6 +19,8 @@ struct ContentView: View {
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
+    @State private var confirmBack = false
+    @State private var isLeaving = false
     /// Recording mode: dark until held, and dark again 10 s after the last touch.
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
@@ -79,15 +83,27 @@ struct ContentView: View {
                 .padding(.bottom, 32)
             }
         }
+        .overlay(alignment: .topLeading) {
+            backButton.disabled(isLeaving)
+                .padding(.leading, 16)
+        }
+        .confirmationDialog("Back to trip setup?", isPresented: $confirmBack, titleVisibility: .visible) {
+            Button("Back to setup", role: .destructive, action: backToSetup)
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Recording stops and this trip ends. Video already saved stays in Photos.")
+        }
         .overlay {
             if camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: showKeySheet)
+                                 paused: confirmBack || showKeySheet)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
         .sheet(isPresented: $showKeySheet) { APIKeySheet() }
+        // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
+        .onChange(of: confirmBack) { lastTouch = .now }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
         .onCameraCaptureEvent { event in
             if event.phase == .ended { camera.toggleSaving() }
@@ -118,6 +134,26 @@ struct ContentView: View {
         let format = landscape ? "16:9" : "9:16"
         guard let held = camera.heldAngle, !camera.captureOrientation.isHeld(at: held) else { return format }
         return format + (landscape ? " · Turn the phone sideways" : " · Hold the phone upright")
+    }
+
+    private var backButton: some View {
+        Button { confirmBack = true } label: {
+            Image(systemName: "chevron.left")
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Back to trip setup")
+    }
+
+    /// Stops the camera (a save in progress still goes to Photos), then shows setup again.
+    private func backToSetup() {
+        isLeaving = true
+        Task {
+            headphones.stop()
+            await camera.shutdown()
+            onBackToSetup()
+        }
     }
 
     private var guidedAccessHint: some View {
@@ -256,5 +292,5 @@ private struct BottomStrip: Shape {
 }
 
 #Preview {
-    ContentView()
+    ContentView {}
 }

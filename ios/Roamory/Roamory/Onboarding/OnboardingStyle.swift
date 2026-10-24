@@ -3,10 +3,10 @@ import SwiftUI
 /// Colors from the mockup (docs/mockups/iphone-screens.html).
 enum Theme {
     static let background = Color(hex: "#0b0b10")
-    static let accent = Color(hex: "#ff7a45")
-    static let accent2 = Color(hex: "#ffb86b")
+    static let accent = Color(hex: "#03fc73")
+    static let accent2 = Color(hex: "#8dffbe")
     /// Text on the accent gradient.
-    static let accentInk = Color(hex: "#1a0d05")
+    static let accentInk = Color(hex: "#02200f")
     static let card = Color(hex: "#1a1a22")
     static let chip = Color(hex: "#22222c")
     static let secondaryText = Color(hex: "#8e8e99")
@@ -73,7 +73,7 @@ struct StepHeader: View {
     }
 }
 
-/// The mockup's orange Continue button.
+/// The green Continue button.
 struct AccentButton: View {
     let title: String
     var enabled = true

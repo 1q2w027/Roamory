@@ -2,28 +2,22 @@ import RoamoryKit
 import SceneKit
 import SwiftUI
 
-enum GlobeZoom {
-    case world, continent, country
-
-    /// Camera distance from the center of the unit globe.
-    var distance: Double {
-        switch self {
-        case .world: 3.2
-        case .continent: 2.2
-        case .country: 1.6
-        }
-    }
-}
-
 /// The destination globe (TRD §3.2): spins until touched, drags with inertia, swoops to the focus, lights the
 /// continent under a held finger, and drops pulsing city pins.
 struct GlobeView: UIViewRepresentable {
+    /// Camera distances from the center of the unit globe: the whole globe, and the closest zoom.
+    static let worldDistance = 3.2
+    static let closestDistance = 1.6
+    /// Vertical, in degrees. The view is square, so it is the horizontal one too.
+    static let fieldOfView = 38.0
+
     let catalog: OnboardingCatalog
     /// Continent id to light up.
     var focusedContinent: String?
     /// Where the camera looks; nil keeps the globe spinning.
     var focus: GeoPoint?
-    var zoom: GlobeZoom
+    /// Camera distance from the globe's center, between `closestDistance` and `worldDistance`.
+    var distance: Double
     var pins: [City]
     var selectedPin: String?
     var onTapContinent: (Continent) -> Void
@@ -51,7 +45,7 @@ struct GlobeView: UIViewRepresentable {
         // Orientation, in radians: yaw = −longitude and pitch = latitude of the point facing the camera.
         private var yaw = -2.0
         private var pitch = 0.3
-        private var distance = GlobeZoom.world.distance
+        private var distance = GlobeView.worldDistance
         private var target: (yaw: Double, pitch: Double, distance: Double)?
         private var velocity = CGVector.zero
         private var dragging = false
@@ -80,7 +74,7 @@ struct GlobeView: UIViewRepresentable {
             scene.rootNode.addChildNode(globe)
 
             camera.camera = SCNCamera()
-            camera.camera?.fieldOfView = 38
+            camera.camera?.fieldOfView = GlobeView.fieldOfView
             // The default near plane (1) clips the globe once the camera is closer than 2 from its center.
             camera.camera?.zNear = 0.01
             camera.position = SCNVector3(0, 0, Float(distance))
@@ -128,7 +122,7 @@ struct GlobeView: UIViewRepresentable {
             parent = globeView
             renderTexture()
 
-            let key = globeView.focus.map { "\($0.lat),\($0.lon),\(globeView.zoom)" } ?? "none,\(globeView.zoom)"
+            let key = globeView.focus.map { "\($0.lat),\($0.lon),\(globeView.distance)" } ?? "none,\(globeView.distance)"
             if key != focusKey {
                 focusKey = key
                 velocity = .zero
@@ -137,10 +131,10 @@ struct GlobeView: UIViewRepresentable {
                     let wanted = -focus.lon * .pi / 180
                     target = (yaw: yaw + Self.wrap(wanted - yaw),
                               pitch: min(max(focus.lat * .pi / 180, -Self.maxPitch), Self.maxPitch),
-                              distance: globeView.zoom.distance)
+                              distance: globeView.distance)
                 } else {
                     spinning = true
-                    target = (yaw: yaw, pitch: 0.3, distance: globeView.zoom.distance)
+                    target = (yaw: yaw, pitch: 0.3, distance: globeView.distance)
                 }
             }
 
@@ -260,7 +254,7 @@ struct GlobeView: UIViewRepresentable {
 
         /// Radians of turn per point of drag, so the surface roughly follows the finger at any zoom.
         private var radiansPerPoint: Double {
-            let radiusOnScreen = Double(max(view.bounds.width, 1)) * 0.42 * GlobeZoom.world.distance / distance
+            let radiusOnScreen = Double(max(view.bounds.width, 1)) * 0.42 * GlobeView.worldDistance / distance
             return 1 / radiusOnScreen
         }
 
