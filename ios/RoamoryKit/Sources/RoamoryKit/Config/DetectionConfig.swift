@@ -47,7 +47,6 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
     public var evaluateTimeoutS: Double
     public var maxInFlight: Int
     public var maxQueued: Int
-    public var recentDescriptions: Int
     public var demoCooldownS: Double
     public var demoTauBase: Double
 
@@ -81,7 +80,6 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
         case evaluateTimeoutS = "evaluate_timeout_s"
         case maxInFlight = "max_in_flight"
         case maxQueued = "max_queued"
-        case recentDescriptions = "recent_descriptions"
         case demoCooldownS = "demo_cooldown_s"
         case demoTauBase = "demo_tau_base"
     }

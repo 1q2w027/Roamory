@@ -2,39 +2,24 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://roamory.app/contracts/evaluation.schema.json",
   "title": "Evaluation",
-  "description": "200 response of POST /v1/evaluate. The phone stores it in its Evaluation record (TRD 3.3) and copies verdict.event_type, verdict.description and s2 into the Moment.",
+  "description": "200 response of POST /v1/evaluate. The phone stores it in its Evaluation record (TRD 3.3) and copies verdict.event_type and verdict.description into the Moment.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "keep", "s2", "tier", "latency_ms", "verdict"],
+  "required": ["version", "keep", "latency_ms", "verdict"],
   "properties": {
     "version": {"type": "integer", "const": 1},
     "keep": {
       "type": "boolean",
-      "description": "Server decision: (save_decision = save and s2 >= SAVE_THRESHOLD) or s2 >= SAVE_ANYWAY_THRESHOLD. Always true for purpose = describe. false releases the phone's speculative hold."
-    },
-    "s2": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 1,
-      "description": "Final score (TRD 8.2), computed on the server from the verdict and context.local.novelty."
-    },
-    "tier": {
-      "type": "string",
-      "enum": ["2a", "2b"],
-      "description": "Which model produced the verdict: 2a fast, 2b strong."
+      "description": "Server decision: verdict.save_decision = save. Always true for purpose = describe. false releases the phone's speculative hold."
     },
     "latency_ms": {"type": "integer", "minimum": 0, "description": "Server time for the whole request."},
     "verdict": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Model output (TRD 8.2), with scores clamped and text truncated by the server.",
+      "description": "Model output (TRD 8.2), with enums coerced and text truncated by the server. The model decides; it gives no scores.",
       "required": [
         "event_type",
         "matched_preferences",
-        "preference_alignment",
-        "visual_interest",
-        "significance",
-        "visual_quality",
         "save_decision",
         "best_frame_index",
         "window_hint_s",
@@ -47,11 +32,11 @@
           "enum": ["scenery", "landmark", "activity", "food", "social", "other"]
         },
         "matched_preferences": {"type": "array", "items": {"type": "string"}},
-        "preference_alignment": {"type": "number", "minimum": 0, "maximum": 1},
-        "visual_interest": {"type": "number", "minimum": 0, "maximum": 1},
-        "significance": {"type": "number", "minimum": 0, "maximum": 1},
-        "visual_quality": {"type": "number", "minimum": 0, "maximum": 1},
-        "save_decision": {"type": "string", "enum": ["save", "skip", "uncertain"]},
+        "save_decision": {
+          "type": "string",
+          "enum": ["save", "skip"],
+          "description": "The model's keep-or-skip decision. When it cannot tell, it skips."
+        },
         "best_frame_index": {
           "type": "integer",
           "minimum": 0,

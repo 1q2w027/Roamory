@@ -77,7 +77,6 @@ final class EvaluateClientTests: XCTestCase {
         StubProtocol.queue = [(200, try Fixtures.data("examples/evaluation_save.json"))]
         let r = try await client.evaluate(context: ctx, frames: [jpeg, jpeg])
         XCTAssertTrue(r.keep)
-        XCTAssertEqual(r.tier, .fast)
         let req = try XCTUnwrap(StubProtocol.requests.first)
         XCTAssertEqual(req.url?.absoluteString, "http://backend.test/v1/evaluate")
         XCTAssertEqual(req.httpMethod, "POST")
@@ -111,7 +110,7 @@ final class EvaluateClientTests: XCTestCase {
     }
 
     func testInvalidJsonThenValidSucceeds() async throws {
-        StubProtocol.queue = [(200, Data("nope".utf8)), (200, try Fixtures.data("examples/evaluation_skip_2b.json"))]
+        StubProtocol.queue = [(200, Data("nope".utf8)), (200, try Fixtures.data("examples/evaluation_skip.json"))]
         let r = try await client.evaluate(context: ctx, frames: [jpeg])
         XCTAssertFalse(r.keep)
     }

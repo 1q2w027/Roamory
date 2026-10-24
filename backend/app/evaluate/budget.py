@@ -16,7 +16,6 @@ class _Trip:
     tokens: float
     refilled_at: float
     fast: deque[float] = field(default_factory=deque)
-    strong: deque[float] = field(default_factory=deque)
     describe: deque[float] = field(default_factory=deque)
 
 
@@ -48,14 +47,6 @@ class BudgetBook:
             raise AppError(429, "rate_limited", f"over {self.s.FAST_PER_HOUR} evaluations per hour for this trip")
         t.tokens -= 1
         t.fast.append(now)
-
-    def try_strong(self, trip_id: str) -> bool:
-        now = self.now()
-        t = self._trip(trip_id, now)
-        if _in_window(t.strong, now) >= self.s.STRONG_PER_HOUR:
-            return False
-        t.strong.append(now)
-        return True
 
     def take_describe(self, trip_id: str) -> None:
         now = self.now()

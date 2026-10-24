@@ -158,7 +158,7 @@
           ],
           "minimum": 0,
           "maximum": 1,
-          "description": "S2 for ai clips, local score L for local_fallback, S2 or null for button clips."
+          "description": "The phone's local score L for ai and local_fallback clips; null for button clips."
         },
         "proposed_in_s": {
           "type": "number",
