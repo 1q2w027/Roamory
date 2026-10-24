@@ -60,13 +60,17 @@ struct DetectionSettingsView: View {
                      ? "Set ROAMORY_API_BASE_URL and ROAMORY_APP_TOKEN in ios/Roamory/Config/Local.xcconfig, then rebuild. Until then only the on-phone fallback and the button keep moments."
                      : "Small still frames go to the backend; full video never leaves the phone.")
             }
-            Section("Trip") {
+            Section {
                 Picker("Style", selection: $style) {
                     ForEach(Style.allCases, id: \.rawValue) { Text($0.rawValue.capitalized).tag($0.rawValue) }
                 }
                 TextField("Trip type", text: $tripType)
                 TextField("Country", text: $country)
                 TextField("City", text: $city)
+            } header: {
+                Text("Trip")
+            } footer: {
+                Text("Reels records 9:16 (hold the phone upright); the other styles record 16:9 (turn it sideways). The video format applies the next time the camera starts.")
             }
             Section {
                 Toggle("Demo mode", isOn: $demoMode)
