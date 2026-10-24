@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "presets": {
+    "cinematic": {
+      "target_s": {"min": 45, "max": 60, "default": 50},
+      "clip_s": {"min": 4, "max": 8, "default": 6},
+      "transition": "fade",
+      "transition_s": {"min": 0.5, "max": 0.8, "default": 0.6},
+      "aspect": "16:9",
+      "output": {"width": 1920, "height": 1080, "fps": 30},
+      "title_s": 2.5,
+      "end_card_s": 2.0,
+      "music_track": "cinematic_01",
+      "music_gain_db": -14,
+      "keep_original_audio": false,
+      "captions": false,
+      "allow_speed_ramp": true
+    },
+    "reels": {
+      "target_s": {"min": 30, "max": 30, "default": 30},
+      "clip_s": {"min": 1.5, "max": 3, "default": 2},
+      "transition": "cut",
+      "transition_s": {"min": 0, "max": 0, "default": 0},
+      "aspect": "9:16",
+      "output": {"width": 1080, "height": 1920, "fps": 30},
+      "title_s": 1.5,
+      "end_card_s": 2.0,
+      "music_track": "reels_01",
+      "music_gain_db": -10,
+      "keep_original_audio": false,
+      "captions": false,
+      "allow_speed_ramp": true
+    },
+    "documentary": {
+      "target_s": {"min": 60, "max": 60, "default": 60},
+      "clip_s": {"min": 5, "max": 10, "default": 7},
+      "transition": "dissolve",
+      "transition_s": {"min": 0.8, "max": 1.2, "default": 1.0},
+      "aspect": "16:9",
+      "output": {"width": 1920, "height": 1080, "fps": 30},
+      "title_s": 3.0,
+      "end_card_s": 2.0,
+      "music_track": "documentary_01",
+      "music_gain_db": -20,
+      "keep_original_audio": false,
+      "captions": true,
+      "allow_speed_ramp": false
+    },
+    "vlog": {
+      "target_s": {"min": 45, "max": 60, "default": 50},
+      "clip_s": {"min": 3, "max": 8, "default": 5},
+      "transition": "cut",
+      "transition_s": {"min": 0, "max": 0, "default": 0},
+      "aspect": "16:9",
+      "output": {"width": 1920, "height": 1080, "fps": 30},
+      "title_s": 2.0,
+      "end_card_s": 2.0,
+      "music_track": "vlog_01",
+      "music_gain_db": -18,
+      "keep_original_audio": true,
+      "captions": false,
+      "allow_speed_ramp": false
+    }
+  }
+}
