@@ -6,14 +6,20 @@
 	objectVersion = 110;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		5A1C0E010000000000000001 /* RoamoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 5A1C0E010000000000000002 /* RoamoryKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
-		206EB9CB308C2332009D930D /* Roamary.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Roamary.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		206EB9CB308C2332009D930D /* Roamory.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Roamory.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5A1C0E010000000000000003 /* Roamory.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Roamory.xcconfig; sourceTree = "<group>"; };
+		5A1C0E010000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		206EB9CD308C2332009D930D /* Roamary */ = {
+		206EB9CD308C2332009D930D /* Roamory */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Roamary;
+			path = Roamory;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -22,6 +28,7 @@
 		206EB9C8308C2332009D930D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
+				5A1C0E010000000000000001 /* RoamoryKit in Frameworks */,
 			);
 		};
 /* End PBXFrameworksBuildPhase section */
@@ -30,7 +37,8 @@
 		206EB9C2308C2332009D930D = {
 			isa = PBXGroup;
 			children = (
-				206EB9CD308C2332009D930D /* Roamary */,
+				5A1C0E010000000000000004 /* Config */,
+				206EB9CD308C2332009D930D /* Roamory */,
 				206EB9CC308C2332009D930D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -38,17 +46,26 @@
 		206EB9CC308C2332009D930D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				206EB9CB308C2332009D930D /* Roamary.app */,
+				206EB9CB308C2332009D930D /* Roamory.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5A1C0E010000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				5A1C0E010000000000000003 /* Roamory.xcconfig */,
+				5A1C0E010000000000000006 /* Info.plist */,
+			);
+			path = Config;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		206EB9CA308C2332009D930D /* Roamary */ = {
+		206EB9CA308C2332009D930D /* Roamory */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 206EB9D6308C2333009D930D /* Build configuration list for PBXNativeTarget "Roamary" */;
+			buildConfigurationList = 206EB9D6308C2333009D930D /* Build configuration list for PBXNativeTarget "Roamory" */;
 			buildPhases = (
 				206EB9C7308C2332009D930D /* Sources */,
 				206EB9C8308C2332009D930D /* Frameworks */,
@@ -57,11 +74,14 @@
 			buildRules = (
 			);
 			fileSystemSynchronizedGroups = (
-				206EB9CD308C2332009D930D /* Roamary */,
+				206EB9CD308C2332009D930D /* Roamory */,
 			);
-			name = Roamary;
-			productName = Roamary;
-			productReference = 206EB9CB308C2332009D930D /* Roamary.app */;
+			name = Roamory;
+			packageProductDependencies = (
+				5A1C0E010000000000000002 /* RoamoryKit */,
+			);
+			productName = Roamory;
+			productReference = 206EB9CB308C2332009D930D /* Roamory.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -79,7 +99,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 206EB9C6308C2332009D930D /* Build configuration list for PBXProject "Roamary" */;
+			buildConfigurationList = 206EB9C6308C2332009D930D /* Build configuration list for PBXProject "Roamory" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -88,12 +108,15 @@
 			);
 			mainGroup = 206EB9C2308C2332009D930D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				5A1C0E010000000000000005 /* XCLocalSwiftPackageReference "../RoamoryKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 206EB9CC308C2332009D930D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				206EB9CA308C2332009D930D /* Roamary */,
+				206EB9CA308C2332009D930D /* Roamory */,
 			);
 		};
 /* End PBXProject section */
@@ -115,7 +138,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		206EB9D4308C2333009D930D /* Debug configuration for PBXProject "Roamary" */ = {
+		206EB9D4308C2333009D930D /* Debug configuration for PBXProject "Roamory" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -179,7 +202,7 @@
 			};
 			name = Debug;
 		};
-		206EB9D5308C2333009D930D /* Release configuration for PBXProject "Roamary" */ = {
+		206EB9D5308C2333009D930D /* Release configuration for PBXProject "Roamory" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -236,8 +259,9 @@
 			};
 			name = Release;
 		};
-		206EB9D7308C2333009D930D /* Debug configuration for PBXNativeTarget "Roamary" */ = {
+		206EB9D7308C2333009D930D /* Debug configuration for PBXNativeTarget "Roamory" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5A1C0E010000000000000003 /* Roamory.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -246,21 +270,22 @@
 				DEVELOPMENT_TEAM = B2CCNZP93F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Roamary needs the camera to record your trip.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamary needs the microphone to record sound during your trip.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamary needs access to save recorded videos to your Photos.";
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.roamary.Roamary;
+				PRODUCT_BUNDLE_IDENTIFIER = com.roamory.Roamory;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -272,8 +297,9 @@
 			};
 			name = Debug;
 		};
-		206EB9D8308C2333009D930D /* Release configuration for PBXNativeTarget "Roamary" */ = {
+		206EB9D8308C2333009D930D /* Release configuration for PBXNativeTarget "Roamory" */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5A1C0E010000000000000003 /* Roamory.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -282,21 +308,22 @@
 				DEVELOPMENT_TEAM = B2CCNZP93F;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Roamary needs the camera to record your trip.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamary needs the microphone to record sound during your trip.";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamary needs access to save recorded videos to your Photos.";
+				INFOPLIST_FILE = Config/Info.plist;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.roamary.Roamary;
+				PRODUCT_BUNDLE_IDENTIFIER = com.roamory.Roamory;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -311,23 +338,37 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		206EB9C6308C2332009D930D /* Build configuration list for PBXProject "Roamary" */ = {
+		206EB9C6308C2332009D930D /* Build configuration list for PBXProject "Roamory" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				206EB9D4308C2333009D930D /* Debug configuration for PBXProject "Roamary" */,
-				206EB9D5308C2333009D930D /* Release configuration for PBXProject "Roamary" */,
+				206EB9D4308C2333009D930D /* Debug configuration for PBXProject "Roamory" */,
+				206EB9D5308C2333009D930D /* Release configuration for PBXProject "Roamory" */,
 			);
 			defaultConfigurationName = Release;
 		};
-		206EB9D6308C2333009D930D /* Build configuration list for PBXNativeTarget "Roamary" */ = {
+		206EB9D6308C2333009D930D /* Build configuration list for PBXNativeTarget "Roamory" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				206EB9D7308C2333009D930D /* Debug configuration for PBXNativeTarget "Roamary" */,
-				206EB9D8308C2333009D930D /* Release configuration for PBXNativeTarget "Roamary" */,
+				206EB9D7308C2333009D930D /* Debug configuration for PBXNativeTarget "Roamory" */,
+				206EB9D8308C2333009D930D /* Release configuration for PBXNativeTarget "Roamory" */,
 			);
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		5A1C0E010000000000000005 /* XCLocalSwiftPackageReference "../RoamoryKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../RoamoryKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		5A1C0E010000000000000002 /* RoamoryKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = RoamoryKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 206EB9C3308C2332009D930D /* Project object */;
 	validationLevel = 1;

@@ -1,0 +1,8 @@
+// Base build settings for the Roamory target. Machine-specific values (service URLs, the app token)
+// go in Local.xcconfig, which is untracked: run Config/use-laptop-render.sh, or copy
+// Local.xcconfig.example. Without it the app builds and renders on the phone.
+ROAMORY_RENDER_BASE_URL =
+ROAMORY_API_BASE_URL =
+ROAMORY_APP_TOKEN =
+
+#include? "Local.xcconfig"

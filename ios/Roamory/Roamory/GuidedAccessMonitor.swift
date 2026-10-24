@@ -1,6 +1,6 @@
 //
 //  GuidedAccessMonitor.swift
-//  Roamary
+//  Roamory
 //
 
 import Combine

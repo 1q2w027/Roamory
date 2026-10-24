@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists/1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>RoamoryRenderBaseURL</key>
+	<string>$(ROAMORY_RENDER_BASE_URL)</string>
+	<key>RoamoryAPIBaseURL</key>
+	<string>$(ROAMORY_API_BASE_URL)</string>
+	<key>RoamoryAppToken</key>
+	<string>$(ROAMORY_APP_TOKEN)</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Roamory connects to services on your local network to choose moments and make highlight videos.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Roamory notices when you stop to look around, so it keeps those moments.</string>
+</dict>
+</plist>

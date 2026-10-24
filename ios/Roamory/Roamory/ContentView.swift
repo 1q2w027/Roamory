@@ -1,15 +1,18 @@
 //
 //  ContentView.swift
-//  Roamary
+//  Roamory
 //
 //  Created by Yifan Liu on 10/23/26.
 //
 
+import AVKit
 import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
+    @StateObject private var detection = DetectionController()
+    @State private var showDetectionSettings = false
     @State private var pinchStartZoom: CGFloat?
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
@@ -40,6 +43,9 @@ struct ContentView: View {
                             .background(.black.opacity(0.5), in: Capsule())
                     }
                 }
+                if detection.isRunning {
+                    detectionStatus
+                }
                 Spacer()
                 if !guidedAccess.isEnabled {
                     guidedAccessHint
@@ -54,18 +60,80 @@ struct ContentView: View {
                 zoomControl
                 #if DEBUG
                 debugSaveButton
+                    .overlay(alignment: .trailing) {
+                        if detection.isRunning { keepMomentButton.offset(x: 96) }
+                    }
                     .padding(.bottom, 32)
                 #endif
             }
         }
-        .task { await camera.prepare() }
+        .overlay(alignment: .topLeading) { detectionSettingsButton }
+        .sheet(isPresented: $showDetectionSettings) {
+            NavigationStack { DetectionSettingsView(backend: detection.backend) }
+        }
+        // Volume keys and Bluetooth shutter remotes (TRD §7) keep the current moment.
+        .onCameraCaptureEvent { event in
+            if event.phase == .ended { detection.buttonPressed() }
+        }
+        .onChange(of: camera.isSaving) { _, saving in
+            if saving {
+                detection.start(.current())
+            } else {
+                Task { await detection.stop() }
+            }
+        }
+        .task {
+            camera.frameInterval = detection.frameInterval
+            let sink = detection.sink
+            camera.onFrame = { sink.handle($0) }
+            await camera.prepare()
+        }
+    }
+
+    /// Detection status while recording: holds, then what was kept and released.
+    private var detectionStatus: some View {
+        let s = detection.summary
+        return VStack(spacing: 2) {
+            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released)\(s.cloud ? "" : " · offline")")
+                .font(.caption.monospacedDigit())
+            if let last = s.lastDescription {
+                Text(last).font(.caption2).lineLimit(1)
+            }
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.black.opacity(0.5), in: Capsule())
+    }
+
+    /// Keeps the current moment, like the Bluetooth button.
+    private var keepMomentButton: some View {
+        Button { detection.buttonPressed() } label: {
+            Image(systemName: "bookmark.fill")
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Keep this moment")
+    }
+
+    private var detectionSettingsButton: some View {
+        Button { showDetectionSettings = true } label: {
+            Image(systemName: "sparkle.magnifyingglass")
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .padding(.leading, 16)
+        .disabled(camera.isSaving)
+        .accessibilityLabel("Moment detection settings")
     }
 
     private var guidedAccessHint: some View {
         VStack(spacing: 4) {
-            Label("Turn on Guided Access to keep Roamary in the foreground", systemImage: "lock.open")
+            Label("Turn on Guided Access to keep Roamory in the foreground", systemImage: "lock.open")
                 .font(.subheadline.bold())
-            Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamary and tap Start.")
+            Text("One time: Settings > Accessibility > Guided Access > On. Then triple-click the side button in Roamory and tap Start.")
                 .font(.caption)
             TripleClickGuide()
                 .padding(.top, 4)

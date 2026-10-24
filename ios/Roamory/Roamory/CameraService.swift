@@ -1,6 +1,6 @@
 //
 //  CameraService.swift
-//  Roamary
+//  Roamory
 //
 
 import AVFoundation
@@ -11,6 +11,7 @@ import UIKit
 /// Owns the capture session. Frames feed a rolling buffer of the last seconds from the moment the camera is
 /// ready; `startSaving()` writes the buffer and everything after it to a file, `stopSaving()` closes the file
 /// and saves it to Photos.
+/// It also hands a frame to `onFrame` every `frameInterval` seconds for moment detection (TRD §6).
 final class CameraService: NSObject, ObservableObject,
                            AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
     @Published private(set) var isSaving = false
@@ -31,12 +32,19 @@ final class CameraService: NSObject, ObservableObject,
     nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
     /// displayZoom = videoZoomFactor * multiplier. A virtual multi-camera starts at the ultra-wide, so this is 0.5 there.
     nonisolated(unsafe) private var zoomMultiplier: CGFloat = 1
-    nonisolated private let sessionQueue = DispatchQueue(label: "roamary.camera.session")
-    /// Camera frames and microphone buffers arrive here, in order.
-    nonisolated private let sampleQueue = DispatchQueue(label: "roamary.camera.samples")
+    nonisolated private let sessionQueue = DispatchQueue(label: "roamory.camera.session")
+    /// Camera frames and microphone buffers for the buffer arrive here, in order.
+    nonisolated private let sampleQueue = DispatchQueue(label: "roamory.camera.samples")
     private var isStopping = false
     /// Touched only on `sampleQueue`.
     nonisolated(unsafe) private var settleGate = SettleGate()
+    nonisolated(unsafe) private let frameOutput = AVCaptureVideoDataOutput()
+    nonisolated private let frameQueue = DispatchQueue(label: "roamory.camera.frames")
+    nonisolated(unsafe) private var lastFrameTime = CMTime.invalid
+    /// Called on the frame queue with an upright (portrait) frame. Set it before the camera starts.
+    /// The buffer is only valid during the call.
+    nonisolated(unsafe) var onFrame: (@Sendable (CVPixelBuffer) -> Void)?
+    nonisolated(unsafe) var frameInterval: TimeInterval = 2
     /// Digital zoom beyond this looks too soft to be useful.
     private let zoomLimit: CGFloat = 10
 
@@ -122,6 +130,17 @@ final class CameraService: NSObject, ObservableObject,
             device.unlockForConfiguration()
         }
 
+        // Frames for moment detection, beside the ones for the buffer. Dropping late frames keeps capture from stalling.
+        if session.canAddOutput(frameOutput) {
+            frameOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+            frameOutput.alwaysDiscardsLateVideoFrames = true
+            frameOutput.setSampleBufferDelegate(self, queue: frameQueue)
+            session.addOutput(frameOutput)
+            if let connection = frameOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+        }
+
         if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
            let mic = AVCaptureDevice.default(for: .audio),
            let micInput = try? AVCaptureDeviceInput(device: mic),
@@ -180,7 +199,9 @@ final class CameraService: NSObject, ObservableObject,
 
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
-        if output === videoOutput {
+        if output === frameOutput {
+            handleDetectionFrame(sampleBuffer)
+        } else if output === videoOutput {
             let isAdjusting = videoDevice.map { $0.isAdjustingWhiteBalance || $0.isAdjustingExposure } ?? false
             let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
             guard settleGate.admit(at: time, isAdjusting: isAdjusting) else { return }
@@ -188,6 +209,14 @@ final class CameraService: NSObject, ObservableObject,
         } else {
             recorder.handle(audio: sampleBuffer)
         }
+    }
+
+    nonisolated private func handleDetectionFrame(_ sampleBuffer: CMSampleBuffer) {
+        let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if lastFrameTime.isValid, (time - lastFrameTime).seconds < frameInterval { return }
+        guard let onFrame, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        lastFrameTime = time
+        onFrame(pixels)
     }
 
     private func saveToPhotos(_ url: URL) async {

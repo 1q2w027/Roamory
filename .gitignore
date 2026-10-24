@@ -23,3 +23,5 @@ xcuserdata/
 DerivedData/
 build/
 *.xcuserstate
+# Roamory machine-specific build settings (token)
+ios/Roamory/Config/Local.xcconfig

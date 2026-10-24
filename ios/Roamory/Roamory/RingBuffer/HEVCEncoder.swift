@@ -1,6 +1,6 @@
 //
 //  HEVCEncoder.swift
-//  Roamary
+//  Roamory
 //
 
 import CoreMedia

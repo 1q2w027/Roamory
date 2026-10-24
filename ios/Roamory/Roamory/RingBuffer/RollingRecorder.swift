@@ -1,6 +1,6 @@
 //
 //  RollingRecorder.swift
-//  Roamary
+//  Roamory
 //
 
 import AVFoundation
@@ -37,7 +37,7 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     var onSaveEnded: (@Sendable (Result<URL, Error>) -> Void)?
 
     /// Guards everything below except `encoder`, which only the capture queue touches.
-    private let queue = DispatchQueue(label: "roamary.buffer")
+    private let queue = DispatchQueue(label: "roamory.buffer")
     private var video: RingBuffer<CMSampleBuffer>
     private var audio: RingBuffer<CMSampleBuffer>
     private var videoFormat: CMFormatDescription?

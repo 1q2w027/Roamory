@@ -1,6 +1,6 @@
 //
 //  SettleGate.swift
-//  Roamary
+//  Roamory
 //
 
 import Foundation

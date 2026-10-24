@@ -1,6 +1,6 @@
 //
 //  TripleClickGuide.swift
-//  Roamary
+//  Roamory
 //
 
 import SwiftUI

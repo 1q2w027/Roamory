@@ -1,6 +1,6 @@
 //
 //  RingBuffer.swift
-//  Roamary
+//  Roamory
 //
 
 import Foundation

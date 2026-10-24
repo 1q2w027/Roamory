@@ -1,6 +1,6 @@
 //
 //  ClipWriter.swift
-//  Roamary
+//  Roamory
 //
 
 import AVFoundation
