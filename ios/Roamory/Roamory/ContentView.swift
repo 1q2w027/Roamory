@@ -22,6 +22,9 @@ struct ContentView: View {
     /// The ended trip's video, from Processing to Review.
     @State private var ended: TripPipeline?
     @State private var isEnding = false
+    /// Recording mode: dark until held, and dark again 10 s after the last touch.
+    @State private var curtainAwake = false
+    @State private var lastTouch = Date()
 
     var body: some View {
         ZStack {
@@ -75,6 +78,15 @@ struct ContentView: View {
         }
         // Settings restart detection, which must not overlap End trip.
         .overlay(alignment: .topLeading) { detectionSettingsButton.disabled(isEnding) }
+        .overlay {
+            if detection.isRunning {
+                RecordingCurtain(summary: detection.summary, buttonPresses: detection.buttonPresses,
+                                 awake: $curtainAwake, lastTouch: lastTouch)
+                    .transition(.opacity)
+            }
+        }
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
+        .onChange(of: detection.isRunning) { _, running in if running { curtainAwake = false } }
         .sheet(isPresented: $showDetectionSettings, onDismiss: {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {

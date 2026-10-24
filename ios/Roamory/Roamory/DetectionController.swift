@@ -28,6 +28,8 @@ struct DetectionSummary: Equatable {
 final class DetectionController: ObservableObject {
     @Published private(set) var summary = DetectionSummary()
     @Published private(set) var isRunning = false
+    /// Counts presses of the bookmark, volume keys and remotes, so the screen can confirm each one at once.
+    @Published private(set) var buttonPresses = 0
     /// Give `sink.handle` to `CameraService.onFrame`.
     let sink = FrameSink()
     let config = try? DetectionConfig.bundled()
@@ -149,6 +151,7 @@ final class DetectionController: ObservableObject {
     func buttonPressed() {
         guard let detector else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        buttonPresses += 1
         let at = nowMs
         Task {
             _ = await detector.buttonPressed(atMs: at)
