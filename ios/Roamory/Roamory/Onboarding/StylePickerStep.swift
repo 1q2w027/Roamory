@@ -2,7 +2,7 @@ import AVFoundation
 import RoamoryKit
 import SwiftUI
 
-/// Step 1 (PRD FR-001): four sample clips loop silently; tapping one grows it to fill the step with sound.
+/// Step 1 (PRD FR-001): four sample clips loop silently; tapping one chooses it and grows it to fill the step with sound.
 struct StylePickerStep: View {
     @Binding var style: String
     @State private var expanded: Style?
@@ -25,7 +25,7 @@ struct StylePickerStep: View {
                         GridRow { card(Self.order[0], width: width, height: height); card(Self.order[1], width: width, height: height) }
                         GridRow { card(Self.order[2], width: width, height: height); card(Self.order[3], width: width, height: height) }
                     }
-                    Text("All four clips loop silently. Tap one to watch it with sound.")
+                    Text("All four clips loop silently. Tap one to choose it and watch it with sound.")
                         .font(.footnote)
                         .foregroundStyle(Theme.secondaryText)
                         .opacity(expanded == nil ? 1 : 0)
@@ -74,10 +74,6 @@ struct StylePickerStep: View {
     private func expandedCard(_ s: Style, size: CGSize) -> some View {
         StyleTile(style: s, player: players[s]?.player, selected: style == s.rawValue, large: true,
                   detail: detail(for: s))
-            .overlay(alignment: .bottom) {
-                AccentButton(title: style == s.rawValue ? "Keep \(s.title)" : "Use \(s.title)") { choose(s) }
-                    .padding(16)
-            }
             .overlay(alignment: .topLeading) {
                 Button { collapse() } label: {
                     Image(systemName: "xmark")
@@ -114,7 +110,9 @@ struct StylePickerStep: View {
         return "\(format) · \(Int(p.targetS.default)) s video · \(p.transition.rawValue) transitions"
     }
 
+    /// Tapping a card chooses it, and opens it with sound.
     private func expand(_ s: Style) {
+        style = s.rawValue
         try? AVAudioSession.sharedInstance().setCategory(.playback)
         players[s]?.player.isMuted = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) { expanded = s }
@@ -126,11 +124,6 @@ struct StylePickerStep: View {
             expanded = nil
             dragDown = 0
         }
-    }
-
-    private func choose(_ s: Style) {
-        style = s.rawValue
-        collapse()
     }
 }
 
@@ -169,7 +162,6 @@ private struct StyleTile: View {
             }
             .foregroundStyle(.white)
             .padding(large ? 20 : 14)
-            .padding(.bottom, large ? 84 : 0)
         }
         .overlay(alignment: .topTrailing) {
             if !large {
