@@ -14,6 +14,7 @@ struct OnboardingView: View {
     @AppStorage(DetectionSettings.Key.lengthDays) private var lengthDays = 3
     @State private var step = Self.initialStep
     @State private var forward = true
+    @State private var started = false
     private let catalog = try? OnboardingCatalog.bundled()
 
     private static let steps: [(eyebrow: String, title: String)] = [
@@ -63,6 +64,7 @@ struct OnboardingView: View {
                 }
         )
         .sensoryFeedback(.impact(weight: .medium), trigger: step)
+        .sensoryFeedback(.impact(weight: .heavy), trigger: started) { _, new in new }
     }
 
     @ViewBuilder
@@ -74,8 +76,10 @@ struct OnboardingView: View {
             if let catalog {
                 DestinationStep(catalog: catalog, continent: $continent, country: $country, city: $city)
             }
+        case 2:
+            if let catalog { TripTypeStep(types: catalog.tripTypes, tripType: $tripType) }
         default:
-            Text("Coming soon").foregroundStyle(.secondary)
+            TripLengthStep(days: $lengthDays, style: Style(rawValue: style) ?? .cinematic)
         }
     }
 
@@ -89,7 +93,10 @@ struct OnboardingView: View {
     }
 
     private func advance() {
-        guard step < Self.steps.count - 1 else { return onStart() }
+        guard step < Self.steps.count - 1 else {
+            started = true
+            return onStart()
+        }
         forward = true
         withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { step += 1 }
     }
