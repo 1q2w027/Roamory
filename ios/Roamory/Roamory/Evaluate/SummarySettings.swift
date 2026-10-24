@@ -23,6 +23,21 @@ enum SummaryProvider: String, CaseIterable, Identifiable {
 
 enum SummarySettings {
     static let providerKey = "summaryProvider"
+    static let frameCountKey = "summaryFrameCount"
+    /// What the settings stepper allows.
+    static let frameCountRange = 1...12
+
+    /// The build setting `RoamorySummaryFrames` (6 when it is missing or invalid): what Evaluate sends until settings change it.
+    static var defaultFrameCount: Int {
+        let value = (Bundle.main.infoDictionary?["RoamorySummaryFrames"] as? String).flatMap { Int($0) } ?? 6
+        return min(max(value, frameCountRange.lowerBound), frameCountRange.upperBound)
+    }
+
+    /// How many frames Evaluate sends: the number set in settings, else `defaultFrameCount`.
+    static var frameCount: Int {
+        let saved = UserDefaults.standard.object(forKey: frameCountKey) as? Int
+        return min(max(saved ?? defaultFrameCount, frameCountRange.lowerBound), frameCountRange.upperBound)
+    }
 
     static var provider: SummaryProvider {
         UserDefaults.standard.string(forKey: providerKey).flatMap(SummaryProvider.init) ?? .claude

@@ -23,6 +23,8 @@ final class CameraService: NSObject, ObservableObject,
     /// The chosen model's description of the buffer from the last `evaluate()`, until dismissed.
     @Published var summary: String?
     @Published private(set) var isEvaluating = false
+    /// What the last Evaluate sent, kept so it can be looked at afterwards.
+    @Published private(set) var evaluation: SentEvaluation?
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var minZoom: CGFloat = 1
@@ -197,7 +199,7 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    /// Sends frames spread over the buffer to the model chosen in settings and shows the description it returns in `summary`.
+    /// Sends the frames recorded since the last successful Evaluate, spread evenly, to the model chosen in settings and shows the description it returns in `summary`.
     func evaluate() {
         guard !isEvaluating else { return }
         isEvaluating = true
@@ -206,8 +208,11 @@ final class CameraService: NSObject, ObservableObject,
         Task {
             defer { isEvaluating = false }
             do {
-                let frames = try recorder.snapshotFrames(count: 6)
+                let (frames, through) = try recorder.peekFrames(count: SummarySettings.frameCount)
+                evaluation = SentEvaluation(frames: frames, details: SummaryClient.detailsPrompt)
                 summary = try await SummaryClient.summarize(frames: frames)
+                // Only a successful request uses the frames up; after a failure the next Evaluate sends them again.
+                recorder.discardFrames(through: through)
             } catch {
                 message = "Evaluate failed: \(error.localizedDescription)"
             }
@@ -279,4 +284,10 @@ final class CameraService: NSObject, ObservableObject,
             message = "Save failed: \(error.localizedDescription)"
         }
     }
+}
+
+/// The frames, and the traveler's details line, that an Evaluate sent to the model.
+struct SentEvaluation {
+    let frames: [Data]
+    let details: String?
 }

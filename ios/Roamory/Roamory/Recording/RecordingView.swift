@@ -28,6 +28,7 @@ struct RecordingView: View {
     private static let curtainEnabled = false
     @State private var showSettings = false
     @State private var showStudio = false
+    @State private var showFrames = false
 
     var body: some View {
         ZStack {
@@ -60,7 +61,15 @@ struct RecordingView: View {
                     guidedAccessHint
                 }
                 if let summary = camera.summary {
-                    Text(summary)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(summary)
+                        if let evaluation = camera.evaluation {
+                            Button { showFrames = true } label: {
+                                Label("View the \(evaluation.frames.count) frames sent", systemImage: "photo.on.rectangle")
+                                    .font(.footnote.weight(.semibold))
+                            }
+                        }
+                    }
                         .font(.callout)
                         .foregroundStyle(.white)
                         .padding(12)
@@ -100,13 +109,16 @@ struct RecordingView: View {
         .overlay {
             if Self.curtainEnabled, camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack || showSettings || showStudio)
+                                 paused: confirmBack || showSettings || showStudio || showFrames)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
         .sheet(isPresented: $showSettings) { SettingsSheet() }
         .sheet(isPresented: $showStudio) { StudioSheet() }
+        .sheet(isPresented: $showFrames) {
+            if let evaluation = camera.evaluation { SentFramesSheet(evaluation: evaluation) }
+        }
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.

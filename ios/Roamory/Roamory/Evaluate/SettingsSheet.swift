@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(SummarySettings.providerKey) private var provider = SummaryProvider.claude
+    @AppStorage(SummarySettings.frameCountKey) private var frameCount = SummarySettings.defaultFrameCount
     @State private var key = ""
     @State private var hasKey = APIKeyStore.load() != nil
 
@@ -23,10 +24,13 @@ struct SettingsSheet: View {
                         ForEach(SummaryProvider.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
+                    Stepper(value: $frameCount, in: SummarySettings.frameCountRange) {
+                        LabeledContent("Frames", value: "\(frameCount)")
+                    }
                 } header: {
                     Text("Evaluate")
                 } footer: {
-                    Text("Which model describes the frames from the buffer.")
+                    Text("Which model describes the frames from the buffer, and how many frames it gets, spread evenly over it. More frames cost more and the on-device model may not fit many.")
                 }
                 switch provider {
                 case .claude: claudeSection

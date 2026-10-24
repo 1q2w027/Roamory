@@ -24,12 +24,12 @@ extension Color {
     }
 }
 
-/// "1 OF 4 · YOUR STYLE", the title, and a progress bar that fills as the steps go by.
+/// "1 OF 5 · YOUR STYLE", the title, and a progress bar that fills as the steps go by.
 struct StepHeader: View {
     let index: Int
     let eyebrow: String
     let title: String
-    var count = 4
+    var count = 5
     /// Shows an X at the start of the progress bar that leaves setup.
     var onClose: (() -> Void)?
     /// Shows a back chevron at the start of the progress bar.

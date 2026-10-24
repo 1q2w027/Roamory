@@ -24,11 +24,12 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     }
 
     nonisolated enum RecorderError: LocalizedError {
-        case bufferEmpty, alreadySaving, notSaving, footageGone
+        case bufferEmpty, noNewFrames, alreadySaving, notSaving, footageGone
 
         var errorDescription: String? {
             switch self {
             case .bufferEmpty: "Nothing in the buffer yet."
+            case .noNewFrames: "No new frames since the last Evaluate. Wait a couple of seconds."
             case .alreadySaving: "Already saving."
             case .notSaving: "Not saving."
             case .footageGone: "That footage is no longer in the buffer."
@@ -197,13 +198,20 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
         return clip
     }
 
-    /// Up to `count` of the buffer's stills as JPEGs, spread evenly over it, oldest first.
-    func snapshotFrames(count: Int) throws -> [Data] {
-        let all = queue.sync { stills.entries.map(\.payload) }
-        guard !all.isEmpty else { throw RecorderError.bufferEmpty }
-        guard count < all.count else { return all }
-        guard count > 1 else { return [all[all.count - 1]] }
-        return (0..<count).map { all[$0 * (all.count - 1) / (count - 1)] }
+    /// Up to `count` of the stills recorded since the last `discardFrames`, as JPEGs spread evenly over them, oldest first.
+    /// `through` is the time of the newest still looked at; pass it to `discardFrames` once the frames have been used.
+    func peekFrames(count: Int) throws -> (frames: [Data], through: Double) {
+        let (all, through) = queue.sync { (stills.entries.map(\.payload), stills.last?.time) }
+        guard let through, !all.isEmpty else { throw RecorderError.noNewFrames }
+        guard count < all.count else { return (all, through) }
+        guard count > 1 else { return ([all[all.count - 1]], through) }
+        return ((0..<count).map { all[$0 * (all.count - 1) / (count - 1)] }, through)
+    }
+
+    /// Drops the stills up to and including `through`, so the next `peekFrames` only sees newer ones.
+    /// The video buffer is untouched.
+    func discardFrames(through: Double) {
+        queue.async { self.stills.removeAll(before: through.nextUp) }
     }
 
     var isSaving: Bool { queue.sync { writer != nil } }
