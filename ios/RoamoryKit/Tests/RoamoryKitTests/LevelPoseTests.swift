@@ -26,10 +26,11 @@ final class LevelPoseTests: XCTestCase {
     }
 
     func testLandscapeRightSideLowOnEachSide() {
-        assertAligned(pose(1, 0, 0, 0), tilt: 0, aim: 0)                          // top of the phone to the left
-        assertAligned(pose(-1, 0, 0, 180), tilt: 0, aim: 0)                       // top to the right
-        assertAligned(pose(cos(rad(10)), -sin(rad(10)), 0, 0), tilt: 10, aim: 0)
-        assertAligned(pose(-cos(rad(10)), sin(rad(10)), 0, 180), tilt: 10, aim: 0)
+        // Top of the phone to the left: its right edge points up, so gravity is along -x.
+        assertAligned(pose(-1, 0, 0, 0), tilt: 0, aim: 0)
+        assertAligned(pose(1, 0, 0, 180), tilt: 0, aim: 0)                        // top to the right
+        assertAligned(pose(-cos(rad(10)), -sin(rad(10)), 0, 0), tilt: 10, aim: 0)
+        assertAligned(pose(cos(rad(10)), sin(rad(10)), 0, 180), tilt: 10, aim: 0)
     }
 
     func testWrongOrientationPrompts() {
@@ -39,7 +40,8 @@ final class LevelPoseTests: XCTestCase {
     }
 
     func testOtherSideUpPromptsTurnOver() {
-        XCTAssertEqual(pose(-1, 0, 0, 0), .turnOver)
+        XCTAssertEqual(pose(1, 0, 0, 0), .turnOver)
+        XCTAssertEqual(pose(-1, 0, 0, 180), .turnOver)
         XCTAssertEqual(pose(0, 1, 0, 90), .turnOver)
     }
 
@@ -51,9 +53,11 @@ final class LevelPoseTests: XCTestCase {
 
     func testBundledConfigMatchesSpec() throws {
         let config = try LevelConfig.bundled()
-        XCTAssertEqual(config.toleranceDeg, 1)
-        XCTAssertEqual(config.leaveDeg, 2)
-        XCTAssertEqual(config.settleS, 1)
-        XCTAssertEqual(config.stillRadS, 0.15)
+        XCTAssertEqual(config.toleranceDeg, 2.5)
+        XCTAssertEqual(config.leaveDeg, 4)
+        XCTAssertEqual(config.aimToleranceDeg, 5)
+        XCTAssertEqual(config.aimLeaveDeg, 8)
+        XCTAssertEqual(config.settleS, 0.5)
+        XCTAssertEqual(config.stillRadS, 0.3)
     }
 }

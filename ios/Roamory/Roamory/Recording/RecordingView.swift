@@ -53,8 +53,7 @@ struct RecordingView: View {
 
             if showLevel {
                 LevelOverlay(pose: level.pose, isLevel: level.isLevel, bubbleRangeDeg: level.bubbleRangeDeg,
-                             toleranceDeg: level.toleranceDeg)
-                    .onTapGesture { showLevel = false }
+                             toleranceDeg: level.toleranceDeg, aimToleranceDeg: level.aimToleranceDeg)
                     .transition(.opacity)
             }
 
@@ -75,7 +74,8 @@ struct RecordingView: View {
             Text("Recording stops and this trip ends. Video already saved stays in Photos.")
         }
         .overlay {
-            if Self.curtainEnabled, camera.isReady {
+            // The level must be visible while it shows, so the curtain waits until it is gone.
+            if Self.curtainEnabled, camera.isReady, !showLevel {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
                                  paused: confirmBack || showSettings || showStudio || showLog || showLevel)
                     .transition(.opacity)
@@ -134,51 +134,66 @@ struct RecordingView: View {
             savingTimer
             formatBadge
             Spacer()
-            if !guidedAccess.isEnabled {
-                guidedAccessHint
+            // The Guided Access card would cover the level, so it waits until the level is gone.
+            if !showLevel {
+                if !guidedAccess.isEnabled {
+                    guidedAccessHint
+                }
             }
             directorBadge
             messageText
             zoomControl
+            // The debug buttons sit top right: one row of all five barely fits, and not while saving.
             HStack(spacing: 12) {
                 saveButton
                 studioButton
                 if hasLevel { levelButton }
-                #if DEBUG
-                logButton
-                settingsButton
-                #endif
             }
             .padding(.bottom, 32)
         }
+        #if DEBUG
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 8) {
+                logButton
+                settingsButton
+            }
+            .padding(.trailing, 16)
+        }
+        #endif
     }
 
-    /// A phone on its side (16:9): status top left, buttons in a column along the right edge.
+    /// A phone on its side (16:9): status and debug buttons top left, the zoom presets and the main buttons in
+    /// columns along the right edge (one column of everything is taller than a landscape phone).
     private var landscapeChrome: some View {
         HStack(alignment: .center, spacing: 16) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     savingTimer
                     formatBadge
+                    #if DEBUG
+                    logButton
+                    settingsButton
+                    #endif
                 }
                 .padding(.leading, 60)
                 Spacer()
-                if !guidedAccess.isEnabled {
-                    guidedAccessHint.frame(maxWidth: 420)
+                // The Guided Access card would cover the level, so it waits until the level is gone.
+                if !showLevel {
+                    if !guidedAccess.isEnabled {
+                        guidedAccessHint.frame(maxWidth: 420)
+                    }
                 }
                 directorBadge.frame(maxWidth: 420, alignment: .leading)
                 messageText
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            VStack(spacing: 12) {
-                #if DEBUG
-                settingsButton
-                logButton
-                #endif
-                if hasLevel { levelButton }
-                saveButton
-                studioButton
+            HStack(spacing: 12) {
                 zoomColumn
+                VStack(spacing: 12) {
+                    if hasLevel { levelButton }
+                    saveButton
+                    studioButton
+                }
             }
         }
         .padding(.vertical, 12)
@@ -374,6 +389,8 @@ struct RecordingView: View {
             Label(camera.isSaving ? "Stop saving" : "Save buffer",
                   systemImage: camera.isSaving ? "stop.fill" : "record.circle")
                 .font(.headline)
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -397,16 +414,16 @@ struct RecordingView: View {
     /// The mount level needs a motion sensor and the angle the session records at.
     private var hasLevel: Bool { level.isAvailable && camera.captureRotationAngle != nil }
 
-    /// Shows the mount level again, for when the mount slips.
+    /// Shows the mount level again, for when the mount slips, or closes it.
     private var levelButton: some View {
-        Button { showLevel = true } label: {
+        Button { withAnimation { showLevel.toggle() } } label: {
             Image(systemName: "level")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(showLevel ? .black : .white)
                 .padding(12)
-                .background(.black.opacity(0.5), in: Circle())
+                .background(showLevel ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.black.opacity(0.5)), in: Circle())
         }
-        .accessibilityLabel("Level the phone")
+        .accessibilityLabel(showLevel ? "Close the level" : "Level the phone")
     }
 
     #if DEBUG

@@ -16,14 +16,14 @@ public struct LevelDetector: Sendable {
 
     /// One sample, angles in degrees and the rotation rate in rad/s. `.reached` fires once per stay at level.
     public mutating func update(tilt: Double, aim: Double, rotationRate: Double, at time: TimeInterval) -> LevelEvent? {
-        let off = max(abs(tilt), abs(aim))
         if isLevel {
-            guard off > config.leaveDeg else { return nil }
+            guard abs(tilt) > config.leaveDeg || abs(aim) > config.aimLeaveDeg else { return nil }
             isLevel = false
             since = nil
             return .left
         }
-        guard off <= config.toleranceDeg, rotationRate <= config.stillRadS else {
+        guard abs(tilt) <= config.toleranceDeg, abs(aim) <= config.aimToleranceDeg,
+              rotationRate <= config.stillRadS else {
             since = nil
             return nil
         }
