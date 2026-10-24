@@ -98,6 +98,11 @@ guard let track = try await asset.loadTracks(withMediaType: .video).first else {
     FileHandle.standardError.write(Data("no video track in \(options.video.path)\n".utf8))
     exit(1)
 }
+// iPhone recordings are stored sensor-side up with a rotation in the track; turn every frame upright.
+let orientation = FrameSampler.orientation(for: try await track.load(.preferredTransform))
+let size = try await track.load(.naturalSize)
+let portrait = orientation == .left || orientation == .right ? size.width > size.height : size.height > size.width
+let (lumaW, lumaH) = portrait ? (config.lumaHeight, config.lumaWidth) : (config.lumaWidth, config.lumaHeight)
 let reader = try AVAssetReader(asset: asset)
 let output = AVAssetReaderTrackOutput(track: track, outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
 reader.add(output)
@@ -111,8 +116,9 @@ while let sample = output.copyNextSampleBuffer() {
     let tMs = Int(CMSampleBufferGetPresentationTimeStamp(sample).seconds * 1000)
     guard tMs >= nextMarkMs, let pixels = CMSampleBufferGetImageBuffer(sample) else { continue }
     nextMarkMs += intervalMs * ((tMs - nextMarkMs) / intervalMs + 1)
-    guard let jpeg = FrameSampler.jpeg(pixels, longEdge: config.jpegLongEdgePx, quality: config.jpegQuality) else { continue }
-    let luma = FrameSampler.luma(pixels, width: config.lumaWidth, height: config.lumaHeight)
+    guard let jpeg = FrameSampler.jpeg(pixels, longEdge: config.jpegLongEdgePx, quality: config.jpegQuality,
+                                       orientation: orientation) else { continue }
+    let luma = FrameSampler.luma(pixels, width: lumaW, height: lumaH, orientation: orientation)
     samples += 1
     await detector.ingest(SampledFrame(tMs: tMs, luma: luma, jpeg: jpeg, dwell: 0))
     if evaluator != nil { await detector.waitForIdle() }
