@@ -78,7 +78,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 | `Onboarding/` | Style picker, destination globe, trip-type deck, trip length, permissions and consent, mounting guide, Start button |
 | `Preferences/` | Persist personal preference data |
 | `Capture/` | Camera session, HEVC encoder |
-| `Buffer/` | Ring buffer, holds, clip writer |
+| `RingBuffer/` | Ring buffer, holds, clip writer |
 | `Signals/` | On-phone sample signals and the escalation gate |
 | `Cloud/` | Client for the backend, budget, timeouts, fallback |
 | `Button/` | Bluetooth button input and confirmation haptic |

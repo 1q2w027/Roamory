@@ -8,12 +8,15 @@ import Combine
 import Photos
 import UIKit
 
-/// Owns the capture session; records one movie file at a time and saves it to Photos.
+/// Owns the capture session. Frames feed a rolling buffer of the last seconds from the moment the camera is
+/// ready; `startSaving()` writes the buffer and everything after it to a file, `stopSaving()` closes the file
+/// and saves it to Photos.
 /// It also hands a frame to `onFrame` every `frameInterval` seconds for moment detection (TRD §6).
-final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate,
-                           AVCaptureVideoDataOutputSampleBufferDelegate {
-    @Published private(set) var isRecording = false
-    @Published private(set) var recordingStart: Date?
+final class CameraService: NSObject, ObservableObject,
+                           AVCaptureVideoDataOutputSampleBufferDelegate, AVCaptureAudioDataOutputSampleBufferDelegate {
+    @Published private(set) var isSaving = false
+    /// When the saved clip would have started if it ran in real time, so `now - savingStart` is its length.
+    @Published private(set) var savingStart: Date?
     @Published private(set) var message: String?
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
@@ -23,15 +26,22 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
     @Published private(set) var zoomPresets: [CGFloat] = []
 
     nonisolated(unsafe) let session = AVCaptureSession()
-    nonisolated(unsafe) private let movieOutput = AVCaptureMovieFileOutput()
+    nonisolated let recorder = RollingRecorder()
+    nonisolated(unsafe) private let videoOutput = AVCaptureVideoDataOutput()
+    nonisolated(unsafe) private let audioOutput = AVCaptureAudioDataOutput()
     nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
     /// displayZoom = videoZoomFactor * multiplier. A virtual multi-camera starts at the ultra-wide, so this is 0.5 there.
     nonisolated(unsafe) private var zoomMultiplier: CGFloat = 1
     nonisolated private let sessionQueue = DispatchQueue(label: "roamory.camera.session")
+    /// Camera frames and microphone buffers for the buffer arrive here, in order.
+    nonisolated private let sampleQueue = DispatchQueue(label: "roamory.camera.samples")
+    private var isStopping = false
+    /// Touched only on `sampleQueue`.
+    nonisolated(unsafe) private var settleGate = SettleGate()
     nonisolated(unsafe) private let frameOutput = AVCaptureVideoDataOutput()
     nonisolated private let frameQueue = DispatchQueue(label: "roamory.camera.frames")
     nonisolated(unsafe) private var lastFrameTime = CMTime.invalid
-    /// Called on the frame queue with an upright (portrait) frame. Set it before recording starts.
+    /// Called on the frame queue with an upright (portrait) frame. Set it before the camera starts.
     /// The buffer is only valid during the call.
     nonisolated(unsafe) var onFrame: (@Sendable (CVPixelBuffer) -> Void)?
     nonisolated(unsafe) var frameInterval: TimeInterval = 2
@@ -47,6 +57,12 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         // Microphone is optional: without it we still record video.
         let hasMic = await AVCaptureDevice.requestAccess(for: .audio)
         if !hasMic { message = "Microphone access is off. The video will have no sound." }
+        recorder.onError = { [weak self] error in
+            Task { @MainActor [weak self] in self?.message = error.localizedDescription }
+        }
+        recorder.onSaveEnded = { [weak self] result in
+            Task { @MainActor [weak self] in await self?.saveEndedByItself(result) }
+        }
         let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             sessionQueue.async {
                 let ok = self.configure()
@@ -55,6 +71,8 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
             }
         }
         if !ok { message = "Unable to open the rear camera." }
+        // The buffer fills for as long as the app is open, so the screen must not lock.
+        UIApplication.shared.isIdleTimerDisabled = true
         if let device = videoDevice {
             minZoom = device.minAvailableVideoZoomFactor * zoomMultiplier
             maxZoom = min(device.activeFormat.videoMaxZoomFactor * zoomMultiplier, zoomLimit)
@@ -93,9 +111,17 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         guard let device = types.lazy.compactMap({ AVCaptureDevice.default($0, for: .video, position: .back) }).first,
               let input = try? AVCaptureDeviceInput(device: device),
               session.canAddInput(input),
-              session.canAddOutput(movieOutput) else { return false }
+              session.canAddOutput(videoOutput) else { return false }
         session.addInput(input)
-        session.addOutput(movieOutput)
+        videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String:
+                                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
+        videoOutput.alwaysDiscardsLateVideoFrames = true
+        videoOutput.setSampleBufferDelegate(self, queue: sampleQueue)
+        session.addOutput(videoOutput)
+        // The UI is portrait only; deliver upright frames so the clip needs no rotation.
+        if let connection = videoOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        }
         videoDevice = device
         zoomMultiplier = device.displayVideoZoomFactorMultiplier
         // Start at the main camera (1x), not the ultra-wide.
@@ -104,7 +130,7 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
             device.unlockForConfiguration()
         }
 
-        // Frames for moment detection, beside the movie file. Dropping late frames keeps capture from stalling.
+        // Frames for moment detection, beside the ones for the buffer. Dropping late frames keeps capture from stalling.
         if session.canAddOutput(frameOutput) {
             frameOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
             frameOutput.alwaysDiscardsLateVideoFrames = true
@@ -118,58 +144,74 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
         if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
            let mic = AVCaptureDevice.default(for: .audio),
            let micInput = try? AVCaptureDeviceInput(device: mic),
-           session.canAddInput(micInput) {
+           session.canAddInput(micInput),
+           session.canAddOutput(audioOutput) {
             session.addInput(micInput)
+            audioOutput.setSampleBufferDelegate(self, queue: sampleQueue)
+            session.addOutput(audioOutput)
         }
         return true
     }
 
-    func startRecording() {
-        guard !isRecording else { return }
-        let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString).appendingPathExtension("mov")
+    /// Saves the whole buffer and everything captured from now on, until `stopSaving()`.
+    func startSaving() {
+        guard !isSaving else { return }
+        isSaving = true
         message = nil
-        sessionQueue.async {
-            // The UI is portrait only; rotate the file to match.
-            if let connection = self.movieOutput.connection(with: .video),
-               connection.isVideoRotationAngleSupported(90) {
-                connection.videoRotationAngle = 90
+        Task {
+            do {
+                let preroll = try await recorder.start()
+                savingStart = Date().addingTimeInterval(-preroll)
+            } catch {
+                isSaving = false
+                message = error.localizedDescription
             }
-            self.movieOutput.startRecording(to: url, recordingDelegate: self)
         }
-        isRecording = true
-        recordingStart = Date()
-        // Keep the screen from auto-locking, which would suspend the camera.
-        UIApplication.shared.isIdleTimerDisabled = true
     }
 
-    func stopRecording() {
-        guard isRecording else { return }
-        sessionQueue.async { self.movieOutput.stopRecording() }
-    }
-
-    nonisolated func fileOutput(_ output: AVCaptureFileOutput,
-                                didFinishRecordingTo outputFileURL: URL,
-                                from connections: [AVCaptureConnection],
-                                error: Error?) {
-        // AVFoundation reports some errors (e.g. disk nearly full) after a usable file was written.
-        let finished = (error as NSError?)?.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? Bool
-        let failed = error != nil && finished != true
-        Task { @MainActor in
-            isRecording = false
-            recordingStart = nil
-            UIApplication.shared.isIdleTimerDisabled = false
-            if failed {
-                message = "Recording failed: \(error?.localizedDescription ?? "unknown error")"
-                try? FileManager.default.removeItem(at: outputFileURL)
-            } else {
-                await saveToPhotos(outputFileURL)
+    /// Closes the saved clip and puts it in Photos. The buffer keeps running.
+    func stopSaving() {
+        guard isSaving, !isStopping else { return }
+        isStopping = true
+        Task {
+            defer {
+                isStopping = false
+                isSaving = false
+                savingStart = nil
             }
+            do {
+                await saveToPhotos(try await recorder.stop())
+            } catch {
+                message = "Recording failed: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// The clip ended without `stopSaving()`: capture was interrupted (we keep what was recorded) or writing failed.
+    private func saveEndedByItself(_ result: Result<URL, Error>) async {
+        isSaving = false
+        savingStart = nil
+        switch result {
+        case .success(let url): await saveToPhotos(url)
+        case .failure(let error): message = "Recording failed: \(error.localizedDescription)"
         }
     }
 
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
                                    from connection: AVCaptureConnection) {
+        if output === frameOutput {
+            handleDetectionFrame(sampleBuffer)
+        } else if output === videoOutput {
+            let isAdjusting = videoDevice.map { $0.isAdjustingWhiteBalance || $0.isAdjustingExposure } ?? false
+            let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
+            guard settleGate.admit(at: time, isAdjusting: isAdjusting) else { return }
+            recorder.handle(video: sampleBuffer)
+        } else {
+            recorder.handle(audio: sampleBuffer)
+        }
+    }
+
+    nonisolated private func handleDetectionFrame(_ sampleBuffer: CMSampleBuffer) {
         let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
         if lastFrameTime.isValid, (time - lastFrameTime).seconds < frameInterval { return }
         guard let onFrame, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
