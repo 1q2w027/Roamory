@@ -59,6 +59,12 @@ final class CameraService: NSObject, ObservableObject,
         // Microphone is optional: without it we still record video.
         let hasMic = await AVCaptureDevice.requestAccess(for: .audio)
         if !hasMic { message = "Microphone access is off. The video will have no sound." }
+        // Set the audio session ourselves so Bluetooth headphones stay as output (A2DP) while the built-in mic records,
+        // and so `HeadphoneButton` can play silence to receive the AirPods stem press.
+        session.automaticallyConfiguresApplicationAudioSession = false
+        let audio = AVAudioSession.sharedInstance()
+        try? audio.setCategory(.playAndRecord, mode: .videoRecording, options: [.allowBluetoothA2DP])
+        try? audio.setActive(true)
         recorder.onError = { [weak self] error in
             Task { @MainActor [weak self] in self?.message = error.localizedDescription }
         }
@@ -170,6 +176,10 @@ final class CameraService: NSObject, ObservableObject,
                 message = error.localizedDescription
             }
         }
+    }
+
+    func toggleSaving() {
+        if isSaving { stopSaving() } else { startSaving() }
     }
 
     /// Closes the saved clip and puts it in Photos. The buffer keeps running.
