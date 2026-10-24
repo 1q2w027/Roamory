@@ -128,7 +128,7 @@ Expected: build error, `cannot find 'LevelMath' in scope`.
 ```
 g = normalize(gravity)                        // zero vector → .aligned(0, 0)
 θ = captureAngle in radians
-up    = (-cos θ,  sin θ, 0)                   // the recorded frame's up, in device coordinates
+up    = ( cos θ,  sin θ, 0)                   // the recorded frame's up, in device coordinates
 right = ( sin θ, -cos θ, 0)
 down  = -(g · up);  side = g · right
 aim   = asin(clamp(g.z, -1, 1)) in degrees

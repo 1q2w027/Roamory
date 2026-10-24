@@ -23,8 +23,9 @@ public enum LevelMath {
         guard length > 0 else { return .aligned(tilt: 0, aim: 0) }
         let g = gravity / length
         let theta = captureAngle * .pi / 180
-        // The recorded frame's up and right, in device coordinates.
-        let up = SIMD3(-cos(theta), sin(theta), 0)
+        // The recorded frame's up and right, in device coordinates. With the phone's top to the left (0°) its right
+        // edge (+x) points up and its bottom (-y) to the right.
+        let up = SIMD3(cos(theta), sin(theta), 0)
         let right = SIMD3(sin(theta), -cos(theta), 0)
         let down = -(g * up).sum()
         let side = (g * right).sum()
