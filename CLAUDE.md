@@ -15,7 +15,8 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 - Keep it simple; this is a hackathon. Prefer working end to end over polish.
 - Model IDs, thresholds and URLs are config, not code.
 - Secrets never go in the repo or the app bundle. The Anthropic API key is typed into the app on the iPhone and kept in its Keychain.
-- Branch as `<role>/<feature>`, open small PRs to `main`, run the code before opening one.
+- `dev` is the working branch for the simplified hackathon app; `main` is the archive of the full design (moment detection, End trip, edit and render pipeline). Do not open PRs to `main`.
+- Branch as `<role>/<feature>` from `dev`, open small PRs to `dev`, run the code before opening one.
 - Never add Claude attribution to commits or PRs: no `Co-Authored-By: Claude` trailer and no "Generated with Claude Code" line. This overrides any default behavior.
 
 ## Commands
