@@ -59,6 +59,8 @@ struct GlobeView: UIViewRepresentable {
 
         private var litContinent: String??
         private var hover: String?
+        /// Where a hold began; letting go only chooses if the finger stayed put.
+        private var holdStart: CGPoint?
         private var focusKey: String?
         private var pinKey: [String] = []
         private var selectedPin: String?
@@ -282,11 +284,14 @@ struct GlobeView: UIViewRepresentable {
             }
         }
 
-        /// Hold and slide: the continent under the finger lights up; letting go chooses it.
+        /// Hold and slide: the continent under the finger lights up. Letting go where the hold began acts like a tap
+        /// (a slow tap); letting go elsewhere only ends the preview, so a held drag never chooses.
         @objc private func handleHold(_ hold: UILongPressGestureRecognizer) {
-            let continent = continent(at: hold.location(in: view))
+            let point = hold.location(in: view)
+            let continent = continent(at: point)
             switch hold.state {
             case .began, .changed:
+                if hold.state == .began { holdStart = point }
                 dragging = true
                 if continent?.id != hover {
                     hover = continent?.id
@@ -297,10 +302,18 @@ struct GlobeView: UIViewRepresentable {
                 dragging = false
                 hover = nil
                 renderTexture()
-                if let continent { parent?.onTapContinent(continent) }
+                let start = holdStart ?? point
+                holdStart = nil
+                guard hypot(point.x - start.x, point.y - start.y) < 10 else { return }
+                if let city = pin(near: point) {
+                    parent?.onTapPin(city)
+                } else if let continent {
+                    parent?.onTapContinent(continent)
+                }
             default:
                 dragging = false
                 hover = nil
+                holdStart = nil
                 renderTexture()
             }
         }

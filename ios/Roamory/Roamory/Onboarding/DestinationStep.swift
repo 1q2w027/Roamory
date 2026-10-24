@@ -95,7 +95,7 @@ struct DestinationStep: View {
         return ScrollView {
             VStack(spacing: 8) {
                 if currentContinent == nil {
-                    Text("Drag to spin. Hold and slide to light up a continent.")
+                    Text("Drag to spin. Tap a continent, or hold and slide to light one up.")
                         .font(.footnote)
                         .foregroundStyle(Theme.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,7 +110,9 @@ struct DestinationStep: View {
         .scrollIndicators(.hidden)
     }
 
+    /// Tapping the continent already chosen keeps the country and city; the chips zoom back out.
     private func chooseContinent(_ c: Continent) {
+        guard c.name != continent else { return }
         set(continent: c.name, country: "", city: "")
     }
 

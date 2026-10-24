@@ -32,6 +32,8 @@ struct TripTypeStep: View {
                         if let type = types.first(where: { $0.id == id }) {
                             card(type, slot: slot)
                                 .frame(width: width, height: height)
+                                // A swiped card leaves at once; its `FlyAway` copy does the exit.
+                                .transition(.asymmetric(insertion: .opacity, removal: .identity))
                         }
                     }
                     ForEach(flying) { card in

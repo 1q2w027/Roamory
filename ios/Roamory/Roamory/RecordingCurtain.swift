@@ -10,6 +10,8 @@ struct RecordingCurtain: View {
     @Binding var awake: Bool
     /// When the camera UI under the curtain was last touched; restarts the 10 s countdown.
     let lastTouch: Date
+    /// A sheet is open over the camera: stay lit and do not count down.
+    var paused = false
 
     @Environment(\.scenePhase) private var scenePhase
     @State private var savedBrightness: CGFloat?
@@ -80,6 +82,7 @@ struct RecordingCurtain: View {
         }
         .onDisappear(perform: restoreBrightness)
         .onChange(of: awake) { updateBrightness() }
+        .onChange(of: paused) { updateBrightness() }
         .onChange(of: scenePhase) { updateBrightness() }
         .onChange(of: buttonPresses) {
             flash = true
@@ -91,8 +94,8 @@ struct RecordingCurtain: View {
             withAnimation(.easeOut(duration: 0.6).delay(0.5)) { bump = false }
         }
         // Back to dark 10 s after the last touch.
-        .task(id: awake ? lastTouch : nil) {
-            guard awake else { return }
+        .task(id: awake && !paused ? lastTouch : nil) {
+            guard awake, !paused else { return }
             try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: 0.5)) { awake = false }
@@ -114,7 +117,7 @@ struct RecordingCurtain: View {
 
     /// Dark only while asleep in the foreground; any other time the user's brightness is back.
     private func updateBrightness() {
-        if !awake, scenePhase == .active {
+        if !awake, !paused, scenePhase == .active {
             guard let screen else { return }
             if savedBrightness == nil { savedBrightness = screen.brightness }
             screen.brightness = 0
