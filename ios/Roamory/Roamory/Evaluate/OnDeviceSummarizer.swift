@@ -8,13 +8,17 @@ import FoundationModels
 import ImageIO
 
 /// Describes frames from the buffer with the iOS 27 on-device model (Foundation Models). Nothing leaves the iPhone.
+/// The app runs on iOS 26, where this reports itself unavailable.
 enum OnDeviceSummarizer {
     /// Longest side of a frame handed to the model. Smaller frames keep six of them inside its context window.
     private static let maxPixelSize = 768
 
     /// Why the model cannot be used now, or nil when it can.
     static var unavailableReason: String? {
-        guard #available(iOS 27.0, *) else { return "The on-device model needs iOS 27." }
+        // Image input arrived in iOS 27; the iOS 26 model only takes text.
+        guard #available(iOS 27, *) else {
+            return "The on-device model needs iOS 27 to read images."
+        }
         let model = SystemLanguageModel.default
         switch model.availability {
         case .available:
@@ -31,7 +35,7 @@ enum OnDeviceSummarizer {
     }
 
     static func summarize(frames: [Data]) async throws -> String {
-        guard #available(iOS 27.0, *), unavailableReason == nil else {
+        guard #available(iOS 27, *), unavailableReason == nil else {
             throw SummaryClient.Failure(errorDescription: unavailableReason ?? "The on-device model is unavailable.")
         }
         let images = frames.compactMap(image)
