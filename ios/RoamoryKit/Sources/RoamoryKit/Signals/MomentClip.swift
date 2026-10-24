@@ -45,4 +45,8 @@ extension ClipSidecar {
                   durationS: Double(toMs - fromMs) / 1000, hasAudio: hasAudio,
                   fpsProfile: [FpsStep(tS: 0, fps: fps)], samples: [])
     }
+
+    /// Whether the clip reaches back to its trigger. It does not when the buffer was emptied mid-window
+    /// (capture interrupted), leaving only footage from after the moment.
+    public var startsByTrigger: Bool { fromMs <= triggerMs }
 }

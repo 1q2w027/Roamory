@@ -97,6 +97,8 @@ final class DetectionController: ObservableObject {
         guard let detector, let holder else { return }
         sink.end()
         ticker?.cancel()
+        // A finalizeDue already running would otherwise finalize (and save) the same moments as the loop below.
+        await ticker?.value
         await consumer?.value
         for id in await holder.pending() {
             await finalize(id, detector: detector, holder: holder)

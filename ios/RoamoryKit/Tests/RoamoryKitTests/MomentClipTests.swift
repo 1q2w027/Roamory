@@ -33,4 +33,15 @@ final class MomentClipTests: XCTestCase {
         XCTAssertEqual(s.samples, [])
         XCTAssertEqual(json["source"] as? String, "button")
     }
+
+    func testSidecarStartsByTriggerOnlyWhenTheClipReachesBackToIt() {
+        func sidecar(fromMs: Int) -> ClipSidecar {
+            ClipSidecar(momentId: "m_1", tripId: "t_1", sessionId: "s_1", source: .button,
+                        triggerMs: 60_000, fromMs: fromMs, toMs: 75_000, hasAudio: false, fps: 30)
+        }
+        XCTAssertTrue(sidecar(fromMs: 44_000).startsByTrigger)
+        XCTAssertTrue(sidecar(fromMs: 60_000).startsByTrigger)
+        // The buffer was emptied mid-window (app backgrounded): only footage after the trigger is left.
+        XCTAssertFalse(sidecar(fromMs: 70_000).startsByTrigger)
+    }
 }

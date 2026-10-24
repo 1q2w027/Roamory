@@ -40,13 +40,13 @@ nonisolated final class MomentClipStore: Sendable {
                                                  url: clips.appending(path: "\(momentId).mp4"))
         let fromMs = clock.tripMs(atBufferTime: saved.start)
         let toMs = clock.tripMs(atBufferTime: saved.end)
-        guard toMs > fromMs else {
-            // A single frame is not a clip.
+        let sidecar = ClipSidecar(momentId: momentId, tripId: tripId, sessionId: sessionId, source: source,
+                                  triggerMs: triggerMs, fromMs: fromMs, toMs: toMs, hasAudio: saved.hasAudio, fps: fps)
+        // A single frame is not a clip, and footage from only after the trigger is not this moment.
+        guard toMs > fromMs, sidecar.startsByTrigger else {
             try? FileManager.default.removeItem(at: saved.url)
             throw RollingRecorder.RecorderError.footageGone
         }
-        let sidecar = ClipSidecar(momentId: momentId, tripId: tripId, sessionId: sessionId, source: source,
-                                  triggerMs: triggerMs, fromMs: fromMs, toMs: toMs, hasAudio: saved.hasAudio, fps: fps)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         do {
