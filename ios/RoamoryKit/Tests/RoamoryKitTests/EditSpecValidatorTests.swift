@@ -9,11 +9,13 @@ final class EditSpecValidatorTests: XCTestCase {
     }
 
     /// Validates `spec` after `mutate` against the matching example request.
-    private func errors(_ style: Style, _ mutate: (inout EditSpec, inout PlanRequest) -> Void = { _, _ in }) throws -> [EditSpecError] {
+    private func errors(
+        _ style: Style, preset: StylePreset? = nil, _ mutate: (inout EditSpec, inout PlanRequest) -> Void = { _, _ in }
+    ) throws -> [EditSpecError] {
         var spec = try Fixtures.editSpec(style)
         var request = try Fixtures.planRequest(style)
         mutate(&spec, &request)
-        return EditSpecValidator.validate(spec, request: request, preset: presets[style])
+        return EditSpecValidator.validate(spec, request: request, preset: preset ?? presets[style])
     }
 
     // MARK: Effective target
@@ -93,8 +95,14 @@ final class EditSpecValidatorTests: XCTestCase {
     }
 
     func testCaptions() throws {
-        XCTAssertTrue(try errors(.reels) { spec, _ in spec.clips[0].caption = "Kyoto" }
+        // Every bundled style allows captions; a preset can still turn them off.
+        var noCaptions = presets[.reels]
+        noCaptions.captions = false
+        XCTAssertTrue(try errors(.reels, preset: noCaptions) { spec, _ in spec.clips[0].caption = "Kyoto" }
             .contains(.captionNotAllowed(index: 0, momentId: "m_01")))
+        for style in Style.allCases {
+            XCTAssertEqual(try errors(style) { spec, _ in spec.clips[0].caption = "Kyoto" }, [], "\(style)")
+        }
         XCTAssertTrue(try errors(.documentary) { spec, _ in spec.clips[0].caption = "A geisha dances" }
             .contains(.captionNotInAllowedList(index: 0, momentId: "m_01", caption: "A geisha dances")))
         for allowed in ["Kyoto", "Japan", "Kyoto, Japan", "honeymoon", "Bowl of ramen on a wooden counter"] {

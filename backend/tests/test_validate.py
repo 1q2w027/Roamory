@@ -10,12 +10,12 @@ from tests.conftest import load_example
 PRESETS = load_presets(REPO_ROOT / "contracts" / "style_presets.json")
 
 
-def check(style: str, mutate) -> list[str]:
+def check(style: str, mutate, preset=None) -> list[str]:
     """Apply mutate(spec_dict, request_dict) to the style's examples and validate."""
     spec = copy.deepcopy(load_example(f"edit_spec_{style}.json"))
     req = copy.deepcopy(load_example(f"plan_request_{style}.json"))
     mutate(spec, req)
-    return validate_spec(EditSpec.model_validate(spec), PlanRequest.model_validate(req), PRESETS.presets[style])
+    return validate_spec(EditSpec.model_validate(spec), PlanRequest.model_validate(req), preset or PRESETS.presets[style])
 
 
 def assert_one_error(errors: list[str], fragment: str):
@@ -87,7 +87,9 @@ def test_caption_not_allowed_for_style():
     def m(spec, _):
         spec["clips"][0]["caption"] = "Kyoto"
 
-    assert_one_error(check("vlog", m), "caption must be null")
+    # Every bundled style allows captions; a preset can still turn them off.
+    no_captions = PRESETS.presets["vlog"].model_copy(update={"captions": False})
+    assert_one_error(check("vlog", m, no_captions), "caption must be null")
 
 
 def test_invented_caption():
@@ -97,10 +99,18 @@ def test_invented_caption():
     assert_one_error(check("documentary", m), "not one of the allowed strings")
 
 
-@pytest.mark.parametrize("caption", ["Kyoto", "Japan", "Kyoto, Japan", "honeymoon", "Bowl of ramen on a wooden counter"])
-def test_allowed_captions(caption):
+@pytest.mark.parametrize("style", ["cinematic", "reels", "documentary", "vlog"])
+@pytest.mark.parametrize("caption", ["Kyoto", "Japan", "Kyoto, Japan", "honeymoon"])
+def test_allowed_captions(style, caption):
     def m(spec, _):
         spec["clips"][0]["caption"] = caption
+
+    assert check(style, m) == []
+
+
+def test_caption_from_clip_description():
+    def m(spec, _):
+        spec["clips"][0]["caption"] = "Bowl of ramen on a wooden counter"
 
     assert check("documentary", m) == []
 

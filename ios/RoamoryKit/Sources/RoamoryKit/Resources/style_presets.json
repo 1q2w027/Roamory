@@ -13,7 +13,7 @@
       "music_track": "cinematic_01",
       "music_gain_db": -14,
       "keep_original_audio": false,
-      "captions": false,
+      "captions": true,
       "allow_speed_ramp": true
     },
     "reels": {
@@ -28,7 +28,7 @@
       "music_track": "reels_01",
       "music_gain_db": -10,
       "keep_original_audio": false,
-      "captions": false,
+      "captions": true,
       "allow_speed_ramp": true
     },
     "documentary": {
@@ -58,7 +58,7 @@
       "music_track": "vlog_01",
       "music_gain_db": -18,
       "keep_original_audio": true,
-      "captions": false,
+      "captions": true,
       "allow_speed_ramp": false
     }
   }
