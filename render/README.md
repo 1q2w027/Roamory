@@ -12,6 +12,14 @@ npm start                     # bundles once, then serves on $PORT (default 3000
 scripts/smoke.sh [style ...]  # renders the examples over the sample clips and checks them with ffprobe
 ```
 
+### Render from the phone on your laptop
+
+The phone and the Mac must be on the same Wi-Fi.
+
+1. `ios/Roamary/Config/use-laptop-render.sh` writes the app's untracked `Local.xcconfig` with this Mac's `.local` name, `$PORT` and `$APP_TOKEN` (it generates a token into `render/.env` if none is set). Pass a host to override, for example the IP that `npm start` prints when the network blocks Bonjour.
+2. `npm start`. It prints the addresses a phone can use. Allow incoming connections if macOS asks about `node`.
+3. Build and run the app on the phone from Xcode, then allow local network access when iOS asks. In a Debug build, the corner button opens Render Lab. Pick "Remotion" (or "Both") and render. If the server can't be reached, the summary says "remote failed" and the phone renders the video itself.
+
 Config comes from the repo-root `.env`, then `render/.env`: `APP_TOKEN`, `PORT`, `RENDER_CONCURRENCY`, `RENDER_TTL_S`, `MAX_UPLOAD_MB` (and `RENDER_TMP_DIR`, default the OS temp dir).
 
 The music and sample clips live with the iOS app. Until its Edit branches merge, point the sync at a checkout or build that has them: `IOS_RESOURCES=path/to/Resources scripts/sync-assets.sh`.
