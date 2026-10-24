@@ -43,13 +43,22 @@ enum OnDeviceSummarizer {
             throw SummaryClient.Failure(errorDescription: "The frames could not be read.")
         }
 
-        let session = LanguageModelSession(model: .default, instructions: SummaryClient.system)
+        // The small model gives instructions more weight than the prompt and the end of the prompt more than the start,
+        // so the traveler's details go into the instructions and the task is repeated after the frames.
+        var instructions = SummaryClient.system
+        let details = TripSettings.details()
+        if let details {
+            instructions += "\nBackground about this trip, given by the traveler. Treat it as true and use it to say who and what you see: \(details)"
+        }
+        let session = LanguageModelSession(model: .default, instructions: instructions)
         let prompt = Prompt {
-            if let details = SummaryClient.detailsPrompt { details }
             for (k, image) in images.enumerated() {
                 "Frame \(k):"
                 Attachment(image)
             }
+            details == nil
+                ? "Describe what is happening in these frames in 2 to 3 sentences."
+                : "Describe what is happening in these frames in 2 to 3 sentences, using the background about this trip."
         }
         let text: String
         do {
