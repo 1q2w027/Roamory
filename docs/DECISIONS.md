@@ -2,6 +2,7 @@
 
 Short record of team decisions. Newest first. Format: date, decision, why.
 
+- 2026-10-23: The rolling buffer is an in-memory ring buffer of encoded (HEVC) samples; a moment is written to disk only when kept, by passthrough (TRD §5). Replaces 2-second segment files on disk. Why: unselected footage never touches storage, and there is no segment index or cleanup to maintain.
 - 2026-10-23: Remotion cloud render as an optional engine; trimmed selected clips are uploaded, deleted after download; AVFoundation remains default and fallback (TRD §9.2, §11.3; plan in `docs/remotion-plan.md`). Why: richer motion graphics (kinetic titles, lower thirds, animated transitions) than Core Animation gives us, without risking the video: any cloud failure still renders on the phone.
 - 2026-10-22: The demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). Why: a real walk cannot happen on stage.
 - 2026-10-22: The phone is worn in a regular chest mount, camera facing forward (PRD FR-007a). Why: a pocket films nothing, and an off-the-shelf mount means no custom hardware.
