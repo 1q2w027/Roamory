@@ -197,7 +197,7 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    /// Sends frames spread over the buffer to the backend and shows the description Claude returns in `summary`.
+    /// Sends frames spread over the buffer to the Anthropic Messages API and shows the description Claude returns in `summary`.
     func evaluate() {
         guard !isEvaluating else { return }
         isEvaluating = true
@@ -218,10 +218,11 @@ final class CameraService: NSObject, ObservableObject,
         if isSaving { stopSaving() } else { startSaving() }
     }
 
-    /// Closes the saved clip and puts it in Photos. The buffer keeps running.
+    /// Closes the saved clip, keeps it for the trip and puts it in Photos. The buffer keeps running.
     func stopSaving() {
         guard isSaving, !isStopping else { return }
         isStopping = true
+        let start = savingStart ?? .now
         Task {
             defer {
                 isStopping = false
@@ -229,7 +230,7 @@ final class CameraService: NSObject, ObservableObject,
                 savingStart = nil
             }
             do {
-                await saveToPhotos(try await recorder.stop())
+                await saveToPhotos(try await recorder.stop(), recordedAt: start)
             } catch {
                 message = "Recording failed: \(error.localizedDescription)"
             }
@@ -238,10 +239,11 @@ final class CameraService: NSObject, ObservableObject,
 
     /// The clip ended without `stopSaving()`: capture was interrupted (we keep what was recorded) or writing failed.
     private func saveEndedByItself(_ result: Result<URL, Error>) async {
+        let start = savingStart ?? .now
         isSaving = false
         savingStart = nil
         switch result {
-        case .success(let url): await saveToPhotos(url)
+        case .success(let url): await saveToPhotos(url, recordedAt: start)
         case .failure(let error): message = "Recording failed: \(error.localizedDescription)"
         }
     }
@@ -258,8 +260,12 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    private func saveToPhotos(_ url: URL) async {
-        defer { try? FileManager.default.removeItem(at: url) }
+    /// Keeps the clip for Roamory Studio (`TripClips`), then adds a copy to Photos.
+    private func saveToPhotos(_ file: URL, recordedAt: Date) async {
+        // If it cannot be kept, Photos still gets it and the temporary file goes afterwards.
+        let kept = try? TripClips.keep(file, recordedAt: recordedAt)
+        let url = kept?.url ?? file
+        defer { if kept == nil { try? FileManager.default.removeItem(at: file) } }
         guard await PHPhotoLibrary.requestAuthorization(for: .addOnly) == .authorized else {
             message = "Photos access is required to save the video."
             return

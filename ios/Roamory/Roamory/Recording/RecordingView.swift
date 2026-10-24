@@ -25,6 +25,7 @@ struct RecordingView: View {
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
     @State private var showKeySheet = false
+    @State private var showStudio = false
 
     var body: some View {
         ZStack {
@@ -75,6 +76,7 @@ struct RecordingView: View {
                 zoomControl
                 HStack(spacing: 12) {
                     saveButton
+                    studioButton
                     #if DEBUG
                     evaluateButton
                     keyButton
@@ -96,12 +98,13 @@ struct RecordingView: View {
         .overlay {
             if camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack || showKeySheet)
+                                 paused: confirmBack || showKeySheet || showStudio)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
         .sheet(isPresented: $showKeySheet) { APIKeySheet() }
+        .sheet(isPresented: $showStudio) { StudioSheet() }
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
@@ -250,6 +253,18 @@ struct RecordingView: View {
                 .background(camera.isSaving ? .red : .black.opacity(0.5), in: Capsule())
         }
         .animation(.easeInOut(duration: 0.15), value: camera.isSaving)
+    }
+
+    /// Make video: Claude Code on a Mac running Roamory Studio edits this trip's clips.
+    private var studioButton: some View {
+        Button { showStudio = true } label: {
+            Image(systemName: "film.stack")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.5), in: Circle())
+        }
+        .accessibilityLabel("Make video")
     }
 
     #if DEBUG

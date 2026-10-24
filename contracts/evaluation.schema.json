@@ -16,7 +16,7 @@
       "type": "number",
       "minimum": 0,
       "maximum": 1,
-      "description": "Final score (TRD 8.2), computed on the server from the verdict and context.local.novelty."
+      "description": "Final score (TRD §8), computed on the server from the verdict and context.local.novelty."
     },
     "tier": {
       "type": "string",
@@ -27,7 +27,7 @@
     "verdict": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Model output (TRD 8.2), with scores clamped and text truncated by the server.",
+      "description": "Model output (TRD §8), with scores clamped and text truncated by the server.",
       "required": [
         "event_type",
         "matched_preferences",
@@ -71,7 +71,7 @@
         "description": {
           "type": "string",
           "maxLength": 200,
-          "description": "At most 20 words, only what is visible. Becomes plan_request clips[].description."
+          "description": "At most 20 words, only what is visible."
         },
         "reason": {"type": "string", "maxLength": 200, "description": "At most 25 words. For logs and tuning."}
       }

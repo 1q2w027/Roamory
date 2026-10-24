@@ -1,8 +1,7 @@
 """Validate style_presets.json and every file in examples/ against its schema.
 
-Also checks what the schemas cannot: a render request's clips match its edit spec and the
-trims fit the uploaded files, a golden timeline lines up with its edit spec, and an agent
-request's clips are consistent and its example result follows the agent result rules.
+Also checks what the schemas cannot: a studio request's clip ids are unique, and the example studio result follows
+the studio result rules against the studio request of the same style (README).
 
 Usage: pip install jsonschema && python contracts/check.py
 """
@@ -15,87 +14,52 @@ from referencing import Registry, Resource
 
 HERE = Path(__file__).parent
 SCHEMA_FOR_PREFIX = {
-    "plan_request_": "plan_request.schema.json",
-    "edit_spec_": "edit_spec.schema.json",
     "error_": "error.schema.json",
-    "clip_sidecar_": "clip_sidecar.schema.json",
-    "render_request_": "render_request.schema.json",
-    "render_job_": "render_job.schema.json",
-    "timeline_": "timeline.schema.json",
     "evaluate_context_": "evaluate_context.schema.json",
     "evaluation_": "evaluation.schema.json",
-    "agent_request_": "agent_request.schema.json",
-    "agent_result_": "agent_result.schema.json",
+    "studio_request_": "studio_request.schema.json",
+    "studio_job_": "studio_job.schema.json",
+    "studio_result_": "studio_result.schema.json",
 }
 
-# Every schema, keyed by its $id, so "$ref": "edit_spec.schema.json" resolves locally.
+# Every schema, keyed by its $id, so "$ref": "error.schema.json" resolves locally.
 REGISTRY = Registry().with_resources(
     (schema["$id"], Resource.from_contents(schema))
     for schema in (json.loads(p.read_text()) for p in HERE.glob("*.schema.json"))
 )
 
 
-def rebased_errors(request: dict) -> list[str]:
-    """README "Render request rules" 1-2."""
-    uploads = {c["moment_id"]: c for c in request["clips"]}
-    spec_ids = [c["moment_id"] for c in request["edit_spec"]["clips"]]
-    errors = []
-    if sorted(spec_ids) != sorted(uploads) or len(uploads) != len(request["clips"]):
-        errors.append(f"clips {sorted(uploads)} do not match edit_spec.clips {sorted(spec_ids)}")
-    for c in request["edit_spec"]["clips"]:
-        upload = uploads.get(c["moment_id"])
-        if upload and not 0 <= c["in_s"] < c["out_s"] <= upload["duration_s"] + 1e-6:
-            errors.append(f"{c['moment_id']}: trim [{c['in_s']}, {c['out_s']}] outside the uploaded {upload['duration_s']} s")
-    return errors
+def studio_effective_target_s(request: dict) -> float:
+    """README "Studio effective target"."""
+    preset = json.loads((HERE / "style_presets.json").read_text())["presets"][request["style"]]
+    overhead = preset["title_s"] + preset["end_card_s"]
+    footage = sum(c["duration_s"] for c in request["clips"])
+    floor = len(request["clips"]) * preset["clip_s"]["min"] + overhead
+    return min(max(preset["target_s"]["default"], floor), footage + overhead)
 
 
-def timeline_errors(timeline: dict) -> list[str]:
-    spec = json.loads((HERE / "examples" / timeline["edit_spec"]).read_text())
-    slots = timeline["slots"]
-    errors = []
-    if [s["moment_id"] for s in slots] != [c["moment_id"] for c in spec["clips"]]:
-        errors.append("slot moment_ids do not match the edit spec's clips")
-    if abs(slots[-1]["end_s"] - timeline["end_card_start_s"]) > 1e-6:
-        errors.append("end_card_start_s is not the last slot's end_s")
-    if abs(timeline["end_card_start_s"] + spec["end_card"]["duration_s"] - timeline["total_s"]) > 1e-3:
-        errors.append("total_s is not end_card_start_s + end_card.duration_s")
-    return errors
+def studio_request_errors(request: dict) -> list[str]:
+    ids = [c["clip_id"] for c in request["clips"]]
+    return [f"clip_id {i} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
 
 
-def agent_request_errors(request: dict) -> list[str]:
-    """README "Agent request rules" 1-2."""
-    ids = [c["moment_id"] for c in request["clips"]]
-    errors = [f"moment_id {i} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
-    for c in request["clips"]:
-        if not 0 <= c["proposed_in_s"] < c["proposed_out_s"] <= c["duration_s"] + 1e-6:
-            errors.append(f"{c['moment_id']}: proposed [{c['proposed_in_s']}, {c['proposed_out_s']}] outside the clip's {c['duration_s']} s")
-    return errors
-
-
-def agent_result_errors(result: dict, request_name: str) -> list[str]:
-    """README "Agent result rules" 1-4, against the agent request example of the same style."""
+def studio_result_errors(result: dict, request_name: str) -> list[str]:
+    """README "Studio result rules" 1-4, against the studio request example of the same style."""
     request = json.loads((HERE / "examples" / request_name).read_text())
-    clips = {c["moment_id"]: c for c in request["clips"]}
-    ids = [m["moment_id"] for m in result["moments"]]
-    errors = [f"moment_id {i} is not in {request_name}" for i in ids if i not in clips]
-    errors += [f"moment_id {i} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
-    errors += [f"button clip {i} is missing" for i, c in clips.items() if c["source"] == "button" and i not in ids]
+    clip_ids = [c["clip_id"] for c in request["clips"]]
+    ids = [m["clip_id"] for m in result["moments"]]
+    errors = [f"clip_id {i} is not a clip in {request_name}" for i in ids if i not in clip_ids]
+    errors += [f"clip_id {i} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
+    errors += [f"clip {i} is missing" for i in clip_ids if i not in ids]
     for m in result["moments"]:
         if not m["start_s"] < m["end_s"] <= result["total_s"] + 1e-6:
-            errors.append(f"{m['moment_id']}: [{m['start_s']}, {m['end_s']}] is not inside the video")
+            errors.append(f"{m['clip_id']}: [{m['start_s']}, {m['end_s']}] is not inside the video")
     if [m["start_s"] for m in result["moments"]] != sorted(m["start_s"] for m in result["moments"]):
         errors.append("moments are not in playback order")
-    target = request["effective_target_s"]
+    target = studio_effective_target_s(request)
     if abs(result["total_s"] - target) > 0.1 * target:
-        errors.append(f"total_s {result['total_s']} is not within 10 % of effective_target_s {target}")
+        errors.append(f"total_s {result['total_s']} is not within 10 % of the effective target {target}")
     return errors
-
-
-EXTRA_CHECKS = {
-    "render_request_": rebased_errors,
-    "timeline_": timeline_errors,
-    "agent_request_": agent_request_errors,
-}
 
 
 def validate(instance_path: Path, schema_name: str, extra=None) -> bool:
@@ -121,10 +85,10 @@ def main() -> int:
             print(f"FAIL {path.name}: no schema for this file name")
             ok = False
             continue
-        extra = EXTRA_CHECKS.get(prefix)
-        if prefix == "agent_result_":
-            request_name = path.name.replace("agent_result_", "agent_request_")
-            extra = lambda result, name=request_name: agent_result_errors(result, name)
+        extra = studio_request_errors if prefix == "studio_request_" else None
+        if prefix == "studio_result_":
+            request_name = path.name.replace("studio_result_", "studio_request_")
+            extra = lambda result, name=request_name: studio_result_errors(result, name)
         ok &= validate(path, SCHEMA_FOR_PREFIX[prefix], extra)
     return 0 if ok else 1
 

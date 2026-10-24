@@ -1,0 +1,16 @@
+# Roamory Studio bridge settings. No secrets here: the pairing token lives in state_dir.
+port = 8787
+# Claude Code CLI and the model it runs the edit with.
+claude = "claude"
+model = "claude-opus-5-5"
+max_turns = 80
+max_budget_usd = 5.0
+# Wall-clock limit for one edit, from /start.
+timeout_s = 900
+# Full renders of the video Claude may do (it previews with single frames in between).
+max_renders = 3
+max_clip_mb = 1000
+# Finished or abandoned jobs are deleted after this many minutes.
+job_ttl_min = 60
+state_dir = "~/.roamory-studio"
+jobs_dir = "studio/.jobs"

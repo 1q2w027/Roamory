@@ -54,7 +54,7 @@ public struct StylePreset: Codable, Sendable, Equatable {
     public var endCardS: Double
     public var musicTrack: String
     public var musicGainDb: Double
-    /// The edit spec's `music.duck_original_audio` is the negation of this.
+    /// True keeps the clips' own sound in the video.
     public var keepOriginalAudio: Bool
     public var captions: Bool
     public var allowSpeedRamp: Bool

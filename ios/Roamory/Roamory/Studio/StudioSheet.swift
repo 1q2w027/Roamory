@@ -1,0 +1,160 @@
+//
+//  StudioSheet.swift
+//  Roamory
+//
+
+import RoamoryKit
+import SwiftUI
+
+/// Make video: sends this trip's clips to a Mac running Roamory Studio, where Claude Code edits them with FFmpeg,
+/// and saves the result to Photos.
+struct StudioSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var browser = StudioBrowser()
+    @State private var clips = TripClips.all()
+    @State private var selected: StudioMac?
+    @State private var code = ""
+    @State private var pairedHosts: Set<String> = []
+    @State private var stage: String?
+    @State private var startedAt: Date?
+    @State private var outcome: String?
+    @State private var work: Task<Void, Never>?
+    @State private var confirmDelete = false
+
+    private var isWorking: Bool { work != nil }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text(clips.isEmpty ? "No clips saved yet" : "^[\(clips.count) clip](inflect: true) saved this trip")
+                    if !clips.isEmpty && !isWorking {
+                        Button("Delete trip clips", role: .destructive) { confirmDelete = true }
+                    }
+                } footer: {
+                    Text("Clips stay in Photos too. Deleting them here starts a new trip.")
+                }
+
+                Section {
+                    if browser.macs.isEmpty {
+                        Label("Looking for Roamory Studio on this Wi-Fi…", systemImage: "wifi")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(browser.macs) { mac in
+                        Button { selected = mac } label: {
+                            HStack {
+                                Label(mac.name, systemImage: "desktopcomputer")
+                                Spacer()
+                                if pairedHosts.contains(mac.host) { Text("Paired").foregroundStyle(.secondary) }
+                                if selected == mac { Image(systemName: "checkmark") }
+                            }
+                        }
+                        .disabled(isWorking)
+                    }
+                } header: {
+                    Text("Mac")
+                } footer: {
+                    Text(browser.failure ?? "On the Mac, run python -m studio.server in the Roamory repo. Claude Code there edits the video.")
+                }
+
+                if let mac = selected, !pairedHosts.contains(mac.host) {
+                    Section {
+                        TextField("6-digit code", text: $code)
+                            .keyboardType(.numberPad)
+                        Button("Pair") { pair(mac) }
+                            .disabled(code.count != 6 || isWorking)
+                    } footer: {
+                        Text("The code is shown in the Mac's terminal.")
+                    }
+                }
+
+                Section {
+                    if isWorking {
+                        Button("Cancel", role: .destructive) { work?.cancel() }
+                    } else {
+                        Button("Make video") { makeVideo() }
+                            .disabled(clips.isEmpty || selected.map { !pairedHosts.contains($0.host) } ?? true)
+                    }
+                    if let startedAt, let stage {
+                        TimelineView(.periodic(from: startedAt, by: 1)) { context in
+                            let s = Int(context.date.timeIntervalSince(startedAt))
+                            Label("\(stage) · \(String(format: "%d:%02d", s / 60, s % 60))", systemImage: "wand.and.sparkles")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    if let outcome { Text(outcome) }
+                } footer: {
+                    Text("Claude watches the clips, cuts them to your style and renders the video. This takes a few minutes; keep Roamory open.")
+                }
+            }
+            .navigationTitle("Make video")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() }.disabled(isWorking) }
+            }
+            .confirmationDialog("Delete this trip's clips?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete clips", role: .destructive) {
+                    TripClips.deleteAll()
+                    clips = []
+                }
+            }
+        }
+        .interactiveDismissDisabled(isWorking)
+        .onAppear { browser.start() }
+        .onDisappear {
+            browser.stop()
+            work?.cancel()
+        }
+        .onChange(of: browser.macs) {
+            pairedHosts = Set(browser.macs.filter { $0.token.load() != nil }.map(\.host))
+            if selected == nil || !browser.macs.contains(selected!) { selected = browser.macs.first }
+        }
+    }
+
+    private func pair(_ mac: StudioMac) {
+        outcome = nil
+        work = Task {
+            defer { work = nil }
+            do {
+                try await StudioClient.pair(mac, code: code)
+                pairedHosts.insert(mac.host)
+                code = ""
+            } catch {
+                outcome = error.localizedDescription
+            }
+        }
+    }
+
+    private func makeVideo() {
+        guard let mac = selected else { return }
+        outcome = nil
+        startedAt = .now
+        stage = "Starting"
+        let defaults = UserDefaults.standard
+        let city = defaults.string(forKey: TripSettings.Key.city).flatMap { $0.isEmpty ? nil : $0 }
+        let context: [String: Any] = [
+            "destination": ["country": defaults.string(forKey: TripSettings.Key.country) ?? "Somewhere",
+                            "city": city.map { $0 as Any } ?? NSNull()],
+            "trip_type": defaults.string(forKey: TripSettings.Key.tripType) ?? "trip",
+            "start_date": clips.first.map { $0.recordedAt.formatted(.iso8601.year().month().day()) } ?? "",
+        ]
+        let clips = clips
+        work = Task {
+            defer {
+                work = nil
+                startedAt = nil
+                stage = nil
+            }
+            do {
+                let video = try await StudioClient.makeVideo(on: mac, clips: clips, style: TripSettings.style().rawValue,
+                                                             context: context) { stage = $0 }
+                outcome = await PhotoLibrary.saveVideo(video)
+                try? FileManager.default.removeItem(at: video)
+            } catch is CancellationError {
+                outcome = "Cancelled"
+            } catch {
+                outcome = (error as? URLError)?.code == .cancelled ? "Cancelled" : error.localizedDescription
+            }
+        }
+    }
+}

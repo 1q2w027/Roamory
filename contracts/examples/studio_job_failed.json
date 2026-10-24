@@ -1,0 +1,11 @@
+{
+  "job_id": "j_7f3a",
+  "status": "failed",
+  "stage": null,
+  "elapsed_s": 600.0,
+  "error": {
+    "code": "agent_timeout",
+    "message": "Claude did not finish within 600 s.",
+    "retryable": false
+  }
+}
