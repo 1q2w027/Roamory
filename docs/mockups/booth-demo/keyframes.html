@@ -1,0 +1,184 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap');
+  .v2 { --bg:#0b0b10; --g:#03fc73; --g2:#8dffbe; --ink:#02200f; --card:#1a1a22; --chip:#22222c; --mute:#8e8e99; --red:#ff3b30; font-family:Nunito,ui-rounded,system-ui; }
+  .v2 .kf { margin:0 0 34px; }
+  .v2 .meta { display:flex; gap:12px; align-items:baseline; margin-bottom:8px; }
+  .v2 .meta .t { color:var(--g); font-weight:800; font-size:12px; letter-spacing:.12em; }
+  .v2 .meta .d { color:#b9b9c4; font-size:14px; }
+  .v2 .frame { position:relative; aspect-ratio:16/9; border-radius:14px; overflow:hidden; background:radial-gradient(60% 70% at 70% 55%, rgba(3,252,115,.20), rgba(3,252,115,0) 60%), var(--bg); perspective:1400px; border:1px solid #23232c; }
+  .v2 .hl { position:absolute; left:6%; top:50%; transform:translateY(-50%); width:44%; color:#fff; }
+  .v2 .hl h1 { font-size:clamp(22px,3.6vw,52px); line-height:1.02; margin:0; font-weight:900; letter-spacing:-.01em; }
+  .v2 .hl h1 em { font-style:normal; background:linear-gradient(90deg,var(--g),var(--g2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .v2 .hl p { color:var(--mute); font-size:clamp(11px,1.3vw,18px); margin:.6em 0 0; font-weight:600; }
+
+  /* 3D phone */
+  .v2 .stage { position:absolute; right:12%; top:50%; width:21%; aspect-ratio:9/19.5; transform-style:preserve-3d; animation:float 6s ease-in-out infinite; }
+  @keyframes float { 0%,100% { transform:translateY(-50%) rotateY(-22deg) rotateX(6deg) rotateZ(-2deg) } 50% { transform:translateY(-53%) rotateY(-14deg) rotateX(3deg) rotateZ(1deg) } }
+  .v2 .phone { position:absolute; inset:0; border-radius:16%/7.5%; background:linear-gradient(135deg,#3a3a44,#15151b); padding:4%; box-shadow: -30px 40px 60px rgba(0,0,0,.6), 0 0 80px rgba(3,252,115,.25); }
+  .v2 .phone:after { content:""; position:absolute; top:0; bottom:0; right:-3%; width:4%; border-radius:0 40% 40% 0; background:#22222a; transform:rotateY(80deg); transform-origin:left; }
+  .v2 .scr { position:relative; width:100%; height:100%; border-radius:13%/6%; overflow:hidden; background:var(--bg); }
+  .v2 .island { position:absolute; top:2.2%; left:50%; transform:translateX(-50%); width:32%; height:3.6%; background:#000; border-radius:99px; z-index:5; }
+  .v2 .in { position:absolute; inset:9% 7% 5%; display:flex; flex-direction:column; color:#fff; }
+  .v2 .eyebrow { color:var(--g2); font-size:clamp(5px,.55vw,8px); font-weight:800; letter-spacing:.12em; }
+  .v2 .title { font-size:clamp(9px,1.05vw,15px); font-weight:900; line-height:1.1; margin:.35em 0 .7em; }
+  .v2 .bar { height:3px; border-radius:3px; background:var(--chip); margin:.4em 0 .5em; } .v2 .bar i { display:block; height:100%; width:20%; border-radius:3px; background:var(--g); }
+  .v2 .grid { display:grid; grid-template-columns:1fr 1fr; gap:5%; flex:1; }
+  .v2 .sc { border-radius:10px; position:relative; padding:6%; display:flex; flex-direction:column; justify-content:flex-end; font-size:clamp(5px,.6vw,9px); font-weight:800; }
+  .v2 .sc small { font-weight:600; opacity:.8; }
+  .v2 .sc.sel { outline:2px solid var(--g); box-shadow:0 0 18px rgba(3,252,115,.6); }
+  .v2 .btn { margin-top:7%; border-radius:99px; background:linear-gradient(90deg,var(--g),var(--g2)); color:var(--ink); text-align:center; font-weight:900; font-size:clamp(6px,.7vw,10px); padding:5% 0; }
+
+  /* floating ghost cards for the montage */
+  .v2 .ghost { position:absolute; width:13%; aspect-ratio:9/19.5; border-radius:12px; background:#15151c; border:1px solid #2a2a34; box-shadow:0 20px 40px rgba(0,0,0,.5); overflow:hidden; }
+
+  .v2 .roamy { position:absolute; width:11%; animation:bob 3.2s ease-in-out infinite; filter:drop-shadow(0 10px 22px rgba(3,252,115,.45)); }
+  @keyframes bob { 0%,100% { transform:translateY(-4px) } 50% { transform:translateY(5px) } }
+
+  .v2 .strip { position:absolute; left:20%; right:-4%; top:63%; height:13%; display:flex; gap:.8%; transform:rotateX(18deg) rotateZ(-5deg); }
+  .v2 .strip b { flex:1; border-radius:6px; border:2px solid #2b2b35; background-size:cover; }
+  .v2 .bracket { position:absolute; border:2px solid var(--g); border-top:none; border-radius:0 0 8px 8px; height:10px; }
+  .v2 .lbl { position:absolute; color:var(--g2); font-weight:900; font-size:clamp(9px,1vw,14px); }
+  .v2 .ico { position:absolute; width:5.5%; aspect-ratio:1; border-radius:50%; background:var(--chip); display:flex; align-items:center; justify-content:center; font-size:clamp(10px,1.4vw,20px); }
+  .v2 .ico:after { content:""; position:absolute; inset:-25%; border-radius:50%; border:2px solid var(--g); opacity:.0; animation:ping 1.6s ease-out infinite; }
+  @keyframes ping { 0% { transform:scale(.6); opacity:.9 } 100% { transform:scale(1.3); opacity:0 } }
+
+  .v2 .laptop { position:absolute; left:47%; top:28%; width:30%; transform:rotateY(14deg) rotateX(6deg); }
+  .v2 .lid { aspect-ratio:16/10; background:#1d1d24; border-radius:10px 10px 4px 4px; padding:3%; border:1px solid #33333d; }
+  .v2 .term { height:100%; background:#07070a; border-radius:6px; padding:5%; font:600 clamp(5px,.62vw,9px)/1.6 ui-monospace,Menlo,monospace; color:#b9b9c4; }
+  .v2 .term .ok { color:var(--g); } .v2 .term .dim { color:#5c5c66; }
+  .v2 .base { height:7px; margin:0 -6%; background:linear-gradient(#2a2a32,#16161b); border-radius:0 0 12px 12px; }
+  .v2 .note { color:#8e8e99; font-size:13px; margin:-8px 0 22px; }
+  .v2 .q { border:1px solid var(--g); border-radius:12px; padding:14px 18px; color:#e8e8ee; background:rgba(3,252,115,.06); }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#03fc73"/><stop offset="1" stop-color="#8dffbe"/></linearGradient>
+    <symbol id="rbody" viewBox="0 0 140 120">
+      <rect x="77" y="4" width="34" height="20" rx="10" fill="#01a84c"/>
+      <rect x="20" y="16" width="100" height="84" rx="30" fill="url(#rg)"/>
+      <rect x="32" y="26" width="22" height="7" rx="3.5" fill="#fff" opacity=".35" transform="rotate(-20 43 29)"/>
+      <ellipse cx="45" cy="68" rx="6" ry="3.5" fill="#ffb3c7" opacity=".55"/><ellipse cx="95" cy="68" rx="6" ry="3.5" fill="#ffb3c7" opacity=".55"/>
+    </symbol>
+    <symbol id="r-happy" viewBox="0 0 140 120"><use href="#rbody"/>
+      <ellipse cx="59" cy="54" rx="10" ry="12" fill="#fff"/><circle cx="61" cy="56" r="5.5"/><circle cx="63" cy="53" r="2" fill="#fff"/>
+      <ellipse cx="81" cy="54" rx="10" ry="12" fill="#fff"/><circle cx="83" cy="56" r="5.5"/><circle cx="85" cy="53" r="2" fill="#fff"/>
+      <path d="M58 72 Q70 82 82 72" stroke="#000" stroke-opacity=".85" stroke-width="3.5" fill="none" stroke-linecap="round"/></symbol>
+    <symbol id="r-sleepy" viewBox="0 0 140 120"><use href="#rbody"/>
+      <path d="M51 56 Q59 62 67 56 M73 56 Q81 62 89 56" stroke="#fff" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+      <circle cx="70" cy="74" r="3" fill="#000" opacity=".7"/>
+      <text x="104" y="22" fill="#8dffbe" font-size="14" font-weight="900" font-family="Nunito">z</text><text x="114" y="10" fill="#8dffbe" font-size="10" font-weight="900" font-family="Nunito">z</text></symbol>
+    <symbol id="r-excited" viewBox="0 0 140 120"><use href="#rbody"/>
+      <ellipse cx="59" cy="54" rx="10" ry="12" fill="#fff"/><circle cx="61" cy="50" r="5.5"/><circle cx="63" cy="47" r="2" fill="#fff"/>
+      <ellipse cx="81" cy="54" rx="10" ry="12" fill="#fff"/><circle cx="83" cy="50" r="5.5"/><circle cx="85" cy="47" r="2" fill="#fff"/>
+      <ellipse cx="70" cy="76" rx="9" ry="7" fill="#000" opacity=".85"/><ellipse cx="70" cy="80" rx="5" ry="2.5" fill="#f472b6"/></symbol>
+  </defs>
+</svg>
+
+<div class="v2">
+<h2>Draft keyframes: "How Roamory works"</h2>
+<p class="subtitle">One still per beat, in the agreed look. In the real video everything moves: the phone turns between beats, the camera pushes into the screen, headlines animate in word by word. 1920×1080, ~30 s, silent loop.</p>
+
+<!-- 1 HOOK -->
+<div class="kf"><div class="meta"><span class="t">0–4 S · HOOK</span><span class="d">Roamy waves in next to the floating phone.</span></div>
+<div class="frame">
+  <div class="hl"><h1>Put the phone <em>away.</em></h1><p>Roamory films your trip for you.</p></div>
+  <div class="stage"><div class="phone"><div class="scr"><div class="island"></div>
+    <div class="in" style="align-items:center;justify-content:center;text-align:center;background:radial-gradient(70% 50% at 50% 40%,rgba(3,252,115,.18),transparent)">
+      <div style="width:42%;aspect-ratio:1;border-radius:50%;background:linear-gradient(135deg,#03fc73,#8dffbe);box-shadow:0 0 30px rgba(3,252,115,.6);display:flex;align-items:center;justify-content:center;font-size:clamp(14px,2vw,30px)">👋</div>
+      <div class="title" style="margin-top:1.2em">Welcome to Roamory</div>
+      <div style="color:#8e8e99;font-size:clamp(5px,.6vw,9px)">Roamory films your trip so you can put the phone away and actually enjoy it.</div>
+    </div></div></div></div>
+  <svg class="roamy" style="left:46%;top:16%"><use href="#r-happy"/></svg>
+</div></div>
+
+<!-- 2 SETUP -->
+<div class="kf"><div class="meta"><span class="t">4–10 S · SET UP</span><span class="d">Camera pushes into the screen; quick montage: style → globe → trip card → days.</span></div>
+<div class="frame">
+  <div class="hl"><h1>Tell it about <em>your trip.</em></h1><p>Style · where · who's coming · how long</p></div>
+  <div class="ghost" style="right:36%;top:14%;transform:rotate(-8deg)"><div style="margin:30% 12%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 35%,#2d4a7a,#0d1526);box-shadow:0 0 20px rgba(3,252,115,.25)"></div><div style="text-align:center;color:#fff;font-weight:900;font-size:clamp(6px,.8vw,11px)">Where to?</div></div>
+  <div class="ghost" style="right:4%;top:10%;transform:rotate(7deg);background:linear-gradient(160deg,#ff5fa2,#ff6b6b)"><div style="position:absolute;bottom:10%;left:10%;color:#fff;font-weight:900;font-size:clamp(7px,.9vw,13px)">Honeymoon</div></div>
+  <div class="ghost" style="right:6%;bottom:6%;transform:rotate(-4deg);display:flex;align-items:center;justify-content:center;flex-direction:column;color:#fff"><div style="font-size:clamp(14px,2.2vw,32px);font-weight:900;color:#03fc73">4</div><div style="font-size:clamp(5px,.6vw,9px);color:#8e8e99">days</div></div>
+  <div class="stage"><div class="phone"><div class="scr"><div class="island"></div>
+    <div class="in">
+      <div class="bar"><i></i></div>
+      <div class="eyebrow">1 OF 5 · YOUR STYLE</div>
+      <div class="title">Which one feels like your trip?</div>
+      <div class="grid">
+        <div class="sc" style="background:linear-gradient(#ff7a59,#ffb36b)">Reels<small>fast cuts</small></div>
+        <div class="sc sel" style="background:linear-gradient(#1b2a4a,#0b1020)">Cinematic<small>slow, wide</small></div>
+        <div class="sc" style="background:linear-gradient(#6b8f71,#3d5a45)">Documentary<small>calm, captions</small></div>
+        <div class="sc" style="background:linear-gradient(#8aa2d8,#5b6f9e)">Vlog<small>casual</small></div>
+      </div>
+      <div class="btn">Continue</div>
+    </div></div></div></div>
+</div></div>
+
+<!-- 3 START -->
+<div class="kf"><div class="meta"><span class="t">10–15 S · START</span><span class="d">Phone on a chest mount. Bubble level slides to center, turns green, then the screen fades to black. Roamy goes sleepy.</span></div>
+<div class="frame">
+  <div class="hl"><h1>Clip it on.<br><em>The screen goes dark.</em></h1><p>It keeps filming quietly, easy on the battery.</p></div>
+  <div class="stage"><div class="phone"><div class="scr"><div class="island"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,#5e86b8 0%,#9db8d6 40%,#3f5a3a 41%,#2b3d28 100%);opacity:.18"></div>
+    <div class="in" style="align-items:center;justify-content:center;text-align:center;gap:.5em">
+      <div style="color:#ff3b30;font-weight:800;font-size:clamp(6px,.75vw,11px)"><span style="display:inline-block;width:.6em;height:.6em;border-radius:50%;background:#ff3b30;margin-right:.3em"></span>Recording</div>
+      <div style="color:#55555f;font-size:clamp(5px,.55vw,8px);line-height:1.5">Screen at 0% brightness<br>Tap and hold to wake</div>
+    </div></div></div></div>
+  <div style="position:absolute;right:37%;top:20%;width:9%;aspect-ratio:1;border-radius:50%;border:2px solid #03fc73;display:flex;align-items:center;justify-content:center;background:rgba(3,252,115,.08)"><div style="width:26%;aspect-ratio:1;border-radius:50%;background:#03fc73;box-shadow:0 0 14px #03fc73"></div></div>
+  <div class="lbl" style="right:36%;top:41%">level ✓</div>
+  <svg class="roamy" style="left:47%;bottom:8%"><use href="#r-sleepy"/></svg>
+</div></div>
+
+<!-- 4 BUFFER -->
+<div class="kf"><div class="meta"><span class="t">15–20 S · ROLLING BUFFER</span><span class="d">Travel footage flows past like a conveyor; a bracket holds the last 45 s; old frames fade off the left.</span></div>
+<div class="frame">
+  <div class="hl" style="top:30%"><h1>It always holds the <em>last 45 seconds.</em></h1><p>Old footage rolls off. Nothing fills up.</p></div>
+  <div class="strip">
+    <b style="opacity:.12;background:linear-gradient(#7aa6d6,#39566f)"></b><b style="opacity:.25;background:linear-gradient(#f2b27a,#9a5b3a)"></b><b style="opacity:.45;background:linear-gradient(#89c4a3,#2d5a44)"></b>
+    <b style="background:linear-gradient(#e7c08a,#7b5a3a)"></b><b style="background:linear-gradient(#6fa8dc,#1f3f66)"></b><b style="background:linear-gradient(#f59ea4,#8a3e52)"></b><b style="background:linear-gradient(#9fd3c7,#33665c)"></b><b style="background:linear-gradient(#ffd27a,#a8682a)"></b><b style="background:linear-gradient(#a7b8f0,#3c4a8a)"></b>
+  </div>
+  <div class="bracket" style="left:44%;right:2%;top:79%;transform:rotateZ(-5deg)"></div>
+  <div class="lbl" style="left:64%;top:84%">last 45 s</div>
+  <div class="stage" style="right:6%;width:16%;top:38%"><div class="phone"><div class="scr" style="background:#000"><div class="island"></div>
+    <div style="position:absolute;top:46%;width:100%;text-align:center;color:#ff3b30;font-weight:800;font-size:clamp(5px,.6vw,9px)">● Recording</div></div></div></div>
+</div></div>
+
+<!-- 5 SAVE -->
+<div class="kf"><div class="meta"><span class="t">20–25 S · SAVE</span><span class="d">Press once: the bracket lights green and keeps growing, a saving timer runs. Press again: the clip flies into Photos.</span></div>
+<div class="frame">
+  <div class="hl" style="top:30%"><h1>Something happens?<br><em>Press.</em> Press again.<br>It's saved.</h1><p>Volume key, shutter remote or AirPods</p></div>
+  <div class="strip">
+    <b style="opacity:.2;background:linear-gradient(#7aa6d6,#39566f)"></b><b style="opacity:.35;background:linear-gradient(#f2b27a,#9a5b3a)"></b>
+    <b style="border-color:#03fc73;box-shadow:0 0 14px rgba(3,252,115,.6);background:linear-gradient(#e7c08a,#7b5a3a)"></b><b style="border-color:#03fc73;box-shadow:0 0 14px rgba(3,252,115,.6);background:linear-gradient(#6fa8dc,#1f3f66)"></b><b style="border-color:#03fc73;box-shadow:0 0 14px rgba(3,252,115,.6);background:linear-gradient(#f59ea4,#8a3e52)"></b><b style="border-color:#03fc73;box-shadow:0 0 14px rgba(3,252,115,.6);background:linear-gradient(#9fd3c7,#33665c)"></b><b style="border-color:#03fc73;box-shadow:0 0 14px rgba(3,252,115,.6);background:linear-gradient(#ffd27a,#a8682a)"></b>
+  </div>
+  <div class="ico" style="left:52%;top:14%">🔈</div><div class="ico" style="left:61%;top:9%">📷</div><div class="ico" style="left:70%;top:14%">🎧</div>
+  <div class="stage" style="right:5%;width:15%;top:38%"><div class="phone"><div class="scr"><div class="island"></div>
+    <div class="in" style="align-items:center;justify-content:flex-end">
+      <div style="border-radius:99px;background:#ff3b30;color:#fff;font-weight:900;font-size:clamp(5px,.6vw,9px);padding:5% 12%">■ Stop saving · 0:08</div>
+    </div></div></div></div>
+  <svg class="roamy" style="left:44%;top:30%;width:10%"><use href="#r-excited"/></svg>
+</div></div>
+
+<!-- 6 STUDIO -->
+<div class="kf"><div class="meta"><span class="t">25–30 S · STUDIO → LOOP</span><span class="d">Clips fly over Wi-Fi to the laptop; Claude Code edits in the terminal; the finished video lands in the phone's Gallery; ease back to beat 1.</span></div>
+<div class="frame">
+  <div class="hl" style="width:38%"><h1>One highlight video, <em>cut by Claude</em> on your Mac.</h1></div>
+  <div class="laptop"><div class="lid"><div class="term">
+    <div class="dim">$ python -m studio.server</div>
+    <div>Roamory Studio pairing code: <span class="ok">4821</span></div>
+    <div>Received 6 clips</div>
+    <div>Claude: watching clips…</div>
+    <div>Claude: cutting to Cinematic…</div>
+    <div class="ok">✓ Done</div>
+  </div></div><div class="base"></div></div>
+  <div class="stage" style="right:5%;width:15%"><div class="phone"><div class="scr"><div class="island"></div>
+    <div class="in">
+      <div class="title">Gallery</div>
+      <div style="aspect-ratio:9/12;border-radius:10px;background:linear-gradient(160deg,#6fa8dc,#1f3f66 60%,#03fc73 160%);display:flex;align-items:center;justify-content:center;color:#fff;font-size:clamp(10px,1.4vw,20px);box-shadow:0 0 20px rgba(3,252,115,.4)">▶</div>
+      <div style="margin-top:8%;color:#8dffbe;font-size:clamp(5px,.55vw,8px);font-weight:700">✨ Your Kyoto trip · 0:45</div>
+    </div></div></div></div>
+  <svg class="roamy" style="left:6%;bottom:6%;width:9%"><use href="#r-happy"/></svg>
+</div></div>
+
+<div class="q"><b>Still open:</b> will the dark recording screen be back on for the booth? Beat 3 assumes yes.</div>
+</div>

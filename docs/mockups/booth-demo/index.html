@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <!-- Beat timings and headline copy, read by compositions/film.html. -->
+    <script src="assets/beats.js"></script>
+    <!-- Continent outlines for the destination globe. -->
+    <script src="assets/globe.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #0b0b10;
+      }
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- The whole loop is one scene so the phone, Roamy and the camera move continuously across beats. -->
+    <div
+      id="root"
+      data-composition-id="booth"
+      data-start="0"
+      data-duration="30"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="film"
+        data-composition-id="film"
+        data-composition-src="compositions/film.html"
+        data-start="0"
+        data-duration="30"
+        data-track-index="1"
+        data-track-kind="graphics"
+        data-width="1920"
+        data-height="1080"
+      ></div>
+    </div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["booth"] = gsap.timeline({ paused: true });
+    </script>
+  </body>
+</html>
