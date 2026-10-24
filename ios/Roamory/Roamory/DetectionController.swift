@@ -28,6 +28,8 @@ struct DetectionSummary: Equatable {
 final class DetectionController: ObservableObject {
     @Published private(set) var summary = DetectionSummary()
     @Published private(set) var isRunning = false
+    /// Counts presses of the bookmark, volume keys and remotes, so the screen can confirm each one at once.
+    @Published private(set) var buttonPresses = 0
     /// Give `sink.handle` to `CameraService.onFrame`.
     let sink = FrameSink()
     let config = try? DetectionConfig.bundled()
@@ -60,15 +62,16 @@ final class DetectionController: ObservableObject {
         CMClockGetTime(CMClockGetHostTimeClock()).seconds
     }
 
-    /// Each recording is one trip for now (no trip setup yet); its first session starts here.
+    /// Each recording is one trip for now, set up by onboarding; its first session starts here.
     func start(_ settings: DetectionSettings, recorder: RollingRecorder) {
         guard let config, detector == nil else { return }
         let evaluator = settings.cloudAllowed ? EvaluateClient.fromBundle(config: config) : nil
         let trip = TripInfo(
             tripId: "t_\(UUID().uuidString.prefix(8).lowercased())", installId: DetectionSettings.installId(),
             style: settings.style, tripType: settings.tripType,
-            destination: .init(continent: nil, country: settings.country, city: settings.city.isEmpty ? nil : settings.city),
-            lengthDays: 1
+            destination: .init(continent: settings.continent, country: settings.country,
+                               city: settings.city.isEmpty ? nil : settings.city),
+            lengthDays: settings.lengthDays
         )
         let holder = InMemoryMomentHolder(postS: config.postS)
         let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
@@ -148,6 +151,7 @@ final class DetectionController: ObservableObject {
     func buttonPressed() {
         guard let detector else { return }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        buttonPresses += 1
         let at = nowMs
         Task {
             _ = await detector.buttonPressed(atMs: at)

@@ -1,7 +1,7 @@
 import RoamoryKit
 import SwiftUI
 
-/// Trip context and consent for moment detection, until onboarding exists (PRD §4). Stored per device.
+/// Trip context and consent for moment detection, set by onboarding (PRD §4) and editable here. Stored per device.
 struct DetectionSettings {
     enum Key {
         static let cloudAllowed = "detection.cloudAllowed"
@@ -9,6 +9,8 @@ struct DetectionSettings {
         static let tripType = "detection.tripType"
         static let country = "detection.country"
         static let city = "detection.city"
+        static let continent = "detection.continent"
+        static let lengthDays = "detection.lengthDays"
         static let demoMode = "detection.demoMode"
         static let installId = "detection.installId"
     }
@@ -18,6 +20,8 @@ struct DetectionSettings {
     var tripType = "honeymoon"
     var country = "Japan"
     var city = "Kyoto"
+    var continent = "Asia"
+    var lengthDays = 3
     var demoMode = false
 
     static func current(_ defaults: UserDefaults = .standard) -> DetectionSettings {
@@ -27,6 +31,8 @@ struct DetectionSettings {
         if let v = defaults.string(forKey: Key.tripType), !v.isEmpty { s.tripType = v }
         if let v = defaults.string(forKey: Key.country), !v.isEmpty { s.country = v }
         s.city = defaults.string(forKey: Key.city) ?? s.city
+        if let v = defaults.string(forKey: Key.continent), !v.isEmpty { s.continent = v }
+        if defaults.integer(forKey: Key.lengthDays) > 0 { s.lengthDays = defaults.integer(forKey: Key.lengthDays) }
         s.demoMode = defaults.bool(forKey: Key.demoMode)
         return s
     }
@@ -46,6 +52,8 @@ struct DetectionSettingsView: View {
     @AppStorage(DetectionSettings.Key.tripType) private var tripType = "honeymoon"
     @AppStorage(DetectionSettings.Key.country) private var country = "Japan"
     @AppStorage(DetectionSettings.Key.city) private var city = "Kyoto"
+    @AppStorage(DetectionSettings.Key.continent) private var continent = "Asia"
+    @AppStorage(DetectionSettings.Key.lengthDays) private var lengthDays = 3
     @AppStorage(DetectionSettings.Key.demoMode) private var demoMode = false
     @Environment(\.dismiss) private var dismiss
     let backend: String?
@@ -65,8 +73,10 @@ struct DetectionSettingsView: View {
                     ForEach(Style.allCases, id: \.rawValue) { Text($0.rawValue.capitalized).tag($0.rawValue) }
                 }
                 TextField("Trip type", text: $tripType)
+                TextField("Continent", text: $continent)
                 TextField("Country", text: $country)
                 TextField("City", text: $city)
+                Stepper("Trip length: \(lengthDays) day\(lengthDays == 1 ? "" : "s")", value: $lengthDays, in: 1...30)
             } header: {
                 Text("Trip")
             } footer: {
