@@ -62,7 +62,8 @@ Two components: the **iOS app**, which does everything except the model calls, a
 
 - **Proposal:** the backend stores no trip data in the MVP; all trip data lives on the phone. Its only state is in-memory call counters per trip for the budget caps (§8.3), which reset if the process restarts. That is acceptable for the demo.
 - **Proposal:** the video is rendered on the phone, which settles PRD open question 3 provisionally. It avoids uploading full video and keeps footage private. Revisit if render time misses the 2-minute target.
-- **Decided:** Remotion in the cloud is an optional second engine for richer motion graphics (§9.2). Only the trimmed ranges the edit spec uses are uploaded, and they are deleted when the job ends. AVFoundation on the phone stays the default and the fallback. Where the render service is hosted is open (§14).
+- **Decided:** Remotion in the cloud is an optional second engine for richer motion graphics (§9.2). Only the trimmed ranges the edit spec uses are uploaded, and they are deleted when the job ends. AVFoundation on the phone stays the default and the fallback.
+- **Decided:** the backend and the render service run together in one Fly.io app (`cloud/`, settings in `cloud/fly.toml`) on one machine (the budget counters and render jobs are in memory) that never auto-stops, so renders continue between polls. A Caddy proxy routes `/v1/render*` to the render service and the rest to the backend. Google Cloud was dropped. Redeploying restarts both, which resets the budgets and drops in-flight renders. Laptop hosting (`scripts/dev.sh`) still works for development.
 - Backend repo folder: `backend/`. App folder: `ios/`.
 
 ## 3. iOS app
@@ -465,7 +466,7 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 - Does our chest mount's clamp rotate to portrait and landscape? Record the demo walk in the orientation of the style we demo.
 - Which Bluetooth button hardware, and does it present as a key or as BLE?
 - Is on-phone rendering fast enough, or must it move to the cloud?
-- Where does the Remotion render service run: a laptop on the venue network, Fly, or Cloud Run? Is it fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
+- Is the Remotion render service on Fly.io (4 dedicated vCPU shared with the backend, decided in §2) fast enough (about 1800 frames for 60 s at 1080p30, plus the upload) for the 2-minute target?
 - Does our 4-person team need a Remotion company license (free for individuals and companies of up to 3)?
 - Does the user need rendering to continue if they leave the app?
 - Are location and audio signals worth including in the MVP?

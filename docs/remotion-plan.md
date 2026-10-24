@@ -88,7 +88,7 @@ Once R1 and R2 work end to end, extend the edit spec in its own contracts PR. Ca
 ## Risks and open items
 
 - **Render time:** Remotion at 1080p30 for 60 s is about 1800 frames. On a laptop that's roughly 30–90 s, plus the upload (~30 MB at 720p). Measure in R1 against the 2-minute target. If it misses, render at 720p, raise concurrency, or move to Remotion Lambda.
-- **Hosting:** where `render/` runs (a laptop on the venue network, Fly, or Cloud Run) is open. Add it to TRD §14.
+- **Hosting:** decided: `render/` runs with the backend in one Fly.io app (TRD §2, `cloud/`), with a laptop on the venue network as the fallback.
 - **Remotion license:** it's free for individuals and companies of up to 3 people. Check whether our 4-person team needs a company license.
 - **Consent:** the cloud consent screen (Daniel's) must say that selected clips are uploaded for rendering and then deleted.
 
