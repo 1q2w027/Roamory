@@ -53,8 +53,7 @@ struct RecordingView: View {
 
             if showLevel {
                 LevelOverlay(pose: level.pose, isLevel: level.isLevel, bubbleRangeDeg: level.bubbleRangeDeg,
-                             toleranceDeg: level.toleranceDeg)
-                    .onTapGesture { showLevel = false }
+                             toleranceDeg: level.toleranceDeg, aimToleranceDeg: level.aimToleranceDeg)
                     .transition(.opacity)
             }
 
@@ -142,17 +141,23 @@ struct RecordingView: View {
             }
             messageText
             zoomControl
+            // The debug buttons sit top right: one row of all five is wider than the phone.
             HStack(spacing: 12) {
                 saveButton
                 studioButton
                 if hasLevel { levelButton }
-                #if DEBUG
-                evaluateButton
-                settingsButton
-                #endif
             }
             .padding(.bottom, 32)
         }
+        #if DEBUG
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 8) {
+                evaluateButton
+                settingsButton
+            }
+            .padding(.trailing, 16)
+        }
+        #endif
     }
 
     /// A phone on its side (16:9): status and debug buttons top left, the zoom presets and the main buttons in
@@ -386,6 +391,8 @@ struct RecordingView: View {
             Label(camera.isSaving ? "Stop saving" : "Save buffer",
                   systemImage: camera.isSaving ? "stop.fill" : "record.circle")
                 .font(.headline)
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -409,16 +416,16 @@ struct RecordingView: View {
     /// The mount level needs a motion sensor and the angle the session records at.
     private var hasLevel: Bool { level.isAvailable && camera.captureRotationAngle != nil }
 
-    /// Shows the mount level again, for when the mount slips.
+    /// Shows the mount level again, for when the mount slips, or closes it.
     private var levelButton: some View {
-        Button { showLevel = true } label: {
+        Button { withAnimation { showLevel.toggle() } } label: {
             Image(systemName: "level")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(showLevel ? .black : .white)
                 .padding(12)
-                .background(.black.opacity(0.5), in: Circle())
+                .background(showLevel ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(.black.opacity(0.5)), in: Circle())
         }
-        .accessibilityLabel("Level the phone")
+        .accessibilityLabel(showLevel ? "Close the level" : "Level the phone")
     }
 
     #if DEBUG
@@ -427,6 +434,8 @@ struct RecordingView: View {
         Button { if SummarySettings.isReady { camera.evaluate() } else { showSettings = true } } label: {
             Label(camera.isEvaluating ? "Evaluating…" : "Evaluate", systemImage: "wand.and.sparkles")
                 .font(.headline)
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
