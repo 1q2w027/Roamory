@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Step 5: an optional note about the trip. Evaluate sends it to the model along with the frames.
+/// Step 5: an optional note about the trip. The director sends it to Claude along with the frames when it chooses what to save.
 struct TripDetailsStep: View {
     @Binding var details: String
     @FocusState private var focused: Bool
@@ -27,7 +27,7 @@ struct TripDetailsStep: View {
             .frame(maxHeight: 220)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 18))
             HStack {
-                Text("Optional. Used when Evaluate describes what the camera sees.")
+                Text("Optional. Helps the director decide what is worth saving.")
                 Spacer(minLength: 8)
                 Text("\(details.count)/\(TripSettings.detailsLimit)").monospacedDigit()
             }

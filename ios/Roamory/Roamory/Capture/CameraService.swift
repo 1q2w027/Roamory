@@ -20,11 +20,10 @@ final class CameraService: NSObject, ObservableObject,
     /// When the saved clip would have started if it ran in real time, so `now - savingStart` is its length.
     @Published private(set) var savingStart: Date?
     @Published private(set) var message: String?
-    /// The chosen model's description of the buffer from the last `evaluate()`, until dismissed.
-    @Published var summary: String?
-    @Published private(set) var isEvaluating = false
-    /// What the last Evaluate sent, kept so it can be looked at afterwards.
-    @Published private(set) var evaluation: SentEvaluation?
+    /// The director's last decision in a line, for the debug badge.
+    @Published private(set) var directorLine: String?
+    /// Every director request with its frames and timing, for the debug log.
+    let directorLog = DirectorLog()
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var minZoom: CGFloat = 1
@@ -49,6 +48,14 @@ final class CameraService: NSObject, ObservableObject,
     /// Camera frames and microphone buffers for the buffer arrive here, in order.
     nonisolated private let sampleQueue = DispatchQueue(label: "roamory.camera.samples")
     private var isStopping = false
+    private var directorTask: Task<Void, Never>?
+    /// True while the clip being saved was started by the director, which may then end it. A clip started by hand is left alone.
+    private var directorOwnsSave = false
+    /// What the director's windows showed in the clip being saved, and one summary per clip saved this trip.
+    private var clipWindows: [String] = []
+    private var clipSummaries: [String] = []
+    private var warnedNoKey = false
+    private static let directorErrorPrefix = "Director: "
     /// Touched only on `sampleQueue`.
     nonisolated(unsafe) private var settleGate = SettleGate()
     /// Digital zoom beyond this looks too soft to be useful.
@@ -115,6 +122,8 @@ final class CameraService: NSObject, ObservableObject,
 
     /// Stops the camera for good, before going back to trip setup. The next trip makes a new `CameraService`.
     func shutdown() async {
+        directorTask?.cancel()
+        directorTask = nil
         if isSaving { stopSaving() }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
             sessionQueue.async {
@@ -184,9 +193,11 @@ final class CameraService: NSObject, ObservableObject,
     }
 
     /// Saves the whole buffer and everything captured from now on, until `stopSaving()`.
-    func startSaving() {
+    func startSaving(byDirector: Bool = false) {
         guard !isSaving else { return }
         isSaving = true
+        directorOwnsSave = byDirector
+        clipWindows = []
         message = nil
         Task {
             do {
@@ -194,29 +205,110 @@ final class CameraService: NSObject, ObservableObject,
                 savingStart = Date().addingTimeInterval(-preroll)
             } catch {
                 isSaving = false
+                directorOwnsSave = false
+                clipWindows = []
                 message = error.localizedDescription
             }
         }
     }
 
-    /// Sends the frames recorded since the last successful Evaluate, spread evenly, to the model chosen in settings and shows the description it returns in `summary`.
-    func evaluate() {
-        guard !isEvaluating else { return }
-        isEvaluating = true
-        summary = nil
-        message = nil
-        Task {
-            defer { isEvaluating = false }
-            do {
-                let (frames, through) = try recorder.peekFrames(count: SummarySettings.frameCount)
-                evaluation = SentEvaluation(frames: frames, details: SummaryClient.detailsPrompt)
-                summary = try await SummaryClient.summarize(frames: frames)
-                // Only a successful request uses the frames up; after a failure the next Evaluate sends them again.
-                recorder.discardFrames(through: through)
-            } catch {
-                message = "Evaluate failed: \(error.localizedDescription)"
+    /// Starts the director: every `Director.interval` seconds the frames since its last answer go to Claude, which decides
+    /// whether to save the buffer or let it go. Does nothing without an API key.
+    func startDirector() {
+        guard directorTask == nil else { return }
+        directorTask = Task { [weak self] in
+            let clock = ContinuousClock()
+            while !Task.isCancelled {
+                let next = clock.now + .seconds(Director.interval)
+                try? await Task.sleep(until: next, clock: clock)
+                guard !Task.isCancelled, let self else { return }
+                await self.directTick()
             }
         }
+    }
+
+    private func directTick() async {
+        // A clip being closed is neither saving nor idle; the next tick sees the settled state.
+        guard isReady, !isStopping else { return }
+        guard APIKeyStore.load() != nil else {
+            if !warnedNoKey {
+                warnedNoKey = true
+                message = "Add an Anthropic API key in Ask so the director can choose what to save."
+            }
+            return
+        }
+        let frames: [Data]
+        let through: Double
+        do { (frames, through) = try recorder.peekFrames(count: Director.frameCount) } catch { return }
+
+        let state = Director.State(isSaving: isSaving, savingSeconds: savingStart.map { Date().timeIntervalSince($0) } ?? 0,
+                                   clipSoFar: clipWindows, clips: clipSummaries)
+        let request = Director.request(frames: frames, state: state)
+        var entry = DirectorLog.Entry(time: .now, frames: frames, system: request.system, prompt: request.prompt,
+                                      wasSaving: state.isSaving)
+        let clock = ContinuousClock()
+        let started = clock.now
+        func elapsed() -> Double {
+            let d = started.duration(to: clock.now)
+            return Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18
+        }
+        do {
+            let reply = try await AnthropicAPI.exchange(request.body, timeout: 15)
+            entry.seconds = elapsed()
+            entry.raw = reply.text
+            entry.usage = reply.usage
+            let decision = try Director.parse(reply)
+            entry.decision = decision
+            // The trip may have ended while the request was out; then there is nothing left to decide.
+            guard !Task.isCancelled, isReady else { return }
+            // Only an answer uses the frames up; after a failure the next request sends them again.
+            recorder.discardFrames(through: through)
+            entry.applied = apply(decision)
+            directorLine = "\(decision.action.rawValue) · \(String(format: "%.1f", entry.seconds)) s · \(decision.why)"
+            if message?.hasPrefix(Self.directorErrorPrefix) == true { message = nil }
+        } catch {
+            guard !Task.isCancelled else { return }
+            if entry.seconds == 0 { entry.seconds = elapsed() }
+            entry.error = error.localizedDescription
+            directorLine = "error · \(error.localizedDescription)"
+            // Release builds have no log, so a failing director (bad key, no network) has to show up here.
+            message = Self.directorErrorPrefix + error.localizedDescription
+        }
+        directorLog.record(entry)
+    }
+
+    /// Acts on a decision and says what it did.
+    private func apply(_ decision: Director.Decision) -> String {
+        // The answer may arrive while the clip is being closed (by hand, or by the camera stopping).
+        guard !isStopping else { return "clip was closing" }
+        switch decision.action {
+        case .save:
+            if isSaving {
+                clipWindows.append(decision.summary)
+                return directorOwnsSave ? "kept saving" : "kept saving (started by hand)"
+            }
+            startSaving(byDirector: true)
+            clipWindows = [decision.summary]
+            return "started saving"
+        case .skip:
+            if isSaving && directorOwnsSave {
+                stopSaving()
+                return "stopped saving"
+            }
+            guard isSaving else { return "not saving" }
+            // A clip started by hand goes on, so what these frames show still belongs to it.
+            clipWindows.append(decision.summary)
+            return "kept saving (started by hand)"
+        }
+    }
+
+    /// Ends the director's bookkeeping for the clip being closed and returns its summary. The summary only joins
+    /// `clipSummaries` once the clip is really saved, so the director never remembers a clip that was lost.
+    private func takeClip() -> String {
+        let summary = clipWindows.isEmpty ? "Saved by hand, not described." : Director.condense(clipWindows)
+        clipWindows = []
+        directorOwnsSave = false
+        return summary
     }
 
     func toggleSaving() {
@@ -227,6 +319,7 @@ final class CameraService: NSObject, ObservableObject,
     func stopSaving() {
         guard isSaving, !isStopping else { return }
         isStopping = true
+        let summary = takeClip()
         let start = savingStart ?? .now
         Task {
             defer {
@@ -235,7 +328,9 @@ final class CameraService: NSObject, ObservableObject,
                 savingStart = nil
             }
             do {
-                await saveToPhotos(try await recorder.stop(), recordedAt: start)
+                let file = try await recorder.stop()
+                clipSummaries.append(summary)
+                await saveToPhotos(file, recordedAt: start)
             } catch {
                 message = "Recording failed: \(error.localizedDescription)"
             }
@@ -245,10 +340,14 @@ final class CameraService: NSObject, ObservableObject,
     /// The clip ended without `stopSaving()`: capture was interrupted (we keep what was recorded) or writing failed.
     private func saveEndedByItself(_ result: Result<URL, Error>) async {
         let start = savingStart ?? .now
+        // While `stopSaving()` is closing the clip it has already taken the summary.
+        let summary = isStopping ? nil : takeClip()
         isSaving = false
         savingStart = nil
         switch result {
-        case .success(let url): await saveToPhotos(url, recordedAt: start)
+        case .success(let url):
+            if let summary { clipSummaries.append(summary) }
+            await saveToPhotos(url, recordedAt: start)
         case .failure(let error): message = "Recording failed: \(error.localizedDescription)"
         }
     }
@@ -284,10 +383,4 @@ final class CameraService: NSObject, ObservableObject,
             message = "Save failed: \(error.localizedDescription)"
         }
     }
-}
-
-/// The frames, and the traveler's details line, that an Evaluate sent to the model.
-struct SentEvaluation {
-    let frames: [Data]
-    let details: String?
 }
