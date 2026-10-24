@@ -1,7 +1,0 @@
-# BuildKit reads this for render/Dockerfile (context is the repo root).
-**
-!contracts/
-!render/
-render/node_modules/
-render/out/
-render/.env

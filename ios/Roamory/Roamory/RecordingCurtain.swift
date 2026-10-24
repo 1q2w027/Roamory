@@ -2,11 +2,10 @@ import SwiftUI
 import UIKit
 
 /// Recording mode (PRD FR-007, mockup screen 4): a black screen at 0% brightness over the camera UI.
-/// Hold to wake it; it goes dark again after 10 s without a touch. A kept moment flashes it dim red.
+/// Hold to wake it; it goes dark again after 10 s without a touch.
 struct RecordingCurtain: View {
-    let summary: DetectionSummary
-    /// Bookmark, volume key and remote presses, for the flash.
-    let buttonPresses: Int
+    /// While a clip is being saved: when it started, for the elapsed time.
+    let savingStart: Date?
     @Binding var awake: Bool
     /// When the camera UI under the curtain was last touched; restarts the 10 s countdown.
     let lastTouch: Date
@@ -16,11 +15,7 @@ struct RecordingCurtain: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var savedBrightness: CGFloat?
     @State private var holdProgress: CGFloat = 0
-    @State private var flash = false
     @State private var pulse = false
-    @State private var bump = false
-
-    private var kept: Int { summary.keptAI + summary.keptButton + summary.keptFallback }
 
     var body: some View {
         ZStack {
@@ -50,21 +45,22 @@ struct RecordingCurtain: View {
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.4))
                 pill("Capturing · 30 fps", color: Theme.recording)
-                pill("Moments kept · \(kept)", color: bump ? Theme.accent : .white.opacity(0.35))
-                    .scaleEffect(bump ? 1.12 : 1)
-                    .contentTransition(.numericText(value: Double(kept)))
+                if let start = savingStart {
+                    TimelineView(.periodic(from: start, by: 1)) { context in
+                        let s = Int(context.date.timeIntervalSince(start))
+                        pill(String(format: "Saving · %02d:%02d", s / 60, s % 60), color: Theme.accent)
+                    }
+                } else {
+                    pill("Not saving", color: .white.opacity(0.35))
+                }
                 Spacer()
-                Text("Shutter remote or volume key: press = this moment goes in the video")
+                Text("Shutter remote, volume key or AirPods: press to start or stop saving")
                     .font(.caption)
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.white.opacity(0.3))
                     .padding(.horizontal, 40)
                     .padding(.bottom, 24)
             }
-            Theme.recording
-                .opacity(flash ? 0.28 : 0)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
         }
         .opacity(awake ? 0 : 1)
         .contentShape(Rectangle())
@@ -85,15 +81,6 @@ struct RecordingCurtain: View {
         .onChange(of: awake) { updateBrightness() }
         .onChange(of: paused) { updateBrightness() }
         .onChange(of: scenePhase) { updateBrightness() }
-        .onChange(of: buttonPresses) {
-            flash = true
-            withAnimation(.easeOut(duration: 0.8)) { flash = false }
-        }
-        .onChange(of: kept) { old, new in
-            guard new > old else { return }
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) { bump = true }
-            withAnimation(.easeOut(duration: 0.6).delay(0.5)) { bump = false }
-        }
         // Back to dark 10 s after the last touch.
         .task(id: awake && !paused ? lastTouch : nil) {
             guard awake, !paused else { return }

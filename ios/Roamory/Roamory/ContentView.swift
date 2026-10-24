@@ -12,16 +12,11 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var camera = CameraService()
     @StateObject private var guidedAccess = GuidedAccessMonitor()
-    @StateObject private var detection = DetectionController()
     @State private var headphones = HeadphoneButton()
-    @State private var showDetectionSettings = false
     @State private var pinchStartZoom: CGFloat?
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
-    /// The ended trip's video, from Processing to Review.
-    @State private var ended: TripPipeline?
-    @State private var isEnding = false
     /// Recording mode: dark until held, and dark again 10 s after the last touch.
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
@@ -51,10 +46,7 @@ struct ContentView: View {
                             .background(.black.opacity(0.5), in: Capsule())
                     }
                 }
-                if detection.isRunning {
-                    detectionStatus
-                    endTripButton
-                }
+                formatBadge
                 Spacer()
                 if !guidedAccess.isEnabled {
                     guidedAccessHint
@@ -67,57 +59,29 @@ struct ContentView: View {
                         .foregroundStyle(.white)
                 }
                 zoomControl
-                #if DEBUG
-                debugSaveButton
-                    .overlay(alignment: .trailing) {
-                        if detection.isRunning { keepMomentButton.offset(x: 96) }
-                    }
-                    .padding(.bottom, 32)
-                #endif
+                HStack(spacing: 12) {
+                    saveButton
+                    #if DEBUG
+                    evaluateButton
+                    #endif
+                }
+                .padding(.bottom, 32)
             }
         }
-        // Settings restart detection, which must not overlap End trip.
-        .overlay(alignment: .topLeading) { detectionSettingsButton.disabled(isEnding) }
         .overlay {
-            if detection.isRunning {
-                RecordingCurtain(summary: detection.summary, buttonPresses: detection.buttonPresses,
-                                 awake: $curtainAwake, lastTouch: lastTouch, paused: showDetectionSettings)
+            if camera.isReady {
+                RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
-        // Closing a sheet restarts the 10 s countdown rather than going dark at once.
-        .onChange(of: showDetectionSettings) { lastTouch = .now }
-        .sheet(isPresented: $showDetectionSettings, onDismiss: {
-            // Detection reads its settings when it starts, so a changed setting needs a restart.
-            Task {
-                await detection.stop()
-                detection.start(.current(), recorder: camera.recorder)
-            }
-        }) {
-            NavigationStack { DetectionSettingsView(backend: detection.backend) }
-        }
-        // The next trip starts when the ended one is closed.
-        .fullScreenCover(isPresented: Binding(get: { ended != nil }, set: { if !$0 { ended = nil } }),
-                         onDismiss: { detection.start(.current(), recorder: camera.recorder) }) {
-            if let ended {
-                TripFlowView(pipeline: ended) { self.ended = nil }
-            }
-        }
-        // Volume keys and Bluetooth shutter remotes (TRD §7) keep the current moment.
+        // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
         .onCameraCaptureEvent { event in
-            if event.phase == .ended { detection.buttonPressed() }
-        }
-        // Detection runs for as long as the camera does, like the buffer.
-        .onChange(of: camera.isReady) { _, ready in
-            if ready { detection.start(.current(), recorder: camera.recorder) }
+            if event.phase == .ended { camera.toggleSaving() }
         }
         .task {
-            camera.frameInterval = detection.frameInterval
-            let sink = detection.sink
-            camera.onFrame = { sink.handle($0) }
             // The style picks the format (Reels 9:16, the others 16:9), fixed before capture starts (TRD 4.1).
-            let style = DetectionSettings.current().style
+            let style = TripSettings.style()
             let orientation = (try? StylePresets.bundled()).map { CaptureOrientation(preset: $0[style]) } ?? .portrait
             await camera.prepare(orientation: orientation)
             // AirPods stem press starts or stops saving, like the on-screen button.
@@ -126,74 +90,21 @@ struct ContentView: View {
         }
     }
 
-    /// Detection status while recording: holds, then what was kept and released.
-    private var detectionStatus: some View {
-        let s = detection.summary
-        return VStack(spacing: 2) {
-            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released) · saved \(s.saved)\(s.saveFailed > 0 ? " · \(s.saveFailed) failed" : "")\(s.cloud ? "" : " · offline")")
-                .font(.caption.monospacedDigit())
-            if let last = s.lastDescription {
-                Text(last).font(.caption2).lineLimit(1)
-            }
-            Text(formatLine).font(.caption2)
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.black.opacity(0.5), in: Capsule())
-    }
-
-    /// End Trip (TRD §10): stops detection, waits for the clips to be written, then makes the video for Review.
-    private var endTripButton: some View {
-        Button {
-            isEnding = true
-            Task {
-                defer { isEnding = false }
-                guard let result = await detection.endTrip() else { return }
-                let pipeline = TripPipeline(trip: result.trip, folder: result.folder,
-                                            clips: TripFolder.loadClips(in: result.folder))
-                ended = pipeline
-                Task { await pipeline.start() }
-            }
-        } label: {
-            Label(isEnding ? "Ending…" : "End trip", systemImage: "flag.checkered")
-                .font(.subheadline.bold())
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(.black.opacity(0.5), in: Capsule())
-        }
-        .disabled(isEnding)
-    }
-
     /// The recording format, and a nudge when the phone is turned the other way.
+    private var formatBadge: some View {
+        Text(formatLine)
+            .font(.caption2)
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.black.opacity(0.5), in: Capsule())
+    }
+
     private var formatLine: String {
         let landscape = camera.captureOrientation == .landscape
         let format = landscape ? "16:9" : "9:16"
         guard let held = camera.heldAngle, !camera.captureOrientation.isHeld(at: held) else { return format }
         return format + (landscape ? " · Turn the phone sideways" : " · Hold the phone upright")
-    }
-
-    /// Keeps the current moment, like the Bluetooth button.
-    private var keepMomentButton: some View {
-        Button { detection.buttonPressed() } label: {
-            Image(systemName: "bookmark.fill")
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(.black.opacity(0.5), in: Circle())
-        }
-        .accessibilityLabel("Keep this moment")
-    }
-
-    private var detectionSettingsButton: some View {
-        Button { showDetectionSettings = true } label: {
-            Image(systemName: "sparkle.magnifyingglass")
-                .foregroundStyle(.white)
-                .frame(width: 44, height: 44)
-                .background(.black.opacity(0.5), in: Circle())
-        }
-        .padding(.leading, 16)
-        .accessibilityLabel("Moment detection settings")
     }
 
     private var guidedAccessHint: some View {
@@ -276,8 +187,8 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.15), value: activeIndex)
     }
 
-    /// Stand-in for the trigger that will come from the agent: saves the buffer and what follows until tapped again.
-    private var debugSaveButton: some View {
+    /// Saves the buffer and what follows until tapped again. Volume keys, shutter remotes and AirPods do the same.
+    private var saveButton: some View {
         Button {
             camera.toggleSaving()
         } label: {
@@ -291,6 +202,19 @@ struct ContentView: View {
         }
         .animation(.easeInOut(duration: 0.15), value: camera.isSaving)
     }
+
+    #if DEBUG
+    private var evaluateButton: some View {
+        Button { camera.evaluate() } label: {
+            Label("Evaluate", systemImage: "wand.and.sparkles")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(.black.opacity(0.5), in: Capsule())
+        }
+    }
+    #endif
 
     private func timeString(_ seconds: TimeInterval) -> String {
         let s = Int(seconds)

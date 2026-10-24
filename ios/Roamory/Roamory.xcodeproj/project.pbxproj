@@ -272,9 +272,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Roamory connects to services on your local network to choose moments and make highlight videos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Roamory notices when you stop to look around, so it keeps those moments.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -312,9 +310,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Config/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Roamory needs the camera to record your trip.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Roamory connects to services on your local network to choose moments and make highlight videos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Roamory needs the microphone to record sound during your trip.";
-				INFOPLIST_KEY_NSMotionUsageDescription = "Roamory notices when you stop to look around, so it keeps those moments.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Roamory needs access to save recorded videos to your Photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

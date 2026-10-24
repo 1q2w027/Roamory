@@ -2,16 +2,16 @@ import RoamoryKit
 import SwiftUI
 
 /// Trip setup before recording (PRD §4): style, destination, trip type, then length and Start.
-/// Choices are saved in the `DetectionSettings` keys, so each launch starts from the last trip's answers.
+/// Choices are saved in the `TripSettings` keys, so each launch starts from the last trip's answers.
 struct OnboardingView: View {
     var onStart: () -> Void
 
-    @AppStorage(DetectionSettings.Key.style) private var style = Style.cinematic.rawValue
-    @AppStorage(DetectionSettings.Key.continent) private var continent = "Asia"
-    @AppStorage(DetectionSettings.Key.country) private var country = "Japan"
-    @AppStorage(DetectionSettings.Key.city) private var city = "Kyoto"
-    @AppStorage(DetectionSettings.Key.tripType) private var tripType = "honeymoon"
-    @AppStorage(DetectionSettings.Key.lengthDays) private var lengthDays = 3
+    @AppStorage(TripSettings.Key.style) private var style = Style.cinematic.rawValue
+    @AppStorage(TripSettings.Key.continent) private var continent = "Asia"
+    @AppStorage(TripSettings.Key.country) private var country = "Japan"
+    @AppStorage(TripSettings.Key.city) private var city = "Kyoto"
+    @AppStorage(TripSettings.Key.tripType) private var tripType = "honeymoon"
+    @AppStorage(TripSettings.Key.lengthDays) private var lengthDays = 3
     @State private var step = Self.initialStep
     @State private var forward = true
     @State private var started = false
