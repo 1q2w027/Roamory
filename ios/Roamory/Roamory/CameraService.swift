@@ -9,7 +9,9 @@ import Photos
 import UIKit
 
 /// Owns the capture session; records one movie file at a time and saves it to Photos.
-final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate {
+/// It also hands a frame to `onFrame` every `frameInterval` seconds for moment detection (TRD §6).
+final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecordingDelegate,
+                           AVCaptureVideoDataOutputSampleBufferDelegate {
     @Published private(set) var isRecording = false
     @Published private(set) var recordingStart: Date?
     @Published private(set) var message: String?
@@ -26,6 +28,13 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
     /// displayZoom = videoZoomFactor * multiplier. A virtual multi-camera starts at the ultra-wide, so this is 0.5 there.
     nonisolated(unsafe) private var zoomMultiplier: CGFloat = 1
     nonisolated private let sessionQueue = DispatchQueue(label: "roamory.camera.session")
+    nonisolated(unsafe) private let frameOutput = AVCaptureVideoDataOutput()
+    nonisolated private let frameQueue = DispatchQueue(label: "roamory.camera.frames")
+    nonisolated(unsafe) private var lastFrameTime = CMTime.invalid
+    /// Called on the frame queue with an upright (portrait) frame. Set it before recording starts.
+    /// The buffer is only valid during the call.
+    nonisolated(unsafe) var onFrame: (@Sendable (CVPixelBuffer) -> Void)?
+    nonisolated(unsafe) var frameInterval: TimeInterval = 2
     /// Digital zoom beyond this looks too soft to be useful.
     private let zoomLimit: CGFloat = 10
 
@@ -95,6 +104,17 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
             device.unlockForConfiguration()
         }
 
+        // Frames for moment detection, beside the movie file. Dropping late frames keeps capture from stalling.
+        if session.canAddOutput(frameOutput) {
+            frameOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+            frameOutput.alwaysDiscardsLateVideoFrames = true
+            frameOutput.setSampleBufferDelegate(self, queue: frameQueue)
+            session.addOutput(frameOutput)
+            if let connection = frameOutput.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+        }
+
         if AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
            let mic = AVCaptureDevice.default(for: .audio),
            let micInput = try? AVCaptureDeviceInput(device: mic),
@@ -146,6 +166,15 @@ final class CameraService: NSObject, ObservableObject, AVCaptureFileOutputRecord
                 await saveToPhotos(outputFileURL)
             }
         }
+    }
+
+    nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer,
+                                   from connection: AVCaptureConnection) {
+        let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        if lastFrameTime.isValid, (time - lastFrameTime).seconds < frameInterval { return }
+        guard let onFrame, let pixels = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        lastFrameTime = time
+        onFrame(pixels)
     }
 
     private func saveToPhotos(_ url: URL) async {
