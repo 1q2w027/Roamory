@@ -8,7 +8,7 @@ Oct 23, 2026 · v2.1 (iPhone pivot; iOS 26 target). Replaces v1.0 (glasses + Ras
 
 Roamory is an iPhone app that films a trip with the screen dark, keeps the moments that matter in a rolling buffer, and builds a highlight video the user reviews in the app. Cloud AI (a frontier vision model) selects the moments.
 
-**In scope:** interactive onboarding, camera capture at a fixed 30 fps, rolling buffer and moment protection, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
+**In scope:** interactive onboarding, camera capture at a fixed 30 fps, in-memory ring buffer and moment saving, Bluetooth button, cloud moment selection, edit planning, video rendering, in-app review.
 
 **Deferred:** adaptive frame rate (§4.3, PRD FR-008).
 
@@ -16,7 +16,7 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 
 **Design constraints that drive most decisions**
 
-- Recording never waits on the network or AI. The phone records and protects footage locally; the cloud only says "keep" or "skip".
+- Recording never waits on the network or AI. The phone holds footage in memory and saves it locally; the cloud only says "keep" or "skip". Footage that is not selected is never written to disk.
 - Full-resolution video stays on the phone. Only small sample frames go to the cloud. The one exception is the optional cloud render engine, which uploads the trimmed selected clips and deletes them after (§9.2, §11.3).
 - The camera cannot run in the background on iOS, so the app stays in the foreground, with the screen at brightness 0 and auto-lock disabled, for the whole trip.
 - Frontier model calls are slow (1–5 s) and metered, so cheap on-phone checks decide when to ask.
@@ -25,7 +25,8 @@ Roamory is an iPhone app that films a trip with the screen dark, keeps the momen
 | Term | Meaning |
 |---|---|
 | Session | One continuous recording run; a trip has one or more (PRD FR-007b) |
-| Segment | A 2-second piece of recorded video in the rolling buffer |
+| Ring buffer | An in-memory queue of the last `BUFFER_RETENTION_S` of encoded video samples (and audio, if enabled); nothing in it is on disk until a moment is saved (§5) |
+| Hold | References to the buffered samples around a moment, kept so they outlive the ring buffer's trimming (§5.3) |
 | Trip clock | Wall-clock milliseconds since trip start, `t_ms`; it keeps running while paused, so sessions leave gaps |
 | Stage 1 | The on-phone signals and escalation gate (§6) |
 | Stage 2 | The cloud evaluation (§8.2): 2a is the fast model, 2b the strong one |
@@ -45,7 +46,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
  ┌──────────────────────────────┐            ┌─────────────────────┐
  │ Onboarding UI (SwiftUI)      │            │ POST /v1/evaluate   │
  │ Capture (fixed 30 fps)       │  frames    │   → Stage 2 model   │
- │ Rolling buffer + protection  │ ────────►  │ POST /v1/plan       │
+ │ Ring buffer + clip writer    │ ────────►  │ POST /v1/plan       │
  │ On-phone gate (signals)      │  keep/skip │   → planner model   │
  │ Bluetooth button             │ ◄────────  │ GET  /healthz       │
  │ Edit-spec renderer (AVFound.)│            └─────────────────────┘
@@ -76,8 +77,8 @@ Two components: the **iOS app**, which does everything except the model calls, a
 |---|---|
 | `Onboarding/` | Style picker, destination globe, trip-type deck, trip length, permissions and consent, mounting guide, Start button |
 | `Preferences/` | Persist personal preference data |
-| `Capture/` | Camera session, segment writer |
-| `Buffer/` | Segment index, protection set, cleanup, clip extraction |
+| `Capture/` | Camera session, HEVC encoder |
+| `Buffer/` | Ring buffer, holds, clip writer |
 | `Signals/` | On-phone sample signals and the escalation gate |
 | `Cloud/` | Client for the backend, budget, timeouts, fallback |
 | `Button/` | Bluetooth button input and confirmation haptic |
@@ -108,7 +109,7 @@ Two components: the **iOS app**, which does everything except the model calls, a
 | `Evaluation` | `id`, `momentId`, `tier` (2a/2b), `latencyMs`, `response` (JSON), `s2`, `error` |
 | `GeneratedVideo` | `id`, `tripId`, `status`, `editSpec` (JSON), `outputPath`, `durationS`, `style`, `createdAt`, `error` |
 
-The segment index is stored separately in a small JSON file, rewritten every 5 s, so crash recovery does not depend on the database.
+The ring buffer is not persisted, so there is no index to recover. A saved clip has a sidecar JSON written after the clip finishes; a clip without one is partial (§5.4).
 
 ## 4. Capture and the dark screen
 
@@ -116,8 +117,8 @@ The segment index is stored separately in a small JSON file, rewritten every 5 s
 
 - `AVCaptureSession` with the back wide camera; **proposal:** 1080p HEVC, 30 fps maximum. Landscape (1920×1080) for 16:9 styles, portrait (1080×1920) for Reels, matching how the phone is worn (PRD FR-007a), so the edit never crops to a different aspect.
 - An orientation check from `CMMotionManager` gravity runs at Start Recording and every few seconds after; a wrong orientation gives a haptic and a spoken prompt.
-- Video frames feed an `AVAssetWriter` for the buffer (§5) and a low-rate sampler for signals (§6).
-- Audio is off by default. If enabled by the user, it is written into the same segments.
+- Video frames come from `AVCaptureVideoDataOutput`. They go to a `VTCompressionSession` (HEVC, hardware, real-time, no frame reordering, keyframe every 2 s by duration) whose encoded output fills the ring buffer (§5), and to a low-rate sampler for signals (§6).
+- Audio is off by default. If enabled by the user, `AVCaptureAudioDataOutput` samples are held in the ring buffer and encoded to AAC when a clip is written.
 - **Fixed frame rate:** 30 fps for the whole session. Adaptive frame rate is deferred (§4.3).
 - **Safety guards:** `ProcessInfo.thermalState` of `.serious` shows a warning on the status view; `.critical` pauses the trip (§4.4). Battery under 10% pauses the trip with a notice, so the user can charge and resume.
 
@@ -132,7 +133,7 @@ The segment index is stored separately in a small JSON file, rewritten every 5 s
 
 > **Deferred.** For now the app records at a fixed 30 fps (§4.1) and none of this section is built. The design is kept for when battery data says it is needed. Everything else in this document works without it. The thermal and battery guards that were part of this section now live in §4.1.
 
-Frame rate is changed at run time by locking the device and setting `activeVideoMinFrameDuration` and `activeVideoMaxFrameDuration` to `1/fps`, clamped to the active format's `videoSupportedFrameRateRanges`. **The first spike must confirm that changing these mid-session does not drop or stall the writer.**
+Frame rate is changed at run time by locking the device and setting `activeVideoMinFrameDuration` and `activeVideoMaxFrameDuration` to `1/fps`, clamped to the active format's `videoSupportedFrameRateRanges`. **The first spike must confirm that changing these mid-session does not drop or stall the encoder or the clip writer.**
 
 **Tier controller** (a small state machine, config-driven):
 
@@ -162,39 +163,45 @@ Timestamps stay in real time, so low-fps footage plays at normal speed with fewe
 
 The trip **pauses** (state `PAUSED`, §10) on the Pause control, `AVCaptureSession` interruption notifications (calls, other apps), backgrounding, low battery, or thermal `.critical`. Pausing:
 
-1. Stops capture and closes the open segment, ending the `RecordingSession` with its `endReason`.
-2. Finalizes every pending moment with the footage recorded so far (§5.3). Moments never span sessions.
-3. Deletes unprotected segments, so a paused trip holds only clips.
+1. Stops capture, flushes the encoder, and ends the `RecordingSession` with its `endReason`.
+2. Finalizes every pending moment with the footage held so far (§5.3). Moments never span sessions.
+3. Clears the ring buffer, so a paused trip holds only clips.
 4. Restores brightness and posts a local notification that recording stopped.
 
 Resuming takes a user action and starts a new `RecordingSession` on the same trip clock. Only End Trip moves the trip to `FINALIZING`. When `lengthDays` has passed, the app reminds the user to end the trip; it does not end it on its own.
 
-## 5. Rolling buffer (FR-008a)
+## 5. Ring buffer (FR-008a)
 
-### 5.1 Segments
+The buffer is a queue in memory. Nothing is written to disk until a moment is saved.
 
-**Proposal:** `AVAssetWriter` with an HLS-style fragmented-MP4 output profile and a segment interval of 2 s. The writer's delegate returns an initialization segment and one media segment per interval; each is written to disk. Joining the initialization segment with consecutive media segments yields a playable file. The video keyframe interval is set to 2 s by duration (`AVVideoMaxKeyFrameIntervalDurationKey`), not by frame count, so segments split by time even if the frame rate changes later (§4.3). **Fallback if this fails in the spike:** rotate a new writer every 2 s on a keyframe.
+### 5.1 What is buffered
 
-Each segment has `idx`, `sessionId`, `path`, `tStartMs`, `tEndMs`, `bytes` and `protectedBy: Set<MomentID>`. Times are on the trip clock; because sessions leave gaps, use `tStartMs`/`tEndMs`, not `idx`, to find a segment's span.
+**Proposal:** encoded samples, not raw frames. Each encoded video `CMSampleBuffer` from the compression session (§4.1) is appended with its presentation time, a keyframe flag and its trip-clock time `t_ms`. Audio, when enabled, is held as PCM samples (under 10 MB for 45 s) and encoded when a clip is written.
 
-### 5.2 Cleanup rule (runs every second)
+Raw frames are never held: a 1080p frame is about 3 MB, so 45 s at 30 fps is several GB, and camera buffers that are not returned promptly stall capture.
 
-Delete segment `i` only if `protectedBy` is empty and `nowMs − tEndMs > BUFFER_RETENTION_S`.
+The buffer has four operations: append, trim before a time, read a time range, and find the keyframe at or before a time. They depend only on timestamps and keyframe flags, so the buffer is a plain Swift type that XCTest can drive with fake samples, without AVFoundation.
 
-**Proposal:** `BUFFER_RETENTION_S = 45`, about 50 MB at 8–10 Mbps. This covers the 15 s pre-roll plus the Stage 1 delay (about 4 s, §11.1) with generous headroom. It can be small because the hold is placed locally at trigger time and the cloud can only release it.
+### 5.2 Retention (runs on every append)
 
-### 5.3 Protecting a moment
+Drop samples older than `BUFFER_RETENTION_S`.
 
-1. Trigger at time T creates `Moment{fromMs = max(sessionStartMs, T − PRE_S·1000), toMs = T + POST_S·1000}`, default `PRE_S = POST_S = 15`.
-2. Mark every existing overlapping segment protected, and register a pending protection for segments created later inside the window.
-3. When `now > toMs + 2000`, or when the session pauses, join the protected segments into `clips/{momentId}.mp4`, write a sidecar JSON, and release the protection. If the cloud has not answered by then (slow, dropped from the queue, or failed), apply the local fallback rule (§6) to decide keep or release.
-4. Overlapping moments share segments. A new moment overlapping an existing one by more than 5 s extends it, up to a 60 s cap.
-5. Cuts land on 2 s boundaries, so a clip may run up to 2 s long on each side; the planner trims it.
+**Proposal:** `BUFFER_RETENTION_S = 45`, about 50 MB at 8-10 Mbps. This covers the 15 s pre-roll, the Stage 1 delay (about 4 s, §11.1) and up to 2 s back to the previous keyframe, with generous headroom. It can be small because a hold (§5.3) is placed locally at trigger time and the cloud can only release it. On a memory warning, shorten retention, down to a floor of 25 s.
+
+### 5.3 Holding and saving a moment
+
+1. Trigger at time T creates `Moment{fromMs = max(sessionStartMs, T - PRE_S*1000), toMs = T + POST_S*1000}`, default `PRE_S = POST_S = 15`, with status `held`.
+2. The moment takes a **hold**: references to the buffered samples from the last keyframe at or before `fromMs` to now, plus every live sample until `toMs`. The references keep those samples alive after the ring buffer trims them. Overlapping holds share the same samples, so memory is the union of the windows, not their sum.
+3. A skip answer releases the hold and nothing is written. When the moment is kept (button: at once; AI: cloud "keep", or the local fallback rule in §6), the clip writer saves it: an `AVAssetWriter` to `clips/{momentId}.mp4` with a passthrough video input (`outputSettings: nil`, `sourceFormatHint` from the first sample), so nothing is re-encoded, and an AAC input if audio is on. The session starts at the first sample's presentation time. If the decision arrives before `toMs`, the writer appends live samples until `toMs`; if it arrives later, the held samples are written in one pass.
+4. When the writer has the last sample up to `toMs`, or the session pauses, it finishes the file, writes the sidecar JSON, and releases the hold. If the cloud has not answered by `toMs + 2000`, apply the local fallback rule (§6) to decide keep or release.
+5. A new moment overlapping a held or still-writing moment by more than 5 s extends it, up to a 60 s cap.
+6. A clip starts on a keyframe, so it may begin up to 2 s before `fromMs`; it ends at the last sample up to `toMs`. The planner trims it. Orientation is fixed per session, so the writer sets the video input's `transform` once, from the session orientation.
 
 ### 5.4 Crash and storage safety
 
-- On launch, reconcile the segment index against files on disk before any deletion.
-- If free space is under 2 GB, stop AI-driven moments, keep button moments, and show a warning.
+- The ring buffer and the holds live in memory, so a crash or a kill loses up to 45 s of unsaved footage and any moment still held. Clips already saved are unaffected.
+- On launch, delete any clip in `clips/` that has no sidecar JSON (it was being written), and mark moments still `held` as `released`.
+- If free space is under 2 GB, stop AI-driven moments, keep button moments, and show a warning. Only saved clips use disk, so this should be rare.
 
 ## 6. Stage 1: on-phone signals and the escalation gate
 
@@ -221,7 +228,7 @@ A sampler takes a frame about every 2 s from the video stream, downscales to 640
 
 A `forced` sample skips rules 1 and 2 but must pass 3 to 5, and counts as an escalation for cooldown, budget and the gate test (§12.1). Rule 2 needs the next sample to confirm a peak, so a candidate is known one sample interval (2 s) after its frame.
 
-When a candidate passes the gate, the phone immediately **protects the moment window (speculative hold)** and sends the packet to the cloud. A "skip" answer releases the hold.
+When a candidate passes the gate, the phone immediately **holds the moment window in memory (speculative hold, §5.3)** and sends the packet to the cloud. A "skip" answer releases the hold and nothing is written to disk.
 
 **Local fallback.** If the cloud is unavailable, over budget, or consent is off, save locally when `L ≥ 0.85` (`source = local_fallback`); otherwise release. The Bluetooth button always saves.
 
@@ -229,7 +236,7 @@ When a candidate passes the gate, the phone immediately **protects the moment wi
 
 - **Proposal:** use an off-the-shelf Bluetooth shutter remote, which presents as a keyboard or volume key. The app receives it as a hardware key event in the foreground, for example through `AVCaptureEventInteraction` or by observing volume changes. This must be verified with the screen at brightness 0 and a locked-to-foreground app.
 - **Alternative:** a custom BLE device using Core Bluetooth with a defined characteristic, if no off-the-shelf remote works.
-- On press: create a moment with `source = button` at the press time, protect `[T−15 s, T+15 s]`, and give a haptic confirmation (`UIImpactFeedbackGenerator`). Button moments bypass the gate, cooldowns and budgets and are never released by the cloud.
+- On press: create a moment with `source = button` at the press time, hold and save `[T−15 s, T+15 s]` (§5.3), and give a haptic confirmation (`UIImpactFeedbackGenerator`). Button moments bypass the gate, cooldowns and budgets and are never released by the cloud.
 - Button moments are sent to the cloud later, off the critical path, only to get a description and category.
 
 ## 8. Cloud backend and AI
@@ -346,7 +353,7 @@ Music tracks are bundled with the app. Licensing is open.
 | CREATED → RECORDING | Start Recording | Camera permission granted; orientation correct; brightness and idle timer set |
 | RECORDING → PAUSED | Pause, interruption, backgrounding, thermal critical, low battery | Session closed as in §4.4 |
 | PAUSED → RECORDING | Resume (user action only) | Same guards as Start Recording |
-| RECORDING or PAUSED → FINALIZING | End Trip | Open segments closed; pending moments finalized |
+| RECORDING or PAUSED → FINALIZING | End Trip | Capture stopped, ring buffer cleared; pending moments finalized |
 | FINALIZING → PLANNING | All moments finalized | At least 1 clip, else ERROR(no_moments) |
 | PLANNING → RENDERING | Valid edit spec or fallback plan | |
 | RENDERING → COMPLETED | Export succeeds and the file plays | "Video ready" only after this check |
@@ -357,7 +364,7 @@ Music tracks are bundled with the app. Licensing is open.
 
 ## 11. Non-functional requirements
 
-### 11.1 Timing budget (trigger to protected footage)
+### 11.1 Timing budget (trigger to held footage)
 
 | Step | Target | Worst case |
 |---|---|---|
@@ -365,15 +372,15 @@ Music tracks are bundled with the app. Licensing is open.
 | Peak confirmation (next sample, §6 rule 2) | 2 s | 2 s |
 | On-phone gate | 30 ms | 100 ms |
 | Hold placed | immediate | immediate |
-| **Time to protection** | **~4 s** | **~4.1 s** |
+| **Time to hold** | **~4 s** | **~4.1 s** |
 | Cloud decision (off critical path) | 2–4 s | 8 s, then local fallback |
 
-Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom.
+Required buffer is the 15 s pre-roll plus about 4 s plus up to 2 s back to a keyframe, so 45 s gives wide headroom.
 
 ### 11.2 Reliability
 
 - Capture never depends on the network, and cloud failure only triggers the local fallback.
-- Crash restart reconciles the segment index and restores brightness.
+- Crash restart deletes partial clips, releases held moments and restores brightness (§5.4).
 - Disk, thermal and battery guards in §4.1, §5.4.
 
 ### 11.3 Security and privacy (PRD §10)
@@ -382,7 +389,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 - Only 512 px sample frames and 384 px thumbnails leave the phone. Full video stays on the device.
 - **Exception (cloud render engine, §9.2):** when Remotion is chosen, the trimmed ranges of the selected clips are uploaded to the render service. It deletes the uploaded clips when the job ends, and the output after it is downloaded or `RENDER_TTL_S` (15 min) after the job ends, whichever comes first. Its logs hold ids, timings and error codes, never video. This needs "Allow cloud analysis" on, and the consent screen must say that selected clips are uploaded for rendering and then deleted.
 - Model API keys live in the backend `.env`. The app holds only the app token.
-- Unselected segments are deleted within `BUFFER_RETENTION_S`. Backend logs must not store frames; provider retention terms must be checked and shown to the user.
+- Footage that is not selected is never written to disk: it leaves the in-memory ring buffer within `BUFFER_RETENTION_S`. Backend logs must not store frames; provider retention terms must be checked and shown to the user.
 - "Allow cloud analysis" is asked at setup. When off, only the local fallback and the button work.
 - Audio is off by default. Prompts forbid identifying people.
 
@@ -390,9 +397,9 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 ### 12.1 Technical gates (no hour marks; the schedule is open)
 
-1. **Capture:** 10 minutes of 1080p30 segments with the screen at 0 brightness, no dropped segments, thermal state not above `.fair`.
+1. **Capture:** 10 minutes of 1080p30 capture and encoding into the ring buffer with the screen at 0 brightness, no dropped frames, memory use flat, thermal state not above `.fair`.
 2. **Battery:** the spike (below) gives battery and heat numbers at a fixed 30 fps. (Tier floors and mid-session rate changes wait for §4.3.)
-3. **Buffer:** a button press at T yields a clip spanning at least `T−15 s` to `T+15 s`, checked with a burned-in clock; unprotected segments older than 45 s are gone.
+3. **Buffer:** a button press at T yields a clip spanning at least `T−15 s` to `T+15 s`, checked with a burned-in clock; samples older than 45 s are gone from the buffer, and no unselected footage is on disk.
 4. **Button:** a Bluetooth remote press is received with the screen at 0 brightness, in the foreground, with the haptic.
 5. **Setup flow:** a new user reaches Start Recording in under 2 minutes; choices persist.
 6. **Detection:** on a replayed 10-minute walk, the gate escalates at most 10 % of samples (forced samples included) and the cascade saves 3 of 3 scripted moments.
@@ -403,7 +410,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 ### 12.2 Test plan
 
-- **Unit (XCTest):** trip state machine (pause and resume), gate logic, budget bucket, buffer protection and cleanup (overlapping and pending protections, finalize on pause), edit-spec validator (effective target), merging.
+- **Unit (XCTest):** trip state machine (pause and resume), gate logic, budget bucket, ring buffer (append, trim, keyframe lookup), holds and clip writing (overlapping and pending holds, release on skip, finalize on pause), edit-spec validator (effective target), merging.
 - **Backend (pytest):** schema validation, budget enforcement, error paths.
 - **Replay harness:** recorded sample folders with labeled "should save" timestamps; reports precision, recall and calls per minute per threshold set.
 - **Personalization check:** the same replay with "honeymoon" vs. "school" produces different top moments.
@@ -412,7 +419,7 @@ Required buffer is the 15 s pre-roll plus about 4 s, so 45 s gives wide headroom
 
 ### 12.3 The first spike (throwaway)
 
-A small test app that records at 30 fps for 10 minutes, screen at 0 brightness, logging battery level and thermal state while writing segments. Run on a real iPhone. It answers the battery question and the §5.1 assumptions. (The mid-session rate-change test returns with §4.3.)
+A small test app that records at 30 fps for 10 minutes, screen at 0 brightness, logging battery level, thermal state and memory while encoding into the ring buffer and saving a 30 s passthrough clip every minute. Run on a real iPhone. It answers the battery question and the §5.1 and §5.3 assumptions: a clip written by passthrough starts on a keyframe and plays with audio in sync, and memory stays flat. (The mid-session rate-change test returns with §4.3.)
 
 ### 12.4 Replay mode and the demo (Decided: pre-recorded footage; mechanism Proposal)
 
@@ -424,7 +431,8 @@ Demo script: (1) run onboarding live, (2) start replay of a 3–5 minute walk re
 
 | Risk | Mitigation |
 |---|---|
-| Segment output is not joinable | Rotating-writer fallback |
+| Passthrough clip does not play or loses audio sync | Re-encode the held samples when saving (more battery, only at save time) |
+| Ring buffer memory grows or the app is killed for memory | Compressed samples only, shorter retention on memory warning (§5.2) |
 | Bluetooth remote not received with a dark screen | Test early; custom BLE fallback |
 | User backgrounds or locks the app | Foreground-only design, pause with a notification, clear onboarding message |
 | Phone worn wrong (pocket, wrong orientation) | Mounting guide in onboarding, orientation check with a haptic prompt |

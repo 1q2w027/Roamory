@@ -178,7 +178,7 @@ Interaction ideas under consideration (author's proposals):
 
 - When a moment is selected (by the AI or the Bluetooth button), the buffered footage around it is protected from deletion and kept for the final video. This allows keeping the seconds before the moment.
 - (Proposed) The buffer must be longer than the cloud decision delay plus the pre-roll, so a late decision still finds its footage. Exact length is open.
-- (Proposed) The buffer is stored on the phone. Unselected footage is deleted when it leaves the buffer.
+- (Proposed) The buffer is held in the phone's memory, not on disk. Unselected footage is discarded when it leaves the buffer and is never written to storage.
 
 ### 5.3 Bluetooth Button (Decided)
 
