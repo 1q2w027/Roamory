@@ -41,9 +41,8 @@ struct DestinationStep: View {
             GlobeView(
                 catalog: catalog,
                 focusedContinent: currentContinent?.id,
-                focus: revealed ? (currentCity?.location ?? currentCountry?.cities.first?.location
-                    ?? currentContinent?.center) : nil,
-                zoom: !revealed || currentContinent == nil ? .world : currentCountry == nil ? .continent : .country,
+                focus: revealed ? focus : nil,
+                distance: revealed ? distance : GlobeView.worldDistance,
                 pins: revealed ? currentCountry?.cities ?? [] : [],
                 selectedPin: currentCity?.name,
                 onTapContinent: chooseContinent,
@@ -53,6 +52,19 @@ struct DestinationStep: View {
             .clipShape(Circle())
             .overlay { Circle().strokeBorder(Color(hex: "#3b82f6").opacity(0.25), lineWidth: 1) }
         }
+    }
+
+    private var focus: GeoPoint? { currentCity?.location ?? currentCountry?.center ?? currentContinent?.center }
+
+    /// Close enough that the whole continent, or all of the country's cities, fill most of the globe.
+    private var distance: Double {
+        func fit(_ points: [GeoPoint], around center: GeoPoint) -> Double {
+            GeoMath.cameraDistance(fitting: points, around: center, fieldOfView: GlobeView.fieldOfView, fill: 0.9,
+                                   range: GlobeView.closestDistance...GlobeView.worldDistance)
+        }
+        if let country = currentCountry, let focus { return fit(country.cities.map(\.location), around: focus) }
+        if let continent = currentContinent { return fit(continent.outlines.flatMap { $0 }, around: continent.center) }
+        return GlobeView.worldDistance
     }
 
     private var breadcrumb: some View {

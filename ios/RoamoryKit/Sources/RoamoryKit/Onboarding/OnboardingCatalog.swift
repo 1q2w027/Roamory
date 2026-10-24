@@ -33,6 +33,8 @@ public struct Country: Codable, Equatable, Sendable, Identifiable {
     public var name: String
     public var cities: [City]
     public var id: String { name }
+    /// Midway between the cities, where the globe looks before one is chosen.
+    public var center: GeoPoint { GeoMath.center(of: cities.map(\.location)) }
 }
 
 public struct Continent: Codable, Equatable, Sendable, Identifiable {
