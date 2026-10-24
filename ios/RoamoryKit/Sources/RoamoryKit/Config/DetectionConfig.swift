@@ -10,6 +10,9 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
     public var jpegLongEdgePx: Int
     public var jpegQuality: Double
     public var framesPerRequest: Int
+    /// Seconds a moment keeps before and after its trigger (TRD 5.3 `PRE_S`, `POST_S`).
+    public var preS: Int
+    public var postS: Int
 
     /// Local score L = weights · (change spike, dwell, quality, novelty).
     public var weightChangeSpike: Double
@@ -55,6 +58,8 @@ public struct DetectionConfig: Codable, Sendable, Equatable {
         case jpegLongEdgePx = "jpeg_long_edge_px"
         case jpegQuality = "jpeg_quality"
         case framesPerRequest = "frames_per_request"
+        case preS = "pre_s"
+        case postS = "post_s"
         case weightChangeSpike = "weight_change_spike"
         case weightDwell = "weight_dwell"
         case weightQuality = "weight_quality"

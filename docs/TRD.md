@@ -190,7 +190,7 @@ Drop samples older than `BUFFER_RETENTION_S`.
 
 ### 5.3 Holding and saving a moment — Deferred
 
-> **Deferred.** For now a kept moment is saved with the ring buffer's one-step `start()`/`stop()` (§5.5). Per-window holds, partial saves, extension and overlap sharing are not built. The design below is kept for when whole-buffer clips prove too large, or overlapping moments lose footage.
+> **Deferred.** For now a kept moment's window is cut out of the ring buffer in one pass when it is decided (§5.5). Per-window holds (sample references), writing live samples, extension and overlap sharing are not built. The design below is kept for when the decision can come too late for the buffer's retention.
 
 1. Trigger at time T creates `Moment{fromMs = max(sessionStartMs, T - PRE_S*1000), toMs = T + POST_S*1000}`, default `PRE_S = POST_S = 15`, with status `held`.
 2. The moment takes a **hold**: references to the buffered samples from the last keyframe at or before `fromMs` to now, plus every live sample until `toMs`. The references keep those samples alive after the ring buffer trims them. Overlapping holds share the same samples, so memory is the union of the windows, not their sum.
@@ -205,13 +205,13 @@ Drop samples older than `BUFFER_RETENTION_S`.
 - On launch, delete any clip in `clips/` that has no sidecar JSON (it was being written), and mark moments still `held` as `released`.
 - If free space is under 2 GB, stop AI-driven moments, keep button moments, and show a warning. Only saved clips use disk, so this should be rare.
 
-### 5.5 Current implementation: one-step save
+### 5.5 Current implementation: window save
 
-- A keep is decided at `triggerMs + POST_S + 2 s`, so `[T - PRE_S, T + POST_S]` is inside the 45 s buffer at that moment.
-- The app calls the recorder's `start()` and then `stop()`, which writes the buffered footage (up to 45 s, not the exact window) to `clips/{momentId}.mp4`.
-- The sidecar has `fromMs = max(0, nowMs - preroll)`, `toMs = fromMs + durationS`, and `triggerMs` as the original trigger, so the planner trims the clip to the window.
+- A keep is decided at `triggerMs + POST_S + 2 s`, so `[T - PRE_S, T + POST_S]` (plus up to 2 s back to a keyframe) is inside the 45 s buffer at that moment. `PRE_S`/`POST_S` are `pre_s`/`post_s` in `detection_config.json`.
+- The app calls the recorder's `writeClip(from:to:url:)`, which copies that window, from the keyframe at or before `fromMs`, to `trips/{tripId}/clips/{momentId}.mp4` by passthrough. The buffer is not emptied, so overlapping moments each get a full clip.
+- The trip clock and the buffer share the capture session's host clock. The sidecar's `from_ms`/`to_ms` are the trip-clock times of the clip's first and last frame; it is written after the mp4.
 - A release writes nothing. The `held` status is bookkeeping only: the footage is protected by the 45 s retention, not by references.
-- Known limit: a save empties the buffer, so a second keep within 45 s has less pre-roll.
+- If capture was interrupted mid-window and the clip no longer reaches back to its trigger, the clip is dropped and counted as a failed save. Stopping detection finalizes pending moments with the footage up to now.
 
 ## 6. Stage 1: on-phone signals and the escalation gate
 

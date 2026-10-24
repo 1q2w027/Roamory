@@ -7,6 +7,14 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Roamory connects to services on your local network to choose moments and make highlight videos.</string>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NSMotionUsageDescription</key>
+	<string>Roamory notices when you stop to look around, so it keeps those moments.</string>
 	<key>RoamoryAPIBaseURL</key>
 	<string>$(ROAMORY_API_BASE_URL)</string>
 	<key>RoamoryAppToken</key>

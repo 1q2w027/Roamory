@@ -6,7 +6,6 @@
 //
 
 import AVKit
-import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
@@ -74,7 +73,7 @@ struct ContentView: View {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
                 await detection.stop()
-                detection.start(.current())
+                detection.start(.current(), recorder: camera.recorder)
             }
         }) {
             NavigationStack { DetectionSettingsView(backend: detection.backend) }
@@ -85,19 +84,12 @@ struct ContentView: View {
         }
         // Detection runs for as long as the camera does, like the buffer.
         .onChange(of: camera.isReady) { _, ready in
-            if ready { detection.start(.current()) }
+            if ready { detection.start(.current(), recorder: camera.recorder) }
         }
         .task {
             camera.frameInterval = detection.frameInterval
             let sink = detection.sink
             camera.onFrame = { sink.handle($0) }
-            // A kept moment is written out of the ring buffer (TRD §5.5).
-            let saver = OneStepSaver.forCamera(recorder: camera.recorder, tripFolder: .documentsDirectory.appending(path: "Trip"),
-                                               sessionId: UUID().uuidString, clock: detection.clock)
-            detection.onKeep = { moment in
-                if case .success = await saver.save(moment) { return true }
-                return false
-            }
             await camera.prepare()
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
@@ -109,7 +101,7 @@ struct ContentView: View {
     private var detectionStatus: some View {
         let s = detection.summary
         return VStack(spacing: 2) {
-            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released)\(s.failedSaves > 0 ? " · lost \(s.failedSaves)" : "")\(s.cloud ? "" : " · offline")")
+            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released) · saved \(s.saved)\(s.saveFailed > 0 ? " · \(s.saveFailed) failed" : "")\(s.cloud ? "" : " · offline")")
                 .font(.caption.monospacedDigit())
             if let last = s.lastDescription {
                 Text(last).font(.caption2).lineLimit(1)

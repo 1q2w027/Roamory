@@ -1,4 +1,5 @@
 import Combine
+import CoreMedia
 import CoreVideo
 import Foundation
 import RoamoryKit
@@ -12,25 +13,23 @@ struct DetectionSummary: Equatable {
     var keptButton = 0
     var keptFallback = 0
     var released = 0
-    /// Kept moments whose clip could not be saved from the ring buffer.
-    var failedSaves = 0
+    /// Kept moments written to the trip folder, and those that could not be.
+    var saved = 0
+    var saveFailed = 0
     var lastDescription: String?
     var cloud = false
 }
 
 /// Connects the camera to Stage 1 detection (TRD §6): frames → `MomentDetector` → holds → keep or release.
-/// The ring buffer (TRD §5) does not exist yet, so `InMemoryMomentHolder` stands in and no clip is saved;
-/// decisions are shown on screen and logged.
+/// A kept moment is cut out of the ring buffer (TRD §5) by `MomentClipStore`. `InMemoryMomentHolder` only keeps the
+/// books: the footage is protected by the buffer's 45 s retention, which outlasts the time from a window's start to
+/// its decision (pre + post + 5 s).
 @MainActor
 final class DetectionController: ObservableObject {
     @Published private(set) var summary = DetectionSummary()
     @Published private(set) var isRunning = false
     /// Give `sink.handle` to `CameraService.onFrame`.
     let sink = FrameSink()
-    /// The trip clock, for the clip saver.
-    let clock = TripClock()
-    /// Called when a moment is kept (TRD §5.5 saves the clip from the ring buffer); returns whether it was saved.
-    var onKeep: (@Sendable (KeptMoment) async -> Bool)?
     let config = try? DetectionConfig.bundled()
     /// Seconds between frames for `CameraService.frameInterval`.
     var frameInterval: TimeInterval { config?.sampleIntervalS ?? 2 }
@@ -43,17 +42,22 @@ final class DetectionController: ObservableObject {
     private let motion = MotionDwell()
     private var detector: MomentDetector?
     private var holder: InMemoryMomentHolder?
-    private var tripId = ""
+    private var store: MomentClipStore?
     private var consumer: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
-    private var startUptime: TimeInterval = 0
+    private var clock = TripClock(originS: 0)
     private let log = Logger(subsystem: "com.roamory.Roamory", category: "detection")
 
     /// Trip clock: milliseconds since recording started.
-    private var nowMs: Int { Int((ProcessInfo.processInfo.systemUptime - startUptime) * 1000) }
+    private var nowMs: Int { clock.tripMs(atBufferTime: Self.clockNow()) }
+
+    /// Now on the capture session's clock (host time), which stamps the buffered samples.
+    nonisolated static func clockNow() -> Double {
+        CMClockGetTime(CMClockGetHostTimeClock()).seconds
+    }
 
     /// Each recording is one trip for now (no trip setup yet); its first session starts here.
-    func start(_ settings: DetectionSettings) {
+    func start(_ settings: DetectionSettings, recorder: RollingRecorder) {
         guard let config, detector == nil else { return }
         let evaluator = settings.cloudAllowed ? EvaluateClient.fromBundle(config: config) : nil
         let trip = TripInfo(
@@ -62,21 +66,20 @@ final class DetectionController: ObservableObject {
             destination: .init(continent: nil, country: settings.country, city: settings.city.isEmpty ? nil : settings.city),
             lengthDays: 1
         )
-        let holder = InMemoryMomentHolder()
+        let holder = InMemoryMomentHolder(postS: config.postS)
         let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
                                       cloudAllowed: evaluator != nil, demoMode: settings.demoMode)
         self.holder = holder
-        self.tripId = trip.tripId
         self.detector = detector
-        startUptime = ProcessInfo.processInfo.systemUptime
-        clock.start(at: startUptime)
+        clock = TripClock(originS: Self.clockNow())
+        store = MomentClipStore(recorder: recorder, tripId: trip.tripId, clock: clock)
         summary = DetectionSummary(cloud: evaluator != nil)
         isRunning = true
         log.info("start trip=\(trip.tripId, privacy: .public) cloud=\(evaluator != nil) demo=\(settings.demoMode)")
 
         motion.start()
         let (frames, continuation) = AsyncStream.makeStream(of: SampledFrame.self, bufferingPolicy: .bufferingNewest(2))
-        sink.begin(config: config, startUptime: startUptime, dwell: { [motion] in motion.current }, continuation: continuation)
+        sink.begin(config: config, clock: clock, dwell: { [motion] in motion.current }, continuation: continuation)
         // One task ingests in order; MomentDetector's peak and change logic depend on it.
         consumer = Task {
             for await frame in frames { await detector.ingest(frame) }
@@ -94,15 +97,17 @@ final class DetectionController: ObservableObject {
         guard let detector, let holder else { return }
         sink.end()
         ticker?.cancel()
+        // A finalizeDue already running would otherwise finalize (and save) the same moments as the loop below.
+        await ticker?.value
         await consumer?.value
         for id in await holder.pending() {
-            record(await detector.finalDecision(for: id), id: id)
-            await holder.markFinalized(id)
+            await finalize(id, detector: detector, holder: holder)
         }
         motion.stop()
         log.info("stop holds=\(self.summary.holds) kept=\(self.summary.keptAI + self.summary.keptButton + self.summary.keptFallback) released=\(self.summary.released)")
         self.detector = nil
         self.holder = nil
+        store = nil
         consumer = nil
         ticker = nil
         isRunning = false
@@ -123,9 +128,29 @@ final class DetectionController: ObservableObject {
         guard let detector, let holder else { return }
         await refreshHolds()
         for id in await holder.due(atMs: nowMs) {
-            record(await detector.finalDecision(for: id), id: id)
-            await holder.markFinalized(id)
+            await finalize(id, detector: detector, holder: holder)
         }
+    }
+
+    /// Decides a moment and, when it is kept, saves its clip in the background, so stopping never waits on a write.
+    private func finalize(_ id: String, detector: MomentDetector, holder: InMemoryMomentHolder) async {
+        let decision = await detector.finalDecision(for: id)
+        record(decision, id: id)
+        if case .keep(let source, _, _, _) = decision, let config, let store,
+           let hold = await holder.holds.first(where: { $0.id == id }) {
+            let window = MomentWindow(triggerMs: hold.triggerMs, preS: config.preS, postS: config.postS)
+            Task {
+                do {
+                    let url = try await store.save(momentId: id, source: source, triggerMs: hold.triggerMs, window: window)
+                    summary.saved += 1
+                    log.info("saved \(id, privacy: .public) \(url.lastPathComponent, privacy: .public)")
+                } catch {
+                    summary.saveFailed += 1
+                    log.error("save failed \(id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        }
+        await holder.markFinalized(id)
     }
 
     private func refreshHolds() async {
@@ -142,15 +167,6 @@ final class DetectionController: ObservableObject {
             case .localFallback: summary.keptFallback += 1
             }
             if let description { summary.lastDescription = description }
-            if let onKeep, let holder {
-                let tripId = tripId
-                Task {
-                    guard let hold = await holder.holds.first(where: { $0.id == id }) else { return }
-                    if await onKeep(KeptMoment(id: id, source: source, triggerMs: hold.triggerMs, tripId: tripId)) == false {
-                        summary.failedSaves += 1
-                    }
-                }
-            }
             log.info("keep \(id, privacy: .public) source=\(source.rawValue, privacy: .public) score=\(score ?? -1)")
         case .release:
             summary.released += 1
@@ -164,15 +180,15 @@ final class DetectionController: ObservableObject {
 nonisolated final class FrameSink: @unchecked Sendable {
     private let lock = NSLock()
     private var config: DetectionConfig?
-    private var startUptime: TimeInterval = 0
+    private var clock = TripClock(originS: 0)
     private var dwell: (@Sendable () -> Double)?
     private var continuation: AsyncStream<SampledFrame>.Continuation?
 
-    func begin(config: DetectionConfig, startUptime: TimeInterval, dwell: @escaping @Sendable () -> Double,
+    func begin(config: DetectionConfig, clock: TripClock, dwell: @escaping @Sendable () -> Double,
                continuation: AsyncStream<SampledFrame>.Continuation) {
         lock.withLock {
             self.config = config
-            self.startUptime = startUptime
+            self.clock = clock
             self.dwell = dwell
             self.continuation = continuation
         }
@@ -187,9 +203,9 @@ nonisolated final class FrameSink: @unchecked Sendable {
     }
 
     func handle(_ pixels: CVPixelBuffer) {
-        let state = lock.withLock { (config, startUptime, dwell, continuation) }
+        let state = lock.withLock { (config, clock, dwell, continuation) }
         guard let config = state.0, let dwell = state.2, let continuation = state.3 else { return }
-        let tMs = Int((ProcessInfo.processInfo.systemUptime - state.1) * 1000)
+        let tMs = state.1.tripMs(atBufferTime: DetectionController.clockNow())
         let portrait = CVPixelBufferGetHeight(pixels) > CVPixelBufferGetWidth(pixels)
         let (w, h) = portrait ? (config.lumaHeight, config.lumaWidth) : (config.lumaWidth, config.lumaHeight)
         guard let jpeg = FrameSampler.jpeg(pixels, longEdge: config.jpegLongEdgePx, quality: config.jpegQuality) else { return }
