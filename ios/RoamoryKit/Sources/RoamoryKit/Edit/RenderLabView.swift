@@ -9,6 +9,8 @@ public struct RenderLabView: View {
     private struct Run: Identifiable {
         let id = UUID()
         var style: Style
+        /// The engine asked for; the summary says which one made the file.
+        var engine: String
         var clipCount: Int
         var summary: String
         var url: URL?
@@ -17,6 +19,8 @@ public struct RenderLabView: View {
 
     @State private var clipCount = 3
     @State private var useCloud = false
+    /// "avfoundation", "remotion", or "both" (each style on each engine, to compare render times).
+    @State private var engine = "avfoundation"
     @State private var forceExportFailure = false
     @State private var current: EditCoordinator?
     @State private var runs: [Run] = []
@@ -25,6 +29,8 @@ public struct RenderLabView: View {
 
     private let sources = RenderLab.sourceFiles()
     private let cloud = (try? EditConfig.bundled()).flatMap { PlanClient.fromBundle(config: $0) }
+    private let hasRenderService = (try? EditConfig.bundled())
+        .flatMap { RemoteRenderClient.fromBundle(config: $0, trip: RenderLab.trip) } != nil
 
     public init() {}
 
@@ -37,6 +43,13 @@ public struct RenderLabView: View {
                 }
                 .pickerStyle(.segmented)
                 Toggle("Cloud planner", isOn: $useCloud).disabled(cloud == nil)
+                Picker("Engine", selection: $engine) {
+                    Text("AVFoundation").tag("avfoundation")
+                    Text("Remotion").tag("remotion")
+                    Text("Both").tag("both")
+                }
+                .pickerStyle(.segmented)
+                .disabled(!hasRenderService)
                 Toggle("Force export failure (hard-cut retry)", isOn: $forceExportFailure)
             }
 
@@ -58,7 +71,7 @@ public struct RenderLabView: View {
             Section("Results") {
                 ForEach(runs.reversed()) { run in
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("\(run.style.rawValue), \(run.clipCount) clips").font(.headline)
+                        Text("\(run.style.rawValue), \(run.engine), \(run.clipCount) clips").font(.headline)
                         Text(run.summary).font(.caption)
                         Text(run.moments.map { "\($0.isButton ? "●" : "○") \($0.momentId) @\(String(format: "%.1f", $0.startS))s" }
                             .joined(separator: "  ")).font(.caption2)
@@ -90,28 +103,35 @@ public struct RenderLabView: View {
             let presets = try StylePresets.bundled()
             let config = try EditConfig.bundled()
             let clips = try await RenderLab.clips(count: clipCount, from: sources)
-            var renderer = Renderer(config: config)
-            renderer.simulateTransitionFailure = forceExportFailure
             let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appending(path: "RenderLab")
+            let engines = !hasRenderService ? ["avfoundation"] : engine == "both" ? ["avfoundation", "remotion"] : [engine]
             for style in styles {
-                var trip = RenderLab.trip
-                trip.style = style
-                trip.allowCloudAnalysis = useCloud
-                let coordinator = EditCoordinator(
-                    trip: trip, clips: clips, outputDirectory: output, presets: presets, config: config,
-                    service: useCloud ? cloud : nil, renderer: renderer
-                )
-                current = coordinator
-                await coordinator.run()
-                runs.append(Run(style: style, clipCount: clipCount, summary: Self.summary(coordinator),
-                                url: coordinator.renderResult?.url, moments: coordinator.reviewMoments))
+                for engine in engines {
+                    var config = config
+                    config.renderEngine = engine
+                    var renderer = Renderer(config: config)
+                    renderer.simulateTransitionFailure = forceExportFailure
+                    var trip = RenderLab.trip
+                    trip.style = style
+                    // The remote engine needs cloud consent; the planner stays local unless "Cloud planner" is on.
+                    trip.allowCloudAnalysis = useCloud || engine == "remotion"
+                    let coordinator = EditCoordinator(
+                        trip: trip, clips: clips, outputDirectory: output.appending(path: engine), presets: presets, config: config,
+                        service: useCloud ? cloud : nil, renderer: renderer,
+                        remoteRenderer: RemoteRenderClient.fromBundle(config: config, trip: trip)
+                    )
+                    current = coordinator
+                    await coordinator.run()
+                    runs.append(Run(style: style, engine: engine, clipCount: clipCount, summary: Self.summary(coordinator, requested: engine),
+                                    url: coordinator.renderResult?.url, moments: coordinator.reviewMoments))
+                }
             }
         } catch {
             setupError = String(describing: error)
         }
     }
 
-    private static func summary(_ c: EditCoordinator) -> String {
+    private static func summary(_ c: EditCoordinator, requested: String) -> String {
         guard let result = c.renderResult else { return describe(c.phase) }
         let source = switch c.planOutcome?.source {
         case .cloud: "cloud plan"
@@ -119,7 +139,8 @@ public struct RenderLabView: View {
         case nil: "?"
         }
         let short = c.planOutcome.map { EditSpecValidator.onlyTooShort($0.violations) } == true ? ", short: not enough footage" : ""
-        return String(format: "%.1f s video in %.1f s, ", result.durationS, result.elapsedS) + source
+        let fellBack = requested != result.engine ? " (remote failed, see the log)" : ""
+        return String(format: "%.1f s video in %.1f s by %@%@, ", result.durationS, result.elapsedS, result.engine, fellBack) + source
             + (result.usedHardCutRetry ? ", hard-cut retry" : "") + short
     }
 

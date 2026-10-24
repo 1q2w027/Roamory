@@ -18,6 +18,8 @@ public struct GeneratedVideo: Codable, Sendable, Equatable {
     public var editSpec: EditSpec?
     /// "cloud" or "fallback".
     public var planSource: String?
+    /// "avfoundation" or "remotion": the engine that made the file, after any fallback.
+    public var renderEngine: String?
     public var outputPath: String?
     public var durationS: Double?
     public var renderTimeS: Double?
@@ -67,6 +69,9 @@ public final class EditCoordinator {
     private let config: EditConfig
     private let service: (any PlanService)?
     private let renderer: Renderer
+    private let remoteRenderer: (any VideoRendering)?
+    /// Bumped per render attempt, so a late progress update from a failed remote render is dropped.
+    private var renderAttempt = 0
 
     private static let log = Logger(subsystem: "app.roamory", category: "edit")
 
@@ -74,9 +79,12 @@ public final class EditCoordinator {
     ///   - clips: every finalized clip of the trip.
     ///   - outputDirectory: where the MP4 and its `GeneratedVideo` JSON go.
     ///   - service: the cloud planner; nil plans on the phone.
+    ///   - renderer: the on-phone engine, also the fallback for the remote one.
+    ///   - remoteRenderer: the render service (`RemoteRenderClient`), used when `render_engine` is "remotion"
+    ///     and cloud analysis is on; nil always renders on the phone.
     public init(
         trip: TripContext, clips: [ClipInfo], outputDirectory: URL, presets: StylePresets, config: EditConfig,
-        service: (any PlanService)?, renderer: Renderer? = nil
+        service: (any PlanService)?, renderer: Renderer? = nil, remoteRenderer: (any VideoRendering)? = nil
     ) {
         self.trip = trip
         self.clips = clips
@@ -85,6 +93,7 @@ public final class EditCoordinator {
         self.config = config
         self.service = service
         self.renderer = renderer ?? Renderer(config: config)
+        self.remoteRenderer = remoteRenderer
     }
 
     public var isRunning: Bool {
@@ -140,14 +149,10 @@ public final class EditCoordinator {
             try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
             let url = outputDirectory.appending(path: "\(trip.tripId)_\(trip.style.rawValue).mp4")
             let urls = Dictionary(prepared.map { ($0.momentId, $0.clipURL) }, uniquingKeysWith: { first, _ in first })
-            let result = try await renderer.render(outcome.spec, clipURLs: urls, to: url) { progress in
-                Task { @MainActor [weak self] in
-                    guard let self, case .rendering = self.phase else { return }
-                    self.phase = .rendering(progress: progress)
-                }
-            }
+            let result = try await render(outcome.spec, clipURLs: urls, to: url)
             renderResult = result
             record.editSpec = result.spec
+            record.renderEngine = result.engine
             record.status = .completed
             record.outputPath = result.url.path
             record.durationS = result.durationS
@@ -158,6 +163,31 @@ public final class EditCoordinator {
             phase = .completed
         } catch {
             fail(&record, .rendering, String(describing: error))
+        }
+    }
+
+    /// The remote engine when chosen and allowed; on any error or timeout from it, AVFoundation, so the video always completes.
+    private func render(_ spec: EditSpec, clipURLs: [String: URL], to url: URL) async throws -> RenderResult {
+        if config.renderEngine == "remotion", trip.allowCloudAnalysis, let remoteRenderer {
+            do {
+                return try await remoteRenderer.render(spec, clipURLs: clipURLs, to: url, progress: progressHandler())
+            } catch where !(error is CancellationError) {
+                Self.log.error("Remote render failed, rendering on the phone: \(String(describing: error))")
+            }
+        }
+        return try await renderer.render(spec, clipURLs: clipURLs, to: url, progress: progressHandler())
+    }
+
+    /// Starts a render attempt (progress back to 0) and returns its progress callback.
+    private func progressHandler() -> @Sendable (Double) -> Void {
+        renderAttempt += 1
+        let attempt = renderAttempt
+        phase = .rendering(progress: 0)
+        return { progress in
+            Task { @MainActor [weak self] in
+                guard let self, attempt == self.renderAttempt, case .rendering = self.phase else { return }
+                self.phase = .rendering(progress: progress)
+            }
         }
     }
 

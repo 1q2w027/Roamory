@@ -22,6 +22,14 @@ public struct EditConfig: Codable, Sendable, Equatable {
     public var exportPreset: String
     /// Allowed difference between the exported and the planned duration.
     public var renderDurationToleranceS: Double
+    /// "avfoundation" (on the phone, the default) or "remotion" (the render service, TRD 9.2).
+    public var renderEngine: String
+    /// Whole remote render, from trimming to download; past it the phone renders locally.
+    public var remoteRenderTimeoutS: Double
+    /// How often to poll the render job.
+    public var remoteRenderPollS: Double
+    /// `AVAssetExportSession` preset for the trimmed clips uploaded to the render service.
+    public var remoteUploadPreset: String
 
     enum CodingKeys: String, CodingKey {
         case dedupeHamming = "dedupe_hamming"
@@ -36,6 +44,10 @@ public struct EditConfig: Codable, Sendable, Equatable {
         case endCardText = "end_card_text"
         case exportPreset = "export_preset"
         case renderDurationToleranceS = "render_duration_tolerance_s"
+        case renderEngine = "render_engine"
+        case remoteRenderTimeoutS = "remote_render_timeout_s"
+        case remoteRenderPollS = "remote_render_poll_s"
+        case remoteUploadPreset = "remote_upload_preset"
     }
 
     public static func bundled() throws -> EditConfig {

@@ -61,35 +61,53 @@ public struct PlanClient: PlanService {
     }
 
     static func multipartBody(_ request: PlanRequest, thumbnails: [String: [Data]], boundary: String) throws -> Data {
-        var body = Data()
-        func part(name: String, filename: String?, type: String, data: Data) {
-            body.append(Data("--\(boundary)\r\n".utf8))
-            let file = filename.map { "; filename=\"\($0)\"" } ?? ""
-            body.append(Data("Content-Disposition: form-data; name=\"\(name)\"\(file)\r\n".utf8))
-            body.append(Data("Content-Type: \(type)\r\n\r\n".utf8))
-            body.append(data)
-            body.append(Data("\r\n".utf8))
-        }
-        part(name: "request", filename: nil, type: "application/json", data: try JSONEncoder().encode(request))
+        var body = MultipartBody(boundary: boundary)
+        body.part(name: "request", type: "application/json", data: try JSONEncoder().encode(request))
         for clip in request.clips {
             let images = thumbnails[clip.momentId] ?? []
             for (k, jpeg) in images.prefix(clip.thumbnailCount).enumerated() {
                 let name = "\(clip.momentId)_\(k).jpg"
-                part(name: name, filename: name, type: "image/jpeg", data: jpeg)
+                body.part(name: name, filename: name, type: "image/jpeg", data: jpeg)
             }
         }
-        body.append(Data("--\(boundary)--\r\n".utf8))
-        return body
+        return body.finished()
     }
 }
 
-/// Runs `operation`, throwing `PlanClientError.timedOut` if it takes longer than `seconds`.
-func withTimeout<T: Sendable>(_ seconds: Double, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
+/// A `multipart/form-data` body, shared by the plan and render clients.
+struct MultipartBody {
+    let boundary: String
+    private var data = Data()
+
+    init(boundary: String) {
+        self.boundary = boundary
+    }
+
+    var contentType: String { "multipart/form-data; boundary=\(boundary)" }
+
+    mutating func part(name: String, filename: String? = nil, type: String, data part: Data) {
+        data.append(Data("--\(boundary)\r\n".utf8))
+        let file = filename.map { "; filename=\"\($0)\"" } ?? ""
+        data.append(Data("Content-Disposition: form-data; name=\"\(name)\"\(file)\r\n".utf8))
+        data.append(Data("Content-Type: \(type)\r\n\r\n".utf8))
+        data.append(part)
+        data.append(Data("\r\n".utf8))
+    }
+
+    func finished() -> Data {
+        data + Data("--\(boundary)--\r\n".utf8)
+    }
+}
+
+/// Runs `operation`, throwing `timeoutError` if it takes longer than `seconds`.
+func withTimeout<T: Sendable>(
+    _ seconds: Double, error timeoutError: any Error = PlanClientError.timedOut, _ operation: @escaping @Sendable () async throws -> T
+) async throws -> T {
     try await withThrowingTaskGroup(of: T.self) { group in
         group.addTask { try await operation() }
         group.addTask {
             try await Task.sleep(for: .seconds(seconds))
-            throw PlanClientError.timedOut
+            throw timeoutError
         }
         defer { group.cancelAll() }
         return try await group.next()!

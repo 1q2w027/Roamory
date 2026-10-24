@@ -34,6 +34,44 @@ final class ContractsTests: XCTestCase {
         try assertRoundTrip(Evaluation.self, "examples/evaluation_skip_2b.json")
     }
 
+    func testRenderExamplesRoundTrip() throws {
+        for style in Style.allCases {
+            try assertRoundTrip(RenderRequest.self, "examples/render_request_\(style.rawValue).json")
+        }
+        try assertRoundTrip(RenderJob.self, "examples/render_job_rendering.json")
+        try assertRoundTrip(RenderJob.self, "examples/render_job_failed.json")
+    }
+
+    /// Golden timelines (contracts README): both engines place every clip at the same time, within 1 ms.
+    func testEditTimelineMatchesTheGoldenTimelines() throws {
+        struct Golden: Decodable {
+            struct Slot: Decodable {
+                var moment_id: String
+                var start_s: Double
+                var end_s: Double
+            }
+            var slots: [Slot]
+            var end_card_start_s: Double
+            var total_s: Double
+        }
+        for style in Style.allCases {
+            let golden = try Fixtures.decode(Golden.self, "examples/timeline_\(style.rawValue).json")
+            let spec = try Fixtures.editSpec(style)
+            let slots = EditTimeline.slots(spec)
+            XCTAssertEqual(slots.map(\.momentId), golden.slots.map(\.moment_id), "\(style)")
+            for (slot, want) in zip(slots, golden.slots) {
+                XCTAssertEqual(slot.startS, want.start_s, accuracy: 0.001, "\(style) \(slot.momentId)")
+                XCTAssertEqual(slot.endS, want.end_s, accuracy: 0.001, "\(style) \(slot.momentId)")
+            }
+            XCTAssertEqual(slots.last?.endS ?? 0, golden.end_card_start_s, accuracy: 0.001, "\(style)")
+            XCTAssertEqual(EditTimeline.totalDurationS(spec), golden.total_s, accuracy: 0.001, "\(style)")
+
+            // The rebased spec in the render request keeps the same timeline.
+            let rebased = try Fixtures.decode(RenderRequest.self, "examples/render_request_\(style.rawValue).json").editSpec
+            XCTAssertEqual(EditTimeline.totalDurationS(rebased), golden.total_s, accuracy: 0.001, "\(style) rebased")
+        }
+    }
+
     func testEvaluateDestinationEncodesExplicitNull() throws {
         let d = EvaluateContext.Destination(continent: nil, country: "Japan", city: nil)
         let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(d)) as! [String: Any]
