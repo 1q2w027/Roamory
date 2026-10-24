@@ -199,7 +199,7 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    /// Sends frames spread over the buffer to the model chosen in settings and shows the description it returns in `summary`.
+    /// Sends the frames recorded since the last successful Evaluate, spread evenly, to the model chosen in settings and shows the description it returns in `summary`.
     func evaluate() {
         guard !isEvaluating else { return }
         isEvaluating = true
@@ -208,9 +208,11 @@ final class CameraService: NSObject, ObservableObject,
         Task {
             defer { isEvaluating = false }
             do {
-                let frames = try recorder.snapshotFrames(count: SummarySettings.frameCount)
+                let (frames, through) = try recorder.peekFrames(count: SummarySettings.frameCount)
                 evaluation = SentEvaluation(frames: frames, details: SummaryClient.detailsPrompt)
                 summary = try await SummaryClient.summarize(frames: frames)
+                // Only a successful request uses the frames up; after a failure the next Evaluate sends them again.
+                recorder.discardFrames(through: through)
             } catch {
                 message = "Evaluate failed: \(error.localizedDescription)"
             }
