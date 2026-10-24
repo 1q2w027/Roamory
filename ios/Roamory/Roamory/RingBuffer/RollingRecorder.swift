@@ -4,8 +4,11 @@
 //
 
 import AVFoundation
+import CoreImage
+import ImageIO
 
-/// Keeps the last `retention` seconds of camera video (and audio) in memory as encoded samples.
+/// Keeps the last `retention` seconds of camera video (and audio) in memory as encoded samples, plus a small
+/// JPEG still taken at every keyframe, so a few frames can be sent off without decoding the video.
 /// `start()` saves the whole buffer to a file and keeps writing live samples to it; `stop()` closes the
 /// file. The buffer keeps filling either way. Nothing reaches the disk unless `start()` is called.
 nonisolated final class RollingRecorder: @unchecked Sendable {
@@ -13,6 +16,9 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
         /// How much footage the buffer keeps, in seconds.
         var retention = 45.0
         var encoder = HEVCEncoder.Config()
+        /// Longest side, in pixels, and JPEG quality of the stills.
+        var stillMaxSide: CGFloat = 768
+        var stillQuality: CGFloat = 0.6
         /// A pause in the video longer than this (seconds) means capture was interrupted, e.g. the app was in the background.
         var gapThreshold = 1.0
     }
@@ -49,6 +55,8 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     private let queue = DispatchQueue(label: "roamory.buffer")
     private var video: RingBuffer<CMSampleBuffer>
     private var audio: RingBuffer<CMSampleBuffer>
+    /// A JPEG of the frame at each keyframe the recorder asked for, so about one per `keyframeInterval`.
+    private var stills: RingBuffer<Data>
     private var videoFormat: CMFormatDescription?
     private var audioFormat: CMFormatDescription?
     private var writer: ClipWriter?
@@ -56,13 +64,24 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     private var stopContinuation: CheckedContinuation<ClipWriter, Error>?
     private let stopTimeout: TimeInterval
     private let gapThreshold: TimeInterval
+    private let stillInterval: TimeInterval
+    private let stillMaxSide: CGFloat
+    private let stillQuality: CGFloat
+    private let ciContext = CIContext()
+    /// Camera frame times, touched only on the capture queue (`handle(video:)`).
+    private var lastFrameTime: Double?
+    private var lastStillTime: Double?
     private var encoder: HEVCEncoder!
 
     init(config: Config = Config()) {
         stopTimeout = config.encoder.keyframeInterval + 1
         gapThreshold = config.gapThreshold
+        stillInterval = config.encoder.keyframeInterval
+        stillMaxSide = config.stillMaxSide
+        stillQuality = config.stillQuality
         video = RingBuffer(retention: config.retention)
         audio = RingBuffer(retention: config.retention)
+        stills = RingBuffer(retention: config.retention)
         encoder = HEVCEncoder(config: config.encoder) { [weak self] sample, isKeyframe in
             self?.queue.async { self?.ingest(video: sample, isKeyframe: isKeyframe) }
         } onError: { [weak self] message in
@@ -75,7 +94,35 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
     /// A raw camera frame. Call from the capture queue.
     func handle(video sample: CMSampleBuffer) {
         guard let pixels = CMSampleBufferGetImageBuffer(sample) else { return }
-        encoder.encode(pixels, at: CMSampleBufferGetPresentationTimeStamp(sample))
+        let time = CMSampleBufferGetPresentationTimeStamp(sample)
+        captureStill(of: pixels, at: time.seconds)
+        encoder.encode(pixels, at: time)
+    }
+
+    /// Every `stillInterval` seconds, makes this frame a keyframe and keeps a JPEG of it. The encoder only reports
+    /// a keyframe after the picture has gone in, so the recorder decides which frames are keyframes itself.
+    private func captureStill(of pixels: CVPixelBuffer, at time: Double) {
+        // After a pause the old stills can't join the new ones, just like the video buffer.
+        let paused = lastFrameTime.map { time - $0 > gapThreshold } ?? false
+        lastFrameTime = time
+        if paused { lastStillTime = nil }
+        guard lastStillTime.map({ time - $0 >= stillInterval }) ?? true else { return }
+        lastStillTime = time
+        encoder.requestKeyframe()
+        guard let jpeg = jpeg(of: pixels) else { return }
+        queue.async {
+            if paused { self.stills.removeAll() }
+            self.stills.append(.init(time: time, isKeyframe: true, payload: jpeg))
+        }
+    }
+
+    private func jpeg(of pixels: CVPixelBuffer) -> Data? {
+        let image = CIImage(cvPixelBuffer: pixels)
+        let scale = min(1, stillMaxSide / max(image.extent.width, image.extent.height))
+        return ciContext.jpegRepresentation(
+            of: image.transformed(by: CGAffineTransform(scaleX: scale, y: scale)),
+            colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+            options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: stillQuality])
     }
 
     /// A microphone buffer.
@@ -113,6 +160,7 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
                     self.endSaving()
                     self.video.removeAll()
                     self.audio.removeAll()
+                    self.stills.removeAll()
                 }
             }
         }
@@ -147,6 +195,15 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
             throw error
         }
         return clip
+    }
+
+    /// Up to `count` of the buffer's stills as JPEGs, spread evenly over it, oldest first.
+    func snapshotFrames(count: Int) throws -> [Data] {
+        let all = queue.sync { stills.entries.map(\.payload) }
+        guard !all.isEmpty else { throw RecorderError.bufferEmpty }
+        guard count < all.count else { return all }
+        guard count > 1 else { return [all[all.count - 1]] }
+        return (0..<count).map { all[$0 * (all.count - 1) / (count - 1)] }
     }
 
     var isSaving: Bool { queue.sync { writer != nil } }
@@ -209,6 +266,8 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
             endSaving()
             video.removeAll()
             audio.trim(before: time)
+            // Stills taken before this keyframe belong to the clip just ended.
+            stills.removeAll(before: time)
         }
         videoFormat = CMSampleBufferGetFormatDescription(sample)
         video.append(.init(time: time, isKeyframe: isKeyframe, payload: sample))

@@ -51,6 +51,11 @@ nonisolated struct RingBuffer<Payload> {
         entries.removeFirst(index)
     }
 
+    /// Drops every entry older than `time`, keyframe or not.
+    mutating func removeAll(before time: Double) {
+        entries.removeAll { $0.time < time }
+    }
+
     /// Index of the last keyframe at or before `time`.
     func keyframeIndex(atOrBefore time: Double) -> Int? {
         entries.lastIndex { $0.time <= time && $0.isKeyframe }

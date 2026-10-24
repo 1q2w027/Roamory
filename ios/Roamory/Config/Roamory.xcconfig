@@ -1,1 +1,2 @@
 // Base build settings for the Roamory target.
+ROAMORY_SUMMARY_MODEL = claude-haiku-5-5

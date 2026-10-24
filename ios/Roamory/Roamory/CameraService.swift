@@ -20,6 +20,9 @@ final class CameraService: NSObject, ObservableObject,
     /// When the saved clip would have started if it ran in real time, so `now - savingStart` is its length.
     @Published private(set) var savingStart: Date?
     @Published private(set) var message: String?
+    /// Claude's description of the buffer from the last `evaluate()`, until dismissed.
+    @Published var summary: String?
+    @Published private(set) var isEvaluating = false
     /// Zoom as shown to the user: 1 is the main camera, 0.5 the ultra-wide (when the device has one).
     @Published private(set) var zoomFactor: CGFloat = 1
     @Published private(set) var minZoom: CGFloat = 1
@@ -194,9 +197,21 @@ final class CameraService: NSObject, ObservableObject,
         }
     }
 
-    /// Debug stand-in for the trigger that will ask the cloud to evaluate the moment. Intentionally empty.
+    /// Sends frames spread over the buffer to the backend and shows the description Claude returns in `summary`.
     func evaluate() {
-        // TODO
+        guard !isEvaluating else { return }
+        isEvaluating = true
+        summary = nil
+        message = nil
+        Task {
+            defer { isEvaluating = false }
+            do {
+                let frames = try recorder.snapshotFrames(count: 6)
+                summary = try await SummaryClient.summarize(frames: frames)
+            } catch {
+                message = "Evaluate failed: \(error.localizedDescription)"
+            }
+        }
     }
 
     func toggleSaving() {

@@ -24,6 +24,7 @@ struct ContentView: View {
     /// Recording mode: dark until held, and dark again 10 s after the last touch.
     @State private var curtainAwake = false
     @State private var lastTouch = Date()
+    @State private var showKeySheet = false
 
     var body: some View {
         ZStack {
@@ -55,6 +56,15 @@ struct ContentView: View {
                 if !guidedAccess.isEnabled {
                     guidedAccessHint
                 }
+                if let summary = camera.summary {
+                    Text(summary)
+                        .font(.callout)
+                        .foregroundStyle(.white)
+                        .padding(12)
+                        .background(.black.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
+                        .onTapGesture { camera.summary = nil }
+                }
                 if let message = camera.message {
                     Text(message)
                         .padding(.horizontal, 12)
@@ -67,6 +77,7 @@ struct ContentView: View {
                     saveButton
                     #if DEBUG
                     evaluateButton
+                    keyButton
                     #endif
                 }
                 .padding(.bottom, 32)
@@ -85,11 +96,12 @@ struct ContentView: View {
         .overlay {
             if camera.isReady {
                 RecordingCurtain(savingStart: camera.savingStart, awake: $curtainAwake, lastTouch: lastTouch,
-                                 paused: confirmBack)
+                                 paused: confirmBack || showKeySheet)
                     .transition(.opacity)
             }
         }
         .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in lastTouch = .now })
+        .sheet(isPresented: $showKeySheet) { APIKeySheet() }
         // Closing the Back dialog restarts the 10 s countdown rather than going dark at once.
         .onChange(of: confirmBack) { lastTouch = .now }
         // Volume keys and Bluetooth shutter remotes start or stop saving, like the on-screen button.
@@ -242,13 +254,24 @@ struct ContentView: View {
 
     #if DEBUG
     private var evaluateButton: some View {
-        Button { camera.evaluate() } label: {
-            Label("Evaluate", systemImage: "wand.and.sparkles")
+        // Without a saved API key, ask for one first.
+        Button { if APIKeyStore.load() == nil { showKeySheet = true } else { camera.evaluate() } } label: {
+            Label(camera.isEvaluating ? "Evaluating…" : "Evaluate", systemImage: "wand.and.sparkles")
                 .font(.headline)
                 .foregroundStyle(.white)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
                 .background(.black.opacity(0.5), in: Capsule())
+        }
+    }
+
+    private var keyButton: some View {
+        Button { showKeySheet = true } label: {
+            Image(systemName: "key")
+                .font(.headline)
+                .foregroundStyle(.white)
+                .padding(12)
+                .background(.black.opacity(0.5), in: Circle())
         }
     }
     #endif
