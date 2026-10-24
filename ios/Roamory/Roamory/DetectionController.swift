@@ -12,6 +12,8 @@ struct DetectionSummary: Equatable {
     var keptButton = 0
     var keptFallback = 0
     var released = 0
+    /// Kept moments whose clip could not be saved from the ring buffer.
+    var failedSaves = 0
     var lastDescription: String?
     var cloud = false
 }
@@ -25,6 +27,10 @@ final class DetectionController: ObservableObject {
     @Published private(set) var isRunning = false
     /// Give `sink.handle` to `CameraService.onFrame`.
     let sink = FrameSink()
+    /// The trip clock, for the clip saver.
+    let clock = TripClock()
+    /// Called when a moment is kept (TRD §5.5 saves the clip from the ring buffer); returns whether it was saved.
+    var onKeep: (@Sendable (KeptMoment) async -> Bool)?
     let config = try? DetectionConfig.bundled()
     /// Seconds between frames for `CameraService.frameInterval`.
     var frameInterval: TimeInterval { config?.sampleIntervalS ?? 2 }
@@ -37,6 +43,7 @@ final class DetectionController: ObservableObject {
     private let motion = MotionDwell()
     private var detector: MomentDetector?
     private var holder: InMemoryMomentHolder?
+    private var tripId = ""
     private var consumer: Task<Void, Never>?
     private var ticker: Task<Void, Never>?
     private var startUptime: TimeInterval = 0
@@ -59,8 +66,10 @@ final class DetectionController: ObservableObject {
         let detector = MomentDetector(trip: trip, config: config, holder: holder, evaluator: evaluator,
                                       cloudAllowed: evaluator != nil, demoMode: settings.demoMode)
         self.holder = holder
+        self.tripId = trip.tripId
         self.detector = detector
         startUptime = ProcessInfo.processInfo.systemUptime
+        clock.start(at: startUptime)
         summary = DetectionSummary(cloud: evaluator != nil)
         isRunning = true
         log.info("start trip=\(trip.tripId, privacy: .public) cloud=\(evaluator != nil) demo=\(settings.demoMode)")
@@ -133,6 +142,15 @@ final class DetectionController: ObservableObject {
             case .localFallback: summary.keptFallback += 1
             }
             if let description { summary.lastDescription = description }
+            if let onKeep, let holder {
+                let tripId = tripId
+                Task {
+                    guard let hold = await holder.holds.first(where: { $0.id == id }) else { return }
+                    if await onKeep(KeptMoment(id: id, source: source, triggerMs: hold.triggerMs, tripId: tripId)) == false {
+                        summary.failedSaves += 1
+                    }
+                }
+            }
             log.info("keep \(id, privacy: .public) source=\(source.rawValue, privacy: .public) score=\(score ?? -1)")
         case .release:
             summary.released += 1

@@ -6,6 +6,7 @@
 //
 
 import AVKit
+import RoamoryKit
 import SwiftUI
 
 struct ContentView: View {
@@ -89,6 +90,13 @@ struct ContentView: View {
             camera.frameInterval = detection.frameInterval
             let sink = detection.sink
             camera.onFrame = { sink.handle($0) }
+            // A kept moment is written out of the ring buffer (TRD §5.5).
+            let saver = OneStepSaver.forCamera(recorder: camera.recorder, tripFolder: .documentsDirectory.appending(path: "Trip"),
+                                               sessionId: UUID().uuidString, clock: detection.clock)
+            detection.onKeep = { moment in
+                if case .success = await saver.save(moment) { return true }
+                return false
+            }
             await camera.prepare()
         }
     }
@@ -97,7 +105,7 @@ struct ContentView: View {
     private var detectionStatus: some View {
         let s = detection.summary
         return VStack(spacing: 2) {
-            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released)\(s.cloud ? "" : " · offline")")
+            Text("Holds \(s.holds) · kept \(s.keptAI + s.keptButton + s.keptFallback) · released \(s.released)\(s.failedSaves > 0 ? " · lost \(s.failedSaves)" : "")\(s.cloud ? "" : " · offline")")
                 .font(.caption.monospacedDigit())
             if let last = s.lastDescription {
                 Text(last).font(.caption2).lineLimit(1)
