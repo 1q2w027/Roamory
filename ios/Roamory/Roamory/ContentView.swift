@@ -19,7 +19,8 @@ struct ContentView: View {
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
-    @State private var ended: EndedTrip?
+    /// The ended trip's video, from Processing to Review.
+    @State private var ended: TripPipeline?
     @State private var isEnding = false
 
     var body: some View {
@@ -84,9 +85,10 @@ struct ContentView: View {
             NavigationStack { DetectionSettingsView(backend: detection.backend) }
         }
         // The next trip starts when the ended one is closed.
-        .sheet(item: $ended, onDismiss: { detection.start(.current(), recorder: camera.recorder) }) { trip in
-            NavigationStack {
-                TripEndedView(trip: trip.trip, folder: trip.folder, clips: trip.clips) { ended = nil }
+        .fullScreenCover(isPresented: Binding(get: { ended != nil }, set: { if !$0 { ended = nil } }),
+                         onDismiss: { detection.start(.current(), recorder: camera.recorder) }) {
+            if let ended {
+                TripFlowView(pipeline: ended) { self.ended = nil }
             }
         }
         // Volume keys and Bluetooth shutter remotes (TRD §7) keep the current moment.
@@ -128,14 +130,17 @@ struct ContentView: View {
         .background(.black.opacity(0.5), in: Capsule())
     }
 
-    /// End Trip (TRD §10): stops detection, waits for the clips to be written and lists them for the editor.
+    /// End Trip (TRD §10): stops detection, waits for the clips to be written, then makes the video for Review.
     private var endTripButton: some View {
         Button {
             isEnding = true
             Task {
                 defer { isEnding = false }
                 guard let result = await detection.endTrip() else { return }
-                ended = EndedTrip(trip: result.trip, folder: result.folder, clips: TripFolder.loadClips(in: result.folder))
+                let pipeline = TripPipeline(trip: result.trip, folder: result.folder,
+                                            clips: TripFolder.loadClips(in: result.folder))
+                ended = pipeline
+                Task { await pipeline.start() }
             }
         } label: {
             Label(isEnding ? "Ending…" : "End trip", systemImage: "flag.checkered")
@@ -278,14 +283,6 @@ struct ContentView: View {
         let s = Int(seconds)
         return String(format: "%02d:%02d", s / 60, s % 60)
     }
-}
-
-/// A trip that End trip closed, with the clips it kept.
-private struct EndedTrip: Identifiable {
-    let id = UUID()
-    let trip: TripContext
-    let folder: URL
-    let clips: [ClipInfo]
 }
 
 /// A full-width strip along the bottom of its container, used to limit where a view takes touches.
