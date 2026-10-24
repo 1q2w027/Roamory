@@ -62,7 +62,7 @@ struct SettingsSheet: View {
         } header: {
             Text("Anthropic API key")
         } footer: {
-            Text("Kept in this iPhone's Keychain, not in the app. Evaluate sends frames from the buffer to Anthropic with it.")
+            Text("Kept in this iPhone's Keychain, not in the app. Ask Roamy and Evaluate use it to talk to Anthropic.")
         }
     }
 

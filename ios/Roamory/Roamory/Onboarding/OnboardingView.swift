@@ -15,14 +15,15 @@ struct OnboardingView: View {
     @AppStorage(TripSettings.Key.tripType) private var tripType = "honeymoon"
     @AppStorage(TripSettings.Key.lengthDays) private var lengthDays = 3
     @State private var step = Self.initialStep
+    @State private var forward = true
     @State private var started = false
     private let catalog = try? OnboardingCatalog.bundled()
 
-    private static let steps: [(eyebrow: String, title: String, mood: RoamyMascot.Mood)] = [
-        ("Your style", "Which one feels like your trip?", .excited),
-        ("Destination", "Where are we off to?", .wave),
-        ("The trip", "Who's coming along?", .happy),
-        ("How long", "How many days?", .excited),
+    private static let steps: [(eyebrow: String, title: String)] = [
+        ("Your style", "Which one feels like your trip?"),
+        ("Destination", "Where to?"),
+        ("The trip", "Who's coming along?"),
+        ("How long", "How many days?"),
     ]
 
     /// Debug builds can open at a step with the launch argument `-onboardingStep N`.
@@ -36,17 +37,17 @@ struct OnboardingView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Theme.background.ignoresSafeArea()
             VStack(alignment: .leading, spacing: 20) {
                 StepHeader(index: step, eyebrow: Self.steps[step].eyebrow, title: Self.steps[step].title,
-                           mood: Self.steps[step].mood,
                            onClose: onClose, onBack: step > 0 ? { back() } : nil)
-                // Everything under the question fades in quickly each time a step opens.
                 ZStack {
                     stepContent
-                        .modifier(QuickFadeIn())
                         .id(step)
-                        .transition(.asymmetric(insertion: .identity, removal: .opacity.animation(.easeOut(duration: 0.1))))
+                        .transition(.asymmetric(
+                            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+                            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
+                        ))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 AccentButton(title: step == Self.steps.count - 1 ? "Start recording" : "Continue",
@@ -98,23 +99,13 @@ struct OnboardingView: View {
             started = true
             return onStart()
         }
+        forward = true
         withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { step += 1 }
     }
 
     private func back() {
         guard step > 0 else { return }
+        forward = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { step -= 1 }
-    }
-}
-
-/// Starts hidden and a little low, then fades up into place.
-private struct QuickFadeIn: ViewModifier {
-    @State private var shown = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(shown ? 1 : 0)
-            .offset(y: shown ? 0 : 10)
-            .onAppear { withAnimation(.easeOut(duration: 0.3)) { shown = true } }
     }
 }

@@ -134,6 +134,16 @@ struct StudioSheet: View {
         }
     }
 
+    /// Moves the finished video to where the Gallery finds it, replacing an earlier video of this trip in this style.
+    private func keepForGallery(_ video: URL, style: String) throws -> URL {
+        let url = GalleryItem.videoURL(tripID: TripClips.tripID, style: style)
+        let fm = FileManager.default
+        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? fm.removeItem(at: url)
+        try fm.moveItem(at: video, to: url)
+        return url
+    }
+
     private func makeVideo() {
         guard let mac = selected else { return }
         outcome = nil
@@ -155,10 +165,13 @@ struct StudioSheet: View {
                 stage = nil
             }
             do {
-                let video = try await StudioClient.makeVideo(on: mac, clips: clips, style: TripSettings.style().rawValue,
+                let style = TripSettings.style().rawValue
+                let video = try await StudioClient.makeVideo(on: mac, clips: clips, style: style,
                                                              context: context) { stage = $0 }
-                outcome = await PhotoLibrary.saveVideo(video)
-                try? FileManager.default.removeItem(at: video)
+                // Kept in the app for the Gallery; if that fails, Photos still gets it and the download goes.
+                let kept = try? keepForGallery(video, style: style)
+                outcome = await PhotoLibrary.saveVideo(kept ?? video)
+                if kept == nil { try? FileManager.default.removeItem(at: video) }
             } catch is CancellationError {
                 outcome = "Cancelled"
             } catch {

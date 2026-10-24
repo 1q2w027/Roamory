@@ -11,6 +11,8 @@
 	<array>
 		<string>_roamory._tcp</string>
 	</array>
+	<key>RoamoryChatModel</key>
+	<string>$(ROAMORY_CHAT_MODEL)</string>
 	<key>RoamorySummaryModel</key>
 	<string>$(ROAMORY_SUMMARY_MODEL)</string>
 </dict>

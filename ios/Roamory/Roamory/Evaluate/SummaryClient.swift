@@ -6,7 +6,7 @@
 import Foundation
 
 /// Describes frames from the buffer with the model chosen in settings: Claude through the Anthropic Messages API
-/// (the API key comes from the Keychain, `APIKeyStore`, the model from the build settings) or the on-device model.
+/// (`AnthropicAPI`, the model is `RoamorySummaryModel` from the build settings) or the on-device model.
 enum SummaryClient {
     struct Failure: LocalizedError {
         let errorDescription: String?
@@ -26,42 +26,17 @@ enum SummaryClient {
     }
 
     private static func summarizeWithClaude(frames: [Data]) async throws -> String {
-        guard let key = APIKeyStore.load() else {
-            throw Failure(errorDescription: "No API key saved.")
-        }
-        let model = Bundle.main.infoDictionary?["RoamorySummaryModel"] as? String ?? "claude-haiku-5-5"
-
         var content: [[String: Any]] = []
         for (k, jpeg) in frames.enumerated() {
             content.append(["type": "text", "text": "Frame \(k):"])
             content.append(["type": "image",
                             "source": ["type": "base64", "media_type": "image/jpeg", "data": jpeg.base64EncodedString()]])
         }
-        let body: [String: Any] = [
-            "model": model,
+        return try await AnthropicAPI.send([
+            "model": AnthropicAPI.model("RoamorySummaryModel"),
             "max_tokens": 400,
             "system": system,
             "messages": [["role": "user", "content": content]],
-        ]
-
-        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!, timeoutInterval: 30)
-        request.httpMethod = "POST"
-        request.setValue(key, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
-        request.setValue("application/json", forHTTPHeaderField: "content-type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-            let message = (json?["error"] as? [String: Any])?["message"] as? String
-            throw Failure(errorDescription: message ?? "Anthropic returned an unexpected response.")
-        }
-        let text = (json?["content"] as? [[String: Any]])?
-            .first { $0["type"] as? String == "text" }?["text"] as? String
-        guard json?["stop_reason"] as? String != "refusal", let text, !text.isEmpty else {
-            throw Failure(errorDescription: "Claude gave no description.")
-        }
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        ])
     }
 }
