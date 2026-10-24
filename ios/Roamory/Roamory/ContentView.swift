@@ -19,6 +19,8 @@ struct ContentView: View {
     @State private var dragStartZoom: CGFloat?
     @State private var showDial = false
     @State private var hideDial: Task<Void, Never>?
+    @State private var ended: EndedTrip?
+    @State private var isEnding = false
 
     var body: some View {
         ZStack {
@@ -47,6 +49,7 @@ struct ContentView: View {
                 }
                 if detection.isRunning {
                     detectionStatus
+                    endTripButton
                 }
                 Spacer()
                 if !guidedAccess.isEnabled {
@@ -69,7 +72,8 @@ struct ContentView: View {
                 #endif
             }
         }
-        .overlay(alignment: .topLeading) { detectionSettingsButton }
+        // Settings restart detection, which must not overlap End trip.
+        .overlay(alignment: .topLeading) { detectionSettingsButton.disabled(isEnding) }
         .sheet(isPresented: $showDetectionSettings, onDismiss: {
             // Detection reads its settings when it starts, so a changed setting needs a restart.
             Task {
@@ -78,6 +82,12 @@ struct ContentView: View {
             }
         }) {
             NavigationStack { DetectionSettingsView(backend: detection.backend) }
+        }
+        // The next trip starts when the ended one is closed.
+        .sheet(item: $ended, onDismiss: { detection.start(.current(), recorder: camera.recorder) }) { trip in
+            NavigationStack {
+                TripEndedView(trip: trip.trip, folder: trip.folder, clips: trip.clips) { ended = nil }
+            }
         }
         // Volume keys and Bluetooth shutter remotes (TRD §7) keep the current moment.
         .onCameraCaptureEvent { event in
@@ -116,6 +126,26 @@ struct ContentView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(.black.opacity(0.5), in: Capsule())
+    }
+
+    /// End Trip (TRD §10): stops detection, waits for the clips to be written and lists them for the editor.
+    private var endTripButton: some View {
+        Button {
+            isEnding = true
+            Task {
+                defer { isEnding = false }
+                guard let result = await detection.endTrip() else { return }
+                ended = EndedTrip(trip: result.trip, folder: result.folder, clips: TripFolder.loadClips(in: result.folder))
+            }
+        } label: {
+            Label(isEnding ? "Ending…" : "End trip", systemImage: "flag.checkered")
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.5), in: Capsule())
+        }
+        .disabled(isEnding)
     }
 
     /// The recording format, and a nudge when the phone is turned the other way.
@@ -248,6 +278,14 @@ struct ContentView: View {
         let s = Int(seconds)
         return String(format: "%02d:%02d", s / 60, s % 60)
     }
+}
+
+/// A trip that End trip closed, with the clips it kept.
+private struct EndedTrip: Identifiable {
+    let id = UUID()
+    let trip: TripContext
+    let folder: URL
+    let clips: [ClipInfo]
 }
 
 /// A full-width strip along the bottom of its container, used to limit where a view takes touches.

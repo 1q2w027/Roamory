@@ -1,7 +1,8 @@
 import Foundation
 
 /// Moment-record fields that can change after the clip finalizes, so they live outside the sidecar (TRD 3.3).
-public struct MomentFields: Sendable, Equatable {
+/// Stored as `moments/{momentId}.json` in the trip folder (`TripFolder`).
+public struct MomentFields: Codable, Sendable, Equatable {
     public var eventType: EventType?
     public var description: String?
     public var score: Double?
@@ -13,6 +14,12 @@ public struct MomentFields: Sendable, Equatable {
         self.description = description
         self.score = score
         self.bestFrameDhash = bestFrameDhash
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case eventType = "event_type"
+        case description, score
+        case bestFrameDhash = "best_frame_dhash"
     }
 }
 
