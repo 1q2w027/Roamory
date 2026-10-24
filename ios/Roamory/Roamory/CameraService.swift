@@ -71,10 +71,8 @@ final class CameraService: NSObject, ObservableObject,
         if !hasMic { message = "Microphone access is off. The video will have no sound." }
         // Set the audio session ourselves so Bluetooth headphones stay as output (A2DP) while the built-in mic records,
         // and so `HeadphoneButton` can play silence to receive the AirPods stem press.
+        // The audio session calls can block, so they run on the session queue rather than the main thread.
         session.automaticallyConfiguresApplicationAudioSession = false
-        let audio = AVAudioSession.sharedInstance()
-        try? audio.setCategory(.playAndRecord, mode: .videoRecording, options: [.allowBluetoothA2DP])
-        try? audio.setActive(true)
         recorder.onError = { [weak self] error in
             Task { @MainActor [weak self] in self?.message = error.localizedDescription }
         }
@@ -83,6 +81,9 @@ final class CameraService: NSObject, ObservableObject,
         }
         let ok = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
             sessionQueue.async {
+                let audio = AVAudioSession.sharedInstance()
+                try? audio.setCategory(.playAndRecord, mode: .videoRecording, options: [.allowBluetoothA2DP])
+                try? audio.setActive(true)
                 let ok = self.configure(orientation: orientation)
                 if ok { self.session.startRunning() }
                 cont.resume(returning: ok)

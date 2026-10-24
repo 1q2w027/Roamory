@@ -115,7 +115,10 @@ struct StylePickerStep: View {
     }
 
     private func expand(_ s: Style) {
-        try? AVAudioSession.sharedInstance().setCategory(.playback)
+        // Off the main thread: the audio session can block long enough to hang the UI.
+        DispatchQueue.global(qos: .userInitiated).async {
+            try? AVAudioSession.sharedInstance().setCategory(.playback)
+        }
         players[s]?.player.isMuted = false
         withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) { expanded = s }
     }
