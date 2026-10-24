@@ -25,3 +25,6 @@ build/
 *.xcuserstate
 # Roamory machine-specific build settings (token)
 ios/Roamory/Config/Local.xcconfig
+
+# Roamory Studio job workspaces
+studio/.jobs/
