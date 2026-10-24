@@ -16,9 +16,12 @@ from .config import ROOT, Config
 
 log = logging.getLogger("studio")
 PROMPT = ROOT / "studio" / "prompt.md"
-CARD_SOURCE = ROOT / "studio" / "card.swift"
+STYLES = ROOT / "studio" / "styles"
+# Swift helpers, compiled into jobs/_bin (outside every workspace, so Claude cannot rewrite them).
+BINARIES = {"card": "card.swift", "roamory-text": "text.swift", "roamory-music": "music.swift"}
 TOOLS = ["Read", "Write", "Edit", "Glob", "Bash"]
-ALLOWED = ["Read", "Write", "Edit", "Glob", "Bash(ffmpeg:*)", "Bash(ffprobe:*)"]
+ALLOWED = ["Read", "Write", "Edit", "Glob", "Bash(ffmpeg:*)", "Bash(ffprobe:*)", "Bash(roamory-text:*)",
+           "Bash(roamory-music:*)"]
 
 
 class JobError(Exception):
@@ -27,14 +30,17 @@ class JobError(Exception):
         self.code = code
 
 
-def card_binary(config: Config) -> Path:
-    """The compiled card drawer, rebuilt when card.swift changes."""
-    binary = config.jobs_path / "_bin" / "card"
-    if not binary.exists() or binary.stat().st_mtime < CARD_SOURCE.stat().st_mtime:
-        binary.parent.mkdir(parents=True, exist_ok=True)
-        subprocess.run(["xcrun", "swiftc", "-O", str(CARD_SOURCE), "-o", str(binary)], check=True,
-                       capture_output=True)
-    return binary
+def bin_dir(config: Config) -> Path:
+    return config.jobs_path / "_bin"
+
+
+def build_binaries(config: Config):
+    """Compiles the Swift helpers, each again when its source changes."""
+    for name, source in BINARIES.items():
+        binary, source = bin_dir(config) / name, ROOT / "studio" / source
+        if not binary.exists() or binary.stat().st_mtime < source.stat().st_mtime:
+            binary.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["xcrun", "swiftc", "-O", str(source), "-o", str(binary)], check=True, capture_output=True)
 
 
 def title_for(request: dict) -> dict:
@@ -143,7 +149,8 @@ class Job:
         for clip_id in self.clip_ids:
             (self.dir / "frames" / clip_id).mkdir(exist_ok=True)
         w, h = preset["output"]["width"], preset["output"]["height"]
-        card = str(card_binary(self.config))
+        build_binaries(self.config)
+        card = str(bin_dir(self.config) / "card")
         style = self.request["style"]
         for name, mode, text, sub in [("title", "opaque", title["text"], title["subtitle"]),
                                       ("title_overlay", "overlay", title["text"], title["subtitle"]),
@@ -157,6 +164,7 @@ class Job:
             "clips": [{**c, "file": f"clips/{c['clip_id']}.mp4"} for c in self.request["clips"]],
         }
         (self.dir / "brief.json").write_text(json.dumps(brief, indent=2))
+        shutil.copy(STYLES / f"{style}.md", self.dir / "style.md")
         return PROMPT.read_text()
 
     def _run(self):
@@ -175,10 +183,11 @@ class Job:
         timer = threading.Timer(self.config.timeout_s, on_timeout)
         summary = {}
         stderr_path = self.dir / "claude.stderr"
+        env = {**os.environ, "PATH": f"{bin_dir(self.config)}{os.pathsep}{os.environ.get('PATH', '')}"}
         try:
             with open(stderr_path, "w") as stderr:
                 self._proc = subprocess.Popen(cmd, cwd=self.dir, stdout=subprocess.PIPE, stderr=stderr, text=True,
-                                              start_new_session=True)
+                                              env=env, start_new_session=True)
                 timer.start()
                 for line in self._proc.stdout:
                     try:
