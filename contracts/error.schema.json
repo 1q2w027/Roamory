@@ -18,7 +18,11 @@
         "rate_limited",
         "upstream_timeout",
         "upstream_error",
-        "internal"
+        "internal",
+        "upload_too_large",
+        "busy",
+        "not_found",
+        "render_failed"
       ]
     },
     "message": {

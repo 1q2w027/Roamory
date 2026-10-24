@@ -1,0 +1,177 @@
+{
+  "edit_spec": {
+    "trip_id": "t_123",
+    "style": "vlog",
+    "output": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 30
+    },
+    "title": {
+      "text": "Kyoto",
+      "subtitle": "October 2026",
+      "duration_s": 2.0
+    },
+    "clips": [
+      {
+        "moment_id": "m_01",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_02",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_03",
+        "in_s": 0,
+        "out_s": 6.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_04",
+        "in_s": 0,
+        "out_s": 4.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_06",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_08",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_09",
+        "in_s": 0,
+        "out_s": 4.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_10",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_11",
+        "in_s": 0,
+        "out_s": 4.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      },
+      {
+        "moment_id": "m_12",
+        "in_s": 0,
+        "out_s": 5.0,
+        "transition_in": "cut",
+        "transition_s": 0,
+        "speed_ramp": null,
+        "caption": null
+      }
+    ],
+    "music": {
+      "track": "vlog_01",
+      "gain_db": -18,
+      "duck_original_audio": false
+    },
+    "end_card": {
+      "text": "Made with Roamory",
+      "duration_s": 2.0
+    }
+  },
+  "context": {
+    "destination": {
+      "country": "Japan",
+      "city": "Kyoto"
+    },
+    "trip_type": "honeymoon",
+    "start_date": "2026-10-12"
+  },
+  "clips": [
+    {
+      "moment_id": "m_01",
+      "duration_s": 5.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_02",
+      "duration_s": 5.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_03",
+      "duration_s": 6.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_04",
+      "duration_s": 4.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_06",
+      "duration_s": 5.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_08",
+      "duration_s": 5.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_09",
+      "duration_s": 4.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_10",
+      "duration_s": 5.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_11",
+      "duration_s": 4.0,
+      "has_audio": true
+    },
+    {
+      "moment_id": "m_12",
+      "duration_s": 5.0,
+      "has_audio": true
+    }
+  ]
+}

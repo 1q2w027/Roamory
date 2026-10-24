@@ -9,6 +9,7 @@ Hackathon project: Roamory, an iPhone app that films a trip with the screen dark
 ## Layout and ownership
 - `ios/`: iPhone app (native Swift assumed, not yet decided). Camera capture is Yifan's; screens and integration are Daniel's
 - `backend/`: Python 3.11, FastAPI; cloud moment selection via a frontier model API (render location not yet decided). Detection is Daniel's; final video generation is Ian's
+- `render/`: Node 22, Remotion; optional cloud video renderer behind `POST /v1/render` (TRD §9.2, `docs/remotion-plan.md`). Ian's
 - Design (Figma, motion graphics) is Andrew's; assets go in `docs/mockups/`
 - Only edit files in the folder you were asked to work on.
 
@@ -27,3 +28,4 @@ Add run and test commands here as each part is built.
 - Backend tests: `cd backend && .venv/bin/pytest`.
 - Backend run: `cd backend && .venv/bin/uvicorn app.main:app --reload`. Try it: `curl -H "Authorization: Bearer $APP_TOKEN" -F "request=@../contracts/examples/plan_request_reels.json" -F "m_01_0.jpg=@thumb.jpg" … localhost:8000/v1/plan` (one `{moment_id}_{k}.jpg` part per thumbnail).
 - iOS Edit package (`ios/RoamoryKit`, needs full Xcode for XCTest): `cd ios/RoamoryKit && swift test` on the Mac, or `xcodebuild test -scheme RoamoryKit -destination 'platform=iOS Simulator,name=iPhone 17'`. After changing `contracts/style_presets.json`, run `ios/RoamoryKit/scripts/sync-contracts.sh`.
+- Render service (`render/`, lands in phase R1 of `docs/remotion-plan.md`): `cd render && npm ci && npm test`; run with `npm start` (port from `render/.env`); `scripts/smoke.sh` renders each example spec and checks its duration against `contracts/examples/timeline_*.json`.
