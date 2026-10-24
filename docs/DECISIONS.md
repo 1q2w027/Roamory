@@ -2,6 +2,8 @@
 
 Short record of team decisions. Newest first. Format: date, decision, why.
 
+- 2026-10-24: Agent mode (optional): a Claude agent in the render service selects, edits and renders the video with Remotion; the deterministic plan and render pipeline is the fallback (TRD §1, §9.3, §11.3; plan in `docs/agentic-video-generation.md`). It is an exception to "the LLM only produces JSON and rendering is deterministic". Why: the edit spec limits the model to cuts, fades and one caption per clip; an agent that watches the clips and writes its own composition can make a better video, and any failure still produces one through the normal path.
+
 - 2026-10-23: The rolling buffer is an in-memory ring buffer of encoded (HEVC) samples; a moment is written to disk only when kept, by passthrough (TRD §5). Replaces 2-second segment files on disk. Why: unselected footage never touches storage, and there is no segment index or cleanup to maintain.
 - 2026-10-23: Remotion cloud render as an optional engine; trimmed selected clips are uploaded, deleted after download; AVFoundation remains default and fallback (TRD §9.2, §11.3; plan in `docs/remotion-plan.md`). Why: richer motion graphics (kinetic titles, lower thirds, animated transitions) than Core Animation gives us, without risking the video: any cloud failure still renders on the phone.
 - 2026-10-22: The demo's final video is made from pre-recorded footage, replayed through the app (TRD §12.4). Why: a real walk cannot happen on stage.

@@ -1,0 +1,64 @@
+{
+  "total_s": 29.021,
+  "title": {
+    "text": "Kyoto",
+    "subtitle": "October 2026"
+  },
+  "moments": [
+    {
+      "moment_id": "m_01",
+      "start_s": 0,
+      "end_s": 2.5
+    },
+    {
+      "moment_id": "m_02",
+      "start_s": 2.5,
+      "end_s": 5
+    },
+    {
+      "moment_id": "m_03",
+      "start_s": 5,
+      "end_s": 7.521
+    },
+    {
+      "moment_id": "m_04",
+      "start_s": 7.521,
+      "end_s": 9.521
+    },
+    {
+      "moment_id": "m_06",
+      "start_s": 9.521,
+      "end_s": 12.021
+    },
+    {
+      "moment_id": "m_07",
+      "start_s": 12.021,
+      "end_s": 14.521
+    },
+    {
+      "moment_id": "m_08",
+      "start_s": 14.521,
+      "end_s": 17.021
+    },
+    {
+      "moment_id": "m_09",
+      "start_s": 17.021,
+      "end_s": 19.021
+    },
+    {
+      "moment_id": "m_10",
+      "start_s": 19.021,
+      "end_s": 22.021
+    },
+    {
+      "moment_id": "m_11",
+      "start_s": 22.021,
+      "end_s": 24.521
+    },
+    {
+      "moment_id": "m_12",
+      "start_s": 24.521,
+      "end_s": 27.021
+    }
+  ]
+}
