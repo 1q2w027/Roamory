@@ -16,29 +16,13 @@ from .config import ROOT, Config
 
 log = logging.getLogger("studio")
 PROMPT = ROOT / "studio" / "prompt.md"
-TOOLS_DOC = ROOT / "studio" / "tools.md"
 STYLES = ROOT / "studio" / "styles"
-# Swift helpers, compiled into jobs/_bin (outside every workspace, so Claude cannot rewrite them).
-BINARIES = {"card": "card.swift", "roamory-text": "text.swift", "roamory-music": "music.swift"}
 
 
 class JobError(Exception):
     def __init__(self, code: str, message: str):
         super().__init__(message)
         self.code = code
-
-
-def bin_dir(config: Config) -> Path:
-    return config.jobs_path / "_bin"
-
-
-def build_binaries(config: Config):
-    """Compiles the Swift helpers, each again when its source changes."""
-    for name, source in BINARIES.items():
-        binary, source = bin_dir(config) / name, ROOT / "studio" / source
-        if not binary.exists() or binary.stat().st_mtime < source.stat().st_mtime:
-            binary.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["xcrun", "swiftc", "-O", str(source), "-o", str(binary)], check=True, capture_output=True)
 
 
 def title_for(request: dict) -> dict:
@@ -146,19 +130,11 @@ class Job:
     def _prepare(self) -> str:
         preset = rules.preset(self.request["style"])
         title = title_for(self.request)
-        for k in ("frames", "work", "out", "cards"):
+        for k in ("frames", "work", "out"):
             (self.dir / k).mkdir(exist_ok=True)
         for clip_id in self.clip_ids:
             (self.dir / "frames" / clip_id).mkdir(exist_ok=True)
-        w, h = preset["output"]["width"], preset["output"]["height"]
-        build_binaries(self.config)
-        card = str(bin_dir(self.config) / "card")
         style = self.request["style"]
-        for name, mode, text, sub in [("title", "opaque", title["text"], title["subtitle"]),
-                                      ("title_overlay", "overlay", title["text"], title["subtitle"]),
-                                      ("end", "opaque", "Made with Roamory", "")]:
-            subprocess.run([card, str(self.dir / "cards" / f"{name}.png"), str(w), str(h), style, mode, text, sub],
-                           check=True, capture_output=True)
         brief = {
             "style": style, "preset": preset, "context": self.request["context"], "title": title,
             "effective_target_s": rules.effective_target_s(self.request),
@@ -167,7 +143,6 @@ class Job:
         }
         (self.dir / "brief.json").write_text(json.dumps(brief, indent=2))
         shutil.copy(STYLES / f"{style}.md", self.dir / "style.md")
-        shutil.copy(TOOLS_DOC, self.dir / "tools.md")
         return PROMPT.read_text()
 
     def _run(self):
@@ -186,11 +161,10 @@ class Job:
         timer = threading.Timer(self.config.timeout_s, on_timeout)
         summary = {}
         stderr_path = self.dir / "claude.stderr"
-        env = {**os.environ, "PATH": f"{bin_dir(self.config)}{os.pathsep}{os.environ.get('PATH', '')}"}
         try:
             with open(stderr_path, "w") as stderr:
                 self._proc = subprocess.Popen(cmd, cwd=self.dir, stdout=subprocess.PIPE, stderr=stderr, text=True,
-                                              env=env, start_new_session=True)
+                                              start_new_session=True)
                 timer.start()
                 for line in self._proc.stdout:
                     try:
