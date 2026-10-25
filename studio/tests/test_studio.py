@@ -9,7 +9,7 @@ import pytest
 
 from studio import eta, rules
 from studio.config import CONTRACTS, Config
-from studio.job import STYLES, claude_command, stage_from_event, title_for
+from studio.job import STYLES, brief_for, claude_command, stage_from_event
 from studio.server import make_server
 
 FAKE = str(Path(__file__).parent / "fake_claude.py")
@@ -154,8 +154,13 @@ def test_every_style_has_a_guide():
         assert (STYLES / f"{style}.md").exists()
 
 
-def test_title_uses_only_the_context():
-    assert title_for(example()) == {"text": "Kyoto", "subtitle": "City break · October 2026"}
+def test_brief_informs_without_choosing_text():
+    brief = brief_for(example(), max_renders=3)
+    assert brief["trip"]["destination"]["city"] == "Kyoto"
+    assert brief["footage"] == {"clips": 4, "total_s": 207.1, "first_recorded_at": "2026-10-20T09:12:04Z",
+                                "last_recorded_at": "2026-10-21T08:30:00Z"}
+    assert brief["requirements"] == {"width": 1080, "height": 1920, "fps": 30, "target_s": 30, "max_renders": 3}
+    assert not {"title", "preset"} & set(brief)
 
 
 def test_stage_parsing():
