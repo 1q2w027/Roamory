@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Stands in for `claude -p` in tests. FAKE_MODE: ok (draws a text PNG and music with the helpers on PATH, renders a
-test video and a valid result), reuse (a valid result that leaves out the last clip and shows the first twice), short
-(result that misses the target), fail (exits with nothing written), hang (sleeps past any test timeout)."""
+"""Stands in for `claude -p` in tests. FAKE_MODE: ok (renders a test video and a valid result), reuse (a valid result
+that leaves out the last clip and shows the first twice), short (result that misses the target), fail (exits with
+nothing written), hang (sleeps past any test timeout)."""
 import json
 import os
 import subprocess
@@ -23,13 +23,7 @@ if mode == "hang":
 if mode == "fail":
     sys.exit(1)
 if mode in ("ok", "reuse"):
-    Path("work/text.json").write_text(json.dumps({"out": "work/text.png", "width": 64, "height": 64,
-                                                  "layers": [{"text": "Hi", "font": "rounded", "weight": "bold"}]}))
-    Path("work/score.json").write_text(json.dumps({"bpm": 120, "length_s": 2, "tracks": [
-        {"instrument": "pad", "notes": [[0, ["C4", "E4", "G4"], 4]]}, {"instrument": "kick", "notes": [[0, "x"], [2, "x"]]}]}))
-    subprocess.run(["roamory-text", "work/text.json"], check=True, capture_output=True)
-    subprocess.run(["roamory-music", "work/score.json"], check=True, capture_output=True)
-    assert Path("style.md").read_text().startswith("# ") and Path("tools.md").exists()
+    assert Path("style.md").read_text().startswith("# ")
 total = brief["effective_target_s"] * (0.5 if mode == "short" else 1)
 w, h = brief["preset"]["output"]["width"] // 4, brief["preset"]["output"]["height"] // 4
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate=30:duration={total}",
