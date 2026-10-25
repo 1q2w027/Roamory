@@ -191,3 +191,27 @@ def test_estimate_learns_from_past_runs(tmp_path):
     for _ in range(3):
         eta.record(config, guess, guess * 100)
     assert eta.scale(config) == eta.SCALE_LIMITS[1]
+
+
+@pytest.mark.parametrize("hours", [1, 5, 24])
+def test_accepts_and_preserves_length_hours(bridge, hours):
+    request = example()
+    request["context"]["length_hours"] = hours
+    status, body = bridge("POST", "/v1/studio/jobs", request)
+    assert status == 201, body
+    assert bridge.studio.jobs[body["job_id"]].request["context"]["length_hours"] == hours
+
+
+@pytest.mark.parametrize("hours", [0, 25, 1.5, "5", True, None])
+def test_rejects_invalid_length_hours(bridge, hours):
+    request = example()
+    request["context"]["length_hours"] = hours
+    status, body = bridge("POST", "/v1/studio/jobs", request)
+    assert status == 400 and "length_hours" in body["message"]
+
+
+def test_rejects_day_based_duration(bridge):
+    request = example()
+    request["context"]["length_days"] = request["context"].pop("length_hours")
+    status, body = bridge("POST", "/v1/studio/jobs", request)
+    assert status == 400 and "length_hours" in body["message"]

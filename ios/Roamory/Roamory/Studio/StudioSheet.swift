@@ -161,6 +161,7 @@ struct StudioSheet: View {
         let context: [String: Any] = [
             "destination": ["country": defaults.string(forKey: TripSettings.Key.country) ?? "Somewhere",
                             "city": city.map { $0 as Any } ?? NSNull()],
+            "length_hours": TripSettings.lengthHours(defaults),
             "trip_type": defaults.string(forKey: TripSettings.Key.tripType) ?? "trip",
             "start_date": clips.first.map { $0.recordedAt.formatted(.iso8601.year().month().day()) } ?? "",
         ]

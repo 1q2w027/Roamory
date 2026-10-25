@@ -100,3 +100,5 @@ This ffmpeg has `xfade` with 58 transitions (fade, fadeblack, fadewhite, fadegra
 - Do not try to identify people.
 - Music is composed with `roamory-music`; do not use any other audio source besides the clips.
 - Stop when `out/video.mp4` and `out/result.json` are written and checked. Reply with one line summarising the cut.
+
+`brief.json` context `length_hours` is the planned filming time today in hours (1–24). Treat it as hours when interpreting the trip context.
