@@ -30,6 +30,12 @@ nonisolated final class Transcriber: @unchecked Sendable {
     private var format: AVAudioFormat?
     private var converter: AVAudioConverter?
     private var segments: [Segment] = []
+    /// Seconds of audio given to the analyzer so far, on its own timeline.
+    private var fed: Double = 0
+    /// Where the analyzer's timeline meets the capture clock, newest last; a new one starts after every gap in the
+    /// audio (when filming pauses). The analyzer is not given the capture times itself: with `bufferStartTime` set it
+    /// recognizes next to nothing.
+    private var anchors: [(analyzer: Double, capture: Double)] = []
     private var analyzer: SpeechAnalyzer?
     private var resultsTask: Task<Void, Never>?
 
@@ -55,7 +61,7 @@ nonisolated final class Transcriber: @unchecked Sendable {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !text.isEmpty else { continue }
-                    self?.add(Segment(start: result.range.start.seconds, end: result.range.end.seconds, text: text))
+                    self?.add(start: result.range.start.seconds, end: result.range.end.seconds, text: text)
                 }
             } catch {}
         }
@@ -70,7 +76,9 @@ nonisolated final class Transcriber: @unchecked Sendable {
     /// Stops listening for good.
     func stop() async {
         let (analyzer, input, task) = lock.withLock {
-            defer { self.analyzer = nil; self.input = nil; self.resultsTask = nil; segments = [] }
+            defer {
+                self.analyzer = nil; self.input = nil; self.resultsTask = nil; segments = []; fed = 0; anchors = []
+            }
             return (self.analyzer, self.input, self.resultsTask)
         }
         input?.finish()
@@ -90,7 +98,11 @@ nonisolated final class Transcriber: @unchecked Sendable {
                 converted = converter.flatMap { Self.convert(buffer, with: $0) }
             }
             guard let converted else { return }
-            input.yield(AnalyzerInput(buffer: converted, bufferStartTime: CMSampleBufferGetPresentationTimeStamp(sample)))
+            let time = CMSampleBufferGetPresentationTimeStamp(sample).seconds
+            let expected = anchors.last.map { $0.capture + fed - $0.analyzer }
+            if expected.map({ abs($0 - time) >= 0.1 }) ?? true { anchors.append((analyzer: fed, capture: time)) }
+            fed += Double(converted.frameLength) / converted.format.sampleRate
+            input.yield(AnalyzerInput(buffer: converted))
         }
     }
 
@@ -111,8 +123,12 @@ nonisolated final class Transcriber: @unchecked Sendable {
         lock.withLock { segments = [] }
     }
 
-    private func add(_ segment: Segment) {
+    /// Speech the analyzer finalized, with its times on the analyzer's timeline.
+    private func add(start: Double, end: Double, text: String) {
         lock.withLock {
+            let anchor = anchors.last { $0.analyzer <= start } ?? anchors.first ?? (analyzer: 0, capture: 0)
+            let offset = anchor.capture - anchor.analyzer
+            let segment = Segment(start: start + offset, end: end + offset, text: text)
             segments.append(segment)
             segments.removeAll { $0.end < segment.end - retention }
         }
