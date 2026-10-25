@@ -48,6 +48,8 @@ final class CameraService: NSObject, ObservableObject,
 
     nonisolated(unsafe) let session = AVCaptureSession()
     nonisolated let recorder = RollingRecorder()
+    /// Transcribes the microphone on the phone for the director, when `Director.hears`.
+    nonisolated let transcriber = Transcriber()
     nonisolated(unsafe) private let videoOutput = AVCaptureVideoDataOutput()
     nonisolated(unsafe) private let audioOutput = AVCaptureAudioDataOutput()
     nonisolated(unsafe) private var videoDevice: AVCaptureDevice?
@@ -81,6 +83,9 @@ final class CameraService: NSObject, ObservableObject,
     /// What the web search found about the event before filming; part of every request's system prompt.
     private var eventBrief: String?
     private var warnedNoKey = false
+    /// Starts the transcriber once per camera; true once it listens, so the director's requests carry speech.
+    private var hearingTask: Task<Void, Never>?
+    private var isHearing = false
     private static let directorErrorPrefix = "Director: "
     /// Touched only on `sampleQueue`.
     nonisolated(unsafe) private var settleGate = SettleGate()
@@ -126,6 +131,7 @@ final class CameraService: NSObject, ObservableObject,
             captureRotationAngle = appliedRotationAngle
         }
         isReady = ok
+        if ok && hasMic && Director.hears { startHearing() }
         // The buffer fills for as long as the app is open, so the screen must not lock.
         UIApplication.shared.isIdleTimerDisabled = true
         if let device = videoDevice {
@@ -153,6 +159,9 @@ final class CameraService: NSObject, ObservableObject,
     func shutdown() async {
         directorTask?.cancel()
         directorTask = nil
+        hearingTask?.cancel()
+        isHearing = false
+        await transcriber.stop()
         isFilming = false
         if isSaving { stopSaving() }
         await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
@@ -313,6 +322,7 @@ final class CameraService: NSObject, ObservableObject,
         }
         feedsBuffer.withLock { $0 = false }
         recorder.reset()
+        transcriber.reset()
         clipWindows = []
         directorLine = nil
         isEnding = false
@@ -332,6 +342,22 @@ final class CameraService: NSObject, ObservableObject,
                 try? await Task.sleep(until: next, clock: clock)
                 guard !Task.isCancelled, let self else { return }
                 await self.directTick()
+            }
+        }
+    }
+
+    /// Starts transcribing in the background; the first time it downloads the language model, and the camera does not
+    /// wait for it. If it fails the director works from the frames alone.
+    private func startHearing() {
+        guard hearingTask == nil else { return }
+        hearingTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await transcriber.start()
+                guard !Task.isCancelled else { return }
+                isHearing = true
+            } catch {
+                directorLine = "hearing off · \(error.localizedDescription)"
             }
         }
     }
@@ -410,6 +436,7 @@ final class CameraService: NSObject, ObservableObject,
         let frames: [Data]
         let through: Double
         do { (frames, through) = try recorder.peekFrames(count: Director.frameCount) } catch { return }
+        let heard = isHearing ? transcriber.peek(through: through) : nil
 
         // A clip the director started ends at its length limit, so no moment saves a minute of footage by default.
         // If the moment goes on, the director's next `save` starts another clip right after it.
@@ -422,7 +449,7 @@ final class CameraService: NSObject, ObservableObject,
         let state = Director.State(isSaving: isSaving, savingSeconds: clipSeconds,
                                    clipSoFar: clipWindows, clips: clipSummaries, notes: directorNotes,
                                    filmedSeconds: filmedSeconds + (filmingStart.map { Date().timeIntervalSince($0) } ?? 0),
-                                   savedSeconds: savedSeconds + clipSeconds, brief: eventBrief)
+                                   savedSeconds: savedSeconds + clipSeconds, brief: eventBrief, heard: heard)
         let request = Director.request(frames: frames, state: state)
         var entry = DirectorLog.Entry(time: .now, frames: frames, system: request.system, prompt: request.prompt,
                                       wasSaving: state.isSaving)
@@ -439,6 +466,7 @@ final class CameraService: NSObject, ObservableObject,
             guard !Task.isCancelled, isReady else { return }
             // Only an answer uses the frames up; after a failure the next request sends them again.
             recorder.discardFrames(through: through)
+            if heard != nil { transcriber.discard(through: through) }
             // An answer without notes (the model sometimes leaves them out) keeps the notes it had.
             if !decision.notes.isEmpty { directorNotes = decision.notes }
             entry.notes = directorNotes
@@ -582,6 +610,7 @@ final class CameraService: NSObject, ObservableObject,
             recorder.handle(video: sampleBuffer)
         } else {
             recorder.handle(audio: sampleBuffer)
+            transcriber.append(sampleBuffer)
         }
     }
 

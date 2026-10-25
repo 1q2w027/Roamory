@@ -11,6 +11,8 @@ ROAMORY_DIRECTOR_PREROLL = 15
 ROAMORY_DIRECTOR_MAX_CLIP = 40
 // Share of what is filmed (percent) the director aims to save.
 ROAMORY_DIRECTOR_SAVE_SHARE = 10
+// 1: speech is transcribed on the iPhone and sent to the director with the frames; 0: frames only.
+ROAMORY_DIRECTOR_HEARING = 1
 // Capture frame rate (the closest the camera supports) and HEVC bit rate of the buffer, in bits per second.
 ROAMORY_CAPTURE_FPS = 60
 ROAMORY_VIDEO_BITRATE = 20000000

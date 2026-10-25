@@ -83,6 +83,9 @@ enum Director {
         var savedSeconds: TimeInterval
         /// What the web search found about the event before filming, if it ran.
         var brief: String?
+        /// What the microphone heard since the last answer, transcribed on the phone: empty when nothing was said,
+        /// nil when the director does not hear.
+        var heard: String? = nil
     }
 
     /// A request ready to send, and what the debug log shows of it.
@@ -109,6 +112,8 @@ enum Director {
     static var maxClip: TimeInterval { setting("RoamoryDirectorMaxClip", fallback: 40, range: 10...300) }
     /// Percent of what is filmed that the director aims to save (build setting `RoamoryDirectorSaveShare`).
     static var saveShare: Int { Int(setting("RoamoryDirectorSaveShare", fallback: 10, range: 1...100)) }
+    /// Whether speech is transcribed on the phone and sent with the frames (build setting `RoamoryDirectorHearing`, 1 or 0).
+    static var hears: Bool { setting("RoamoryDirectorHearing", fallback: 1, range: 0...1) >= 1 }
 
     private static func setting(_ key: String, fallback: Double, range: ClosedRange<Double>) -> Double {
         BuildSetting.number(key, fallback: fallback, range: range)
@@ -187,6 +192,7 @@ enum Director {
         Describe only what is visible, and say what the frames really show: covered or blurry frames are not a \
         scene. Never identify people; say "a person" or "two friends". Name a place only if it is clearly \
         recognizable or the traveler said so.
+        \(hears ? hearing : "")
 
         You keep notes on what is going on. They come back to you with every request, so you can follow what \
         develops from one answer to the next. Rewrite them in every answer: keep what is still true, update the \
@@ -211,6 +217,18 @@ enum Director {
         - notes: your notes, as described above.
         """
     }
+
+    /// The part of the rules about speech, when the director hears.
+    private static let hearing = """
+
+        With the frames you may also get the speech the microphone picked up since your last answer, transcribed \
+        on the phone. It can have mistakes, and sounds other than words are missing. Speech is evidence of a moment \
+        just like the frames: a talk, a toast, an announcement, a guide explaining something, someone pointing \
+        something out ("look at that!"), friends joking or reacting. Chatter of people passing by and background \
+        announcements that the frames do not match are not. Speech does not save frames that are black, covered or \
+        blurry. In the summary and the notes, say what was said in general terms ("a guide explains the tower's \
+        history"); do not quote it word for word, and never take people's names from it.
+        """
 
     private static let seedRules = """
         You prepare the director of a trip film. A traveler films a trip with a phone, and the director watches the \
@@ -288,6 +306,10 @@ enum Director {
                          + (state.clipSoFar.isEmpty ? "." : " and showed: " + condense(state.clipSoFar)))
         } else {
             lines.append("Right now nothing is being saved.")
+        }
+        if let heard = state.heard {
+            lines.append(heard.isEmpty ? "Speech heard since your last answer: none."
+                                       : "Speech heard since your last answer (transcribed on the phone): \"\(heard)\"")
         }
         return lines.joined(separator: "\n")
     }
