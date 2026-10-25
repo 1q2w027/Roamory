@@ -244,6 +244,7 @@ enum Director {
         if let type = text(TripSettings.Key.tripType) { trip.append("Trip type: \(type).") }
         let place = [text(TripSettings.Key.city), text(TripSettings.Key.country)].compactMap { $0 }.joined(separator: ", ")
         if !place.isEmpty { trip.append("Destination: \(place).") }
+        trip.append("Planned filming time today: \(TripSettings.lengthHours(defaults)) hours.")
         if let details = TripSettings.details() { trip.append("The traveler says: \(details)") }
         return trip.joined(separator: "\n")
     }

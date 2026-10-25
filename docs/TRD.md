@@ -81,10 +81,10 @@ Two components: the **iOS app**, which records, saves clips and keeps them for t
 - **Style picker (FR-001):** four bundled sample clips in `AVPlayer`s using `AVPlayerLooper`, muted. Tap expands the chosen clip with sound using a matched-geometry transition. Sample clips are bundled assets (PRD open question 9).
 - **Destination (FR-002):** an interactive 3D globe (SceneKit or RealityKit) with country polygons from a bundled Natural Earth GeoJSON for tap hit-testing, and a bundled city list for pins. Zoom, glow and pulse animations as in the mockup. MapKit is the fallback if the globe takes too long.
 - **Trip type (FR-003):** a SwiftUI gesture-driven card deck (the PRD's leading idea). The set of types is a config list.
-- **Trip length (FR-004):** a day-count picker.
+- **Trip length (FR-004):** an hour-count picker for today (1–24 hours).
 - **Permissions and consent (FR-005a):** request each permission just before the step that needs it, not all at launch. The cloud consent screen sets `allowCloudAnalysis`.
 - **Mounting guide (FR-007a):** an illustration of the regular chest mount (PRD FR-007a) in the orientation the style needs.
-- **Output:** a `TripSetup` value `{style, destination{continent,country,city}, tripType, lengthDays, allowCloudAnalysis}`. Capture orientation is derived from `style`.
+- **Output:** a `TripSetup` value `{style, destination{continent,country,city}, tripType, lengthHours, allowCloudAnalysis}`. Capture orientation is derived from `style`.
 
 ### 3.3 Persistence
 
@@ -93,7 +93,7 @@ Two components: the **iOS app**, which records, saves clips and keeps them for t
 | Entity | Fields |
 |---|---|
 | `UserPreferences` | `style`, `tripTypeHistory[]`, `destinationHistory[]`, `allowCloudAnalysis` |
-| `Trip` | `id`, `style`, `destination`, `tripType`, `lengthDays`, `status`, `startedAt`, `endedAt` |
+| `Trip` | `id`, `style`, `destination`, `tripType`, `lengthHours`, `status`, `startedAt`, `endedAt` |
 | `RecordingSession` | `id`, `tripId`, `startedMs`, `endedMs`, `endReason` (user / interruption / background / low_battery / thermal) |
 | `Moment` | `id`, `tripId`, `sessionId`, `triggerMs`, `fromMs`, `toMs`, `status` (held / kept / released / finalized), `source` (ai / button / local_fallback), `eventType`, `description`, `score`, `clipPath`, `bestFrameDhash` |
 | `Evaluation` | `id`, `momentId`, `tier` (2a/2b), `latencyMs`, `response` (JSON), `s2`, `error` |
@@ -157,7 +157,7 @@ The trip **pauses** (state `PAUSED`, §10) on the Pause control, `AVCaptureSessi
 3. Clears the ring buffer, so a paused trip holds only clips.
 4. Restores brightness and posts a local notification that recording stopped.
 
-Resuming takes a user action and starts a new `RecordingSession` on the same trip clock. Only End Trip moves the trip to `FINALIZING`. When `lengthDays` has passed, the app reminds the user to end the trip; it does not end it on its own.
+Resuming takes a user action and starts a new `RecordingSession` on the same trip clock. Only End Trip moves the trip to `FINALIZING`. When `lengthHours` has passed, the app reminds the user to end the trip; it does not end it on its own.
 
 ## 5. Ring buffer (FR-008a)
 

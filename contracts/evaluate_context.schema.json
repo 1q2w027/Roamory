@@ -14,7 +14,7 @@
     "style",
     "trip_type",
     "destination",
-    "length_days",
+    "length_hours",
     "local",
     "recent_descriptions"
   ],
@@ -55,7 +55,7 @@
         "city": {"type": ["string", "null"], "minLength": 1}
       }
     },
-    "length_days": {"type": "integer", "minimum": 1},
+    "length_hours": {"type": "integer", "minimum": 1, "maximum": 24, "description": "Planned filming time today, in hours."},
     "local": {
       "type": "object",
       "additionalProperties": false,

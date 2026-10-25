@@ -6,7 +6,7 @@
   "eta_s": null,
   "error": {
     "code": "agent_timeout",
-    "message": "Claude did not finish within 600 s.",
+    "message": "Roamory Studio did not finish the video within 600 s.",
     "retryable": false
   }
 }

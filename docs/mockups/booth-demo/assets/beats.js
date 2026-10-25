@@ -14,7 +14,7 @@
     { id: 'save', start: 20, end: 25, mood: 'excited',
       headline: "Something happens? *Press.* Press again. It's saved.", sub: 'Volume key, shutter remote or AirPods' },
     { id: 'studio', start: 25, end: 30, mood: 'happy',
-      headline: 'One highlight video, *cut by Claude* on your Mac.', sub: '' },
+      headline: 'One highlight video, *cut by Roamory* on your Mac.', sub: '' },
   ];
   root.ROAMORY_BEATS = beats;
   // Headline words are fully in by start + IN, start leaving at end - OUT; PX is the headline size.

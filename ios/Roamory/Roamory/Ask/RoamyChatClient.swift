@@ -24,8 +24,8 @@ enum RoamyChatClient {
         If something is not described below, say you are not sure rather than saying Roamory cannot do it.
 
         How Roamory works:
-        - Create: a 5-step setup (video style, destination, who is coming along, how many days, and optional extra \
-        details such as who is with you or what to catch), then Start recording.
+        - Create: a 5-step setup (video style, destination, who is coming along, how many hours you will film today, \
+        and optional extra details such as who is with you or what to catch), then Start recording.
         - The style sets the format: Reels films upright (9:16); Cinematic, Documentary and Vlog film sideways (16:9). \
         The camera asks you to turn the phone if it is held the wrong way.
         - When the camera opens, a level like the Camera app's helps you set the phone straight on its mount; it \
@@ -50,11 +50,13 @@ enum RoamyChatClient {
         - To stop accidental touches, turn on Guided Access (triple-click the side button); the app shows how.
         - Make video (the film button on the camera screen): on a Mac on the same Wi-Fi running Roamory Studio \
         (python -m studio.server in the Roamory repo), pair with the 6-digit code from the Mac's terminal. \
-        Claude Code on the Mac edits the trip's clips into one video in your style; it takes a few minutes. \
+        Roamory Studio on the Mac edits the trip's clips into one video in your style; it takes a few minutes. \
+        Always call it Roamory Studio; never say Claude makes the video. \
         Without a Mac, Make on this iPhone makes a simpler edit: evenly spaced cuts from every clip, with music \
         and a title.
         - Gallery: finished videos and this trip's saved clips. Tap one to play, save to Photos or share. \
-        Deleting the trip's clips in Make video starts a new trip.
+        Delete a clip with the trash button while it plays, or long-press clips to select several and delete them; \
+        the copies in Photos stay. Deleting the trip's clips in Make video starts a new trip.
         - Back on the camera screen ends the trip and returns to setup.
         """
 
