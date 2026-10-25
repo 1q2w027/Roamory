@@ -26,9 +26,17 @@ struct RecordingView: View {
     @State private var lastTouch = Date()
     /// Off for debugging: no dark curtain, so the screen keeps its brightness and the camera UI takes touches.
     private static let curtainEnabled = false
-    @State private var showSettings = false
-    @State private var showStudio = false
-    @State private var showLog = false
+    /// Debug builds can open a sheet with `-sheet settings|studio|log`.
+    @State private var showSettings = Self.launchSheet == "settings"
+    @State private var showStudio = Self.launchSheet == "studio"
+    @State private var showLog = Self.launchSheet == "log"
+    private static var launchSheet: String? {
+        #if DEBUG
+        UserDefaults.standard.string(forKey: "sheet")
+        #else
+        nil
+        #endif
+    }
     /// The mount level: shown when the camera opens, gone once the phone is level, back from the level button.
     @StateObject private var level = LevelMonitor()
     @State private var showLevel = false

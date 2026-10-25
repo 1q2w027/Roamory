@@ -18,6 +18,8 @@ struct OnboardingView: View {
     @State private var step = Self.initialStep
     @State private var forward = true
     @State private var started = false
+    /// Step 1 hides Continue until a style's clip is open fullscreen.
+    @State private var styleExpanded = false
     /// How far an edge swipe has pulled the screen to the right; the content follows the finger.
     @State private var dragX: CGFloat = 0
     private let catalog = try? OnboardingCatalog.bundled()
@@ -56,8 +58,11 @@ struct OnboardingView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .offset(x: dragX)
                 .opacity(1 - min(dragX / 600, 0.4))
-                AccentButton(title: step == Self.steps.count - 1 ? "Start recording" : "Continue",
-                             enabled: canContinue, action: advance)
+                if step != 0 || styleExpanded {
+                    AccentButton(title: step == Self.steps.count - 1 ? "Start recording" : "Continue",
+                                 enabled: canContinue, action: advance)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
@@ -94,7 +99,7 @@ struct OnboardingView: View {
     private var stepContent: some View {
         switch step {
         case 0:
-            StylePickerStep(style: $style)
+            StylePickerStep(style: $style, isExpanded: $styleExpanded)
         case 1:
             if let catalog {
                 DestinationStep(catalog: catalog, continent: $continent, country: $country, city: $city)

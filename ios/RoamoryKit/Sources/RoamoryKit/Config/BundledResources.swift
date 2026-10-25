@@ -20,7 +20,10 @@ public enum BundledResources {
     /// The 2 s black clip the end card plays over.
     public static func blackClipURL(portrait: Bool) -> URL? { url(portrait ? "black_9x16" : "black_16x9", ext: "mp4") }
 
-    /// Short clips the style picker plays as previews.
+    /// The 12 s 9:16 clip the style picker loops for a style (Mixkit footage and music, see `StylePreviews/CREDITS.md`).
+    public static func stylePreviewURL(_ style: Style) -> URL? { url(style.rawValue, ext: "mp4", subdirectory: "StylePreviews") }
+
+    /// Synthetic test-pattern clips for the renderer tests.
     public static var sampleClipURLs: [URL] {
         (Bundle.module.urls(forResourcesWithExtension: "mp4", subdirectory: "Resources/SampleClips") ?? [])
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
