@@ -16,7 +16,7 @@ On the iPhone, on the same Wi-Fi: open the camera screen, tap the film button, p
 
 ## How a job runs
 
-`job.py` makes `studio/.jobs/<job_id>/` with `clips/`, `brief.json` (style preset, trip context, effective target, title), `style.md` (the style's creative direction from `styles/`) and empty `frames/`, `work/`, `out/`. Then it runs:
+`job.py` makes `studio/.jobs/<job_id>/` with `clips/`, `brief.json` (facts about the trip and its clips, plus the requirements: output size and fps, target length, render budget; no title or other text chosen in advance), `style.md` (the style's creative direction from `styles/`) and empty `frames/`, `work/`, `out/`. Then it runs:
 
 ```
 claude -p <prompt.md> --model … --max-turns … --max-budget-usd … --output-format stream-json --verbose

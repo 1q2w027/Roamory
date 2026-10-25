@@ -8,7 +8,6 @@ import subprocess
 import threading
 import time
 import uuid
-from datetime import date
 from pathlib import Path
 
 from . import eta, rules
@@ -25,13 +24,20 @@ class JobError(Exception):
         self.code = code
 
 
-def title_for(request: dict) -> dict:
-    """Title text only from the destination, trip type and start date (contracts README)."""
-    ctx = request["context"]
-    place = ctx["destination"]["city"] or ctx["destination"]["country"]
-    month = date.fromisoformat(ctx["start_date"]).strftime("%B %Y")
-    trip_type = ctx["trip_type"][:1].upper() + ctx["trip_type"][1:]
-    return {"text": place[:40], "subtitle": f"{trip_type} · {month}"[:60]}
+def brief_for(request: dict, max_renders: int) -> dict:
+    """brief.json: facts about the trip and its footage for Claude to use as it likes, plus the few hard requirements.
+    Nothing in it is text to show or a creative choice made in advance."""
+    output = rules.preset(request["style"])["output"]
+    clips = request["clips"]
+    return {
+        "style": request["style"],
+        "trip": request["context"],
+        "footage": {"clips": len(clips), "total_s": round(sum(c["duration_s"] for c in clips), 3),
+                    "first_recorded_at": clips[0]["recorded_at"], "last_recorded_at": clips[-1]["recorded_at"]},
+        "clips": [{**c, "file": f"clips/{c['clip_id']}.mp4"} for c in clips],
+        "requirements": {"width": output["width"], "height": output["height"], "fps": output["fps"],
+                         "target_s": rules.effective_target_s(request), "max_renders": max_renders},
+    }
 
 
 def claude_command(config: Config, prompt: str) -> list[str]:
@@ -128,19 +134,12 @@ class Job:
             os.killpg(self._proc.pid, signal.SIGKILL)
 
     def _prepare(self) -> str:
-        preset = rules.preset(self.request["style"])
-        title = title_for(self.request)
         for k in ("frames", "work", "out"):
             (self.dir / k).mkdir(exist_ok=True)
         for clip_id in self.clip_ids:
             (self.dir / "frames" / clip_id).mkdir(exist_ok=True)
         style = self.request["style"]
-        brief = {
-            "style": style, "preset": preset, "context": self.request["context"], "title": title,
-            "effective_target_s": rules.effective_target_s(self.request),
-            "max_renders": self.config.max_renders,
-            "clips": [{**c, "file": f"clips/{c['clip_id']}.mp4"} for c in self.request["clips"]],
-        }
+        brief = brief_for(self.request, self.config.max_renders)
         (self.dir / "brief.json").write_text(json.dumps(brief, indent=2))
         shutil.copy(STYLES / f"{style}.md", self.dir / "style.md")
         return PROMPT.read_text()
