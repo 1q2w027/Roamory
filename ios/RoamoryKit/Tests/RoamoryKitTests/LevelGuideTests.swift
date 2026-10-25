@@ -7,19 +7,19 @@ final class LevelGuideTests: XCTestCase {
 
     func testLevelNeedsHalfAStillSecond() {
         var d = LevelDetector(config: config)
-        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0))
-        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0.49))
-        XCTAssertEqual(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 0.5), .reached)
-        XCTAssertNil(d.update(tilt: 2, aim: 4, rotationRate: 0.2, at: 1.0))
+        XCTAssertNil(d.update(tilt: 4, aim: 7, rotationRate: 0.2, at: 0))
+        XCTAssertNil(d.update(tilt: 4, aim: 7, rotationRate: 0.2, at: 0.49))
+        XCTAssertEqual(d.update(tilt: 4, aim: 7, rotationRate: 0.2, at: 0.5), .reached)
+        XCTAssertNil(d.update(tilt: 4, aim: 7, rotationRate: 0.2, at: 1.0))
         XCTAssertTrue(d.isLevel)
     }
 
     func testAimIsLooserThanTilt() {
         var d = LevelDetector(config: config)
-        _ = d.update(tilt: 3, aim: 0, rotationRate: 0, at: 0)
-        XCTAssertNil(d.update(tilt: 3, aim: 0, rotationRate: 0, at: 1))
-        _ = d.update(tilt: 0, aim: 4.5, rotationRate: 0, at: 2)
-        XCTAssertEqual(d.update(tilt: 0, aim: 4.5, rotationRate: 0, at: 2.5), .reached)
+        _ = d.update(tilt: 5, aim: 0, rotationRate: 0, at: 0)
+        XCTAssertNil(d.update(tilt: 5, aim: 0, rotationRate: 0, at: 1))
+        _ = d.update(tilt: 0, aim: 6, rotationRate: 0, at: 2)
+        XCTAssertEqual(d.update(tilt: 0, aim: 6, rotationRate: 0, at: 2.5), .reached)
     }
 
     func testMovingThroughLevelDoesNotCount() {
@@ -31,7 +31,7 @@ final class LevelGuideTests: XCTestCase {
     func testLeavingToleranceRestartsTheCount() {
         var d = LevelDetector(config: config)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0)
-        _ = d.update(tilt: 3, aim: 0, rotationRate: 0, at: 0.4)
+        _ = d.update(tilt: 4.5, aim: 0, rotationRate: 0, at: 0.4)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0.5)
         XCTAssertNil(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0.95))
         XCTAssertEqual(d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1.0), .reached)
@@ -41,10 +41,10 @@ final class LevelGuideTests: XCTestCase {
         var d = LevelDetector(config: config)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 0)
         _ = d.update(tilt: 0, aim: 0, rotationRate: 0, at: 1)
-        XCTAssertNil(d.update(tilt: 3.5, aim: 0, rotationRate: 0, at: 1.1))
-        XCTAssertNil(d.update(tilt: 0, aim: -7, rotationRate: 0, at: 1.2))
-        XCTAssertEqual(d.update(tilt: 0, aim: -8.5, rotationRate: 0, at: 1.3), .left)
-        XCTAssertNil(d.update(tilt: 0, aim: -8.5, rotationRate: 0, at: 1.4))
+        XCTAssertNil(d.update(tilt: 6, aim: 0, rotationRate: 0, at: 1.1))
+        XCTAssertNil(d.update(tilt: 0, aim: -10, rotationRate: 0, at: 1.2))
+        XCTAssertEqual(d.update(tilt: 0, aim: -10.5, rotationRate: 0, at: 1.3), .left)
+        XCTAssertNil(d.update(tilt: 0, aim: -10.5, rotationRate: 0, at: 1.4))
     }
 
     func testLostWarnsOnlyWhenLevel() {
@@ -85,12 +85,12 @@ final class LevelGuideTests: XCTestCase {
         XCTAssertNotNil(t.update(tilt: 3, aim: 0, at: 0.20))
     }
 
-    func testTicksGetStrongerNearLevel() throws {
+    func testTicksStayAtMaximumIntensityAtEveryDistance() throws {
         var t = DegreeTicker(config: config)
         _ = t.update(tilt: 12, aim: 0, at: 0)
-        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 11, aim: 0, at: 0.1)), 0.3, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 9, aim: 0, at: 0.2)), 0.37, accuracy: 0.001)
-        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 1, aim: 0, at: 0.3)), 0.93, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 11, aim: 0, at: 0.1)), 1, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 9, aim: 0, at: 0.2)), 1, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(t.update(tilt: 1, aim: 0, at: 0.3)), 1, accuracy: 0.001)
     }
 
     func testSuccessOnlyOnce() {
