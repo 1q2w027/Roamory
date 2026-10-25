@@ -32,9 +32,10 @@
       "required": [
         "destination",
         "trip_type",
+        "length_hours",
         "start_date"
       ],
-      "description": "Trip details for the title card.",
+      "description": "Trip details and today's planned filming time in hours.",
       "properties": {
         "destination": {
           "type": "object",
@@ -60,6 +61,12 @@
         "trip_type": {
           "type": "string",
           "minLength": 1
+        },
+        "length_hours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 24,
+          "description": "Planned filming time today, in hours."
         },
         "start_date": {
           "type": "string",

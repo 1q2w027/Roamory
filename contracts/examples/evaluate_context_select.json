@@ -7,7 +7,7 @@
   "style": "cinematic",
   "trip_type": "honeymoon",
   "destination": {"continent": "Asia", "country": "Japan", "city": "Kyoto"},
-  "length_days": 5,
+  "length_hours": 5,
   "local": {
     "score": 0.62,
     "novelty": 0.4,
