@@ -17,6 +17,8 @@
 	<string>$(ROAMORY_CHAT_MODEL)</string>
 	<key>RoamoryDirectorFrames</key>
 	<string>$(ROAMORY_DIRECTOR_FRAMES)</string>
+	<key>RoamoryDirectorHearing</key>
+	<string>$(ROAMORY_DIRECTOR_HEARING)</string>
 	<key>RoamoryDirectorInterval</key>
 	<string>$(ROAMORY_DIRECTOR_INTERVAL)</string>
 	<key>RoamoryDirectorMaxClip</key>
