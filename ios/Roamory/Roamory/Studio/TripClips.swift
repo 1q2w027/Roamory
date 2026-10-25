@@ -44,6 +44,13 @@ enum TripClips {
             .sorted { $0.recordedAt < $1.recordedAt }
     }
 
+    /// Deletes one clip's file and sidecar (Photos keeps its copy).
+    static func delete(id: String) {
+        let fm = FileManager.default
+        try? fm.removeItem(at: folder.appendingPathComponent("\(id).mp4"))
+        try? fm.removeItem(at: folder.appendingPathComponent("\(id).json"))
+    }
+
     /// Deletes the clips (Photos keeps its copies) and starts a new trip id.
     static func deleteAll() {
         try? FileManager.default.removeItem(at: folder)
