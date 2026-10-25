@@ -25,6 +25,18 @@ final class DirectorLog: ObservableObject {
         var applied: String?
         var usage: AnthropicAPI.Usage?
         var error: String?
+        /// The notes this request ended with.
+        var notes: Director.Notes?
+        var kind = Kind.tick
+    }
+
+    /// What a request was for. Only `tick` sends frames and gets a decision; the other two run before filming starts.
+    enum Kind: String {
+        case tick
+        /// The web search about the event.
+        case research
+        /// The request that writes the first notes.
+        case notes
     }
 
     private static let limit = 60
@@ -57,6 +69,12 @@ final class DirectorLog: ObservableObject {
                 row["summary"] = decision.summary
                 row["why"] = decision.why
             }
+            row["kind"] = entry.kind.rawValue
+            if let notes = entry.notes,
+               let data = try? JSONEncoder().encode(notes),
+               let object = try? JSONSerialization.jsonObject(with: data) {
+                row["notes"] = object
+            }
             if let applied = entry.applied { row["applied"] = applied }
             if let raw = entry.raw { row["raw_reply"] = raw }
             if let error = entry.error { row["error"] = error }
@@ -85,7 +103,8 @@ final class DirectorLog: ObservableObject {
         #if DEBUG
         entries.insert(entry, at: 0)
         if entries.count > Self.limit { entries.removeLast(entries.count - Self.limit) }
-        let result = entry.decision.map { "\($0.action.rawValue) (\($0.why))" } ?? "error: \(entry.error ?? "?")"
+        let result = entry.decision.map { "\($0.action.rawValue) (\($0.why))" }
+            ?? (entry.kind != .tick && entry.error == nil ? "\(entry.kind.rawValue) done" : "error: \(entry.error ?? "?")")
         print(String(format: "[director] %.1f s, %d frames: ", entry.seconds, entry.frames.count) + result)
         #endif
     }

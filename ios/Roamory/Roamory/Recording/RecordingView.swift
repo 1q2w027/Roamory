@@ -118,13 +118,14 @@ struct RecordingView: View {
             if let angle = camera.captureRotationAngle {
                 OrientationLock.set(CaptureOrientation.interfaceSide(forCaptureAngle: angle))
             }
-            // Level the phone on its mount first; the buffer is already recording.
+            // Level the phone on its mount first; the film starts right after.
             if hasLevel { showLevel = true }
             // AirPods stem press starts or stops saving, like the on-screen button.
             headphones.onPress = { [camera] in camera.toggleSaving() }
             headphones.start()
-            // The director picks what to save from now on; the buttons still work alongside it.
-            camera.startDirector()
+            // The film starts now: the buffer fills and the director picks what to save; the buttons still work
+            // alongside it, and the film button stops it.
+            camera.startFilming()
         }
     }
 
@@ -143,6 +144,8 @@ struct RecordingView: View {
             directorBadge
             messageText
             zoomControl
+            filmButton
+                .padding(.bottom, 12)
             // The debug buttons sit top right: one row of all five barely fits, and not while saving.
             HStack(spacing: 12) {
                 saveButton
@@ -190,6 +193,7 @@ struct RecordingView: View {
             HStack(spacing: 12) {
                 zoomColumn
                 VStack(spacing: 12) {
+                    filmButton
                     if hasLevel { levelButton }
                     saveButton
                     studioButton
@@ -397,6 +401,31 @@ struct RecordingView: View {
                 .background(camera.isSaving ? .red : .black.opacity(0.5), in: Capsule())
         }
         .animation(.easeInOut(duration: 0.15), value: camera.isSaving)
+        .disabled(!camera.isFilming)
+        .opacity(camera.isFilming ? 1 : 0.4)
+    }
+
+    /// Starts or ends the whole film. Ending it closes a clip being saved (it goes to Photos) and empties the buffer.
+    private var filmButton: some View {
+        Button {
+            if camera.isFilming {
+                Task { await camera.stopFilming() }
+            } else {
+                camera.startFilming()
+            }
+        } label: {
+            Label(camera.isEnding ? "Stopping…" : camera.isFilming ? "Stop filming" : "Start filming",
+                  systemImage: camera.isFilming || camera.isEnding ? "stop.circle.fill" : "video.circle.fill")
+                .font(.headline)
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(camera.isFilming || camera.isEnding ? .white : .black)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(camera.isFilming || camera.isEnding ? AnyShapeStyle(.red) : AnyShapeStyle(Theme.accent), in: Capsule())
+        }
+        .disabled(!camera.isReady || camera.isEnding)
+        .animation(.easeInOut(duration: 0.15), value: camera.isFilming)
     }
 
     /// Make video: Claude Code on a Mac running Roamory Studio edits this trip's clips.

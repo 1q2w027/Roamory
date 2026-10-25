@@ -18,6 +18,13 @@ enum AnthropicAPI {
         var output = 0
         var cacheRead = 0
         var cacheWrite = 0
+
+        mutating func add(_ other: Usage) {
+            input += other.input
+            output += other.output
+            cacheRead += other.cacheRead
+            cacheWrite += other.cacheWrite
+        }
     }
 
     struct Reply {
@@ -25,6 +32,8 @@ enum AnthropicAPI {
         /// Why the model stopped, e.g. "end_turn" or "max_tokens" (the text is then cut off).
         let stopReason: String?
         let usage: Usage
+        /// The reply's content blocks as the API sent them, for resuming a turn a server tool paused.
+        let content: [[String: Any]]
     }
 
     /// The model in Info.plist under `key`, or `fallback` when it is missing.
@@ -55,9 +64,21 @@ enum AnthropicAPI {
             let message = (json?["error"] as? [String: Any])?["message"] as? String
             throw Failure(errorDescription: message ?? "Anthropic returned an unexpected response.")
         }
-        let text = (json?["content"] as? [[String: Any]])?
-            .first { $0["type"] as? String == "text" }?["text"] as? String
-        guard json?["stop_reason"] as? String != "refusal", let text, !text.isEmpty else {
+        // A server tool (web search) puts its calls and results between text blocks; the answer is the text after the
+        // last of them.
+        let content = json?["content"] as? [[String: Any]] ?? []
+        var answer = ""
+        for block in content {
+            if block["type"] as? String == "text" {
+                answer += block["text"] as? String ?? ""
+            } else {
+                answer = ""
+            }
+        }
+        let stopReason = json?["stop_reason"] as? String
+        let text = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A paused turn may end on a tool result; the caller sends it back to go on.
+        guard stopReason != "refusal", !text.isEmpty || stopReason == "pause_turn" else {
             throw Failure(errorDescription: "Claude gave no answer.")
         }
         let counts = json?["usage"] as? [String: Any]
@@ -65,7 +86,25 @@ enum AnthropicAPI {
                           output: counts?["output_tokens"] as? Int ?? 0,
                           cacheRead: counts?["cache_read_input_tokens"] as? Int ?? 0,
                           cacheWrite: counts?["cache_creation_input_tokens"] as? Int ?? 0)
-        return Reply(text: text.trimmingCharacters(in: .whitespacesAndNewlines),
-                     stopReason: json?["stop_reason"] as? String, usage: usage)
+        return Reply(text: text, stopReason: stopReason, usage: usage, content: content)
+    }
+
+    /// Like `exchange`, for requests with server tools: when the API pauses a long turn (`pause_turn`) the reply goes
+    /// back as it came and the turn goes on, at most `rounds` requests in all. The usage adds up over the rounds.
+    static func exchangeResumingPauses(_ body: [String: Any], timeout: TimeInterval = 30, rounds: Int = 2) async throws -> Reply {
+        var body = body
+        var total = Usage()
+        var reply = try await exchange(body, timeout: timeout)
+        total.add(reply.usage)
+        var round = 1
+        while reply.stopReason == "pause_turn", round < rounds {
+            var messages = body["messages"] as? [[String: Any]] ?? []
+            messages.append(["role": "assistant", "content": reply.content])
+            body["messages"] = messages
+            reply = try await exchange(body, timeout: timeout)
+            total.add(reply.usage)
+            round += 1
+        }
+        return Reply(text: reply.text, stopReason: reply.stopReason, usage: total, content: reply.content)
     }
 }
