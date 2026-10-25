@@ -24,8 +24,8 @@ final class LevelMonitor: ObservableObject {
     /// How long the level stays on screen once the phone is level.
     var fadeDelay: TimeInterval { config?.fadeDelayS ?? 1 }
     var bubbleRangeDeg: Double { config?.bubbleRangeDeg ?? 10 }
-    var toleranceDeg: Double { config?.toleranceDeg ?? 2.5 }
-    var aimToleranceDeg: Double { config?.aimToleranceDeg ?? 5 }
+    var toleranceDeg: Double { config?.toleranceDeg ?? 4 }
+    var aimToleranceDeg: Double { config?.aimToleranceDeg ?? 7 }
 
     /// `captureAngle` is the rotation the session records at (`CameraService.captureRotationAngle`).
     func start(captureAngle: Double) {

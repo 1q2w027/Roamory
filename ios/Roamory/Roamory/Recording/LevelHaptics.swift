@@ -45,7 +45,7 @@ final class LevelHaptics {
         case .success:
             events = [Self.tap(at: 0, intensity: 1, sharpness: 1), Self.tap(at: 0.12, intensity: 1, sharpness: 1)]
         case .warning:
-            events = [Self.tap(at: 0, intensity: 0.5, sharpness: 0.2)]
+            events = [Self.tap(at: 0, intensity: 1, sharpness: 0.2)]
         }
         do {
             guard let engine else { throw CocoaError(.featureUnsupported) }
@@ -57,9 +57,14 @@ final class LevelHaptics {
 
     private func playFallback(_ haptic: LevelHaptic) {
         switch haptic {
-        case .tick(let intensity): UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: intensity)
-        case .success: UINotificationFeedbackGenerator().notificationOccurred(.success)
-        case .warning: UINotificationFeedbackGenerator().notificationOccurred(.warning)
+        case .tick, .warning:
+            UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1)
+        case .success:
+            let feedback = UIImpactFeedbackGenerator(style: .heavy)
+            feedback.impactOccurred(intensity: 1)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                feedback.impactOccurred(intensity: 1)
+            }
         }
     }
 
