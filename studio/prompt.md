@@ -4,7 +4,7 @@ First read:
 - `brief.json`: facts about the trip and its footage. `trip` is what the traveler told the app (destination, trip type, start date, `length_hours` of planned filming); `footage` and `clips` (oldest first) describe what was saved. `recorded_at` is UTC, so do not show clock times. Use these facts however you like, or not at all: they are background, not text to put on screen. Only `requirements` binds you: the output `width`, `height` and `fps`, `target_s` (the video's length, within ±10 %) and `max_renders` (the most full-length encodes you may do).
 - `style.md`: the creative direction for this style. It is guidance, not a limit.
 
-Watch the clips by extracting frames into `frames/<clip_id>/` and reading them.
+Watch the clips with the `watch:watch` skill (claude-video), passing each clip's local path and `--out-dir frames/<clip_id>`, and read what it returns. If the skill is unavailable, extract frames into `frames/<clip_id>/` with ffmpeg and read them instead.
 
 Make all the text and the music yourself. Decide from what the clips show how the video opens and ends, what it is called and what (if anything) it says on screen; a city name over a trip type is the least interesting choice, so only use it when nothing better fits. Every video should feel made for its own footage. This Mac's ffmpeg has no `drawtext`, so find another way to draw text.
 
