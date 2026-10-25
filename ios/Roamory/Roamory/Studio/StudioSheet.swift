@@ -17,6 +17,8 @@ struct StudioSheet: View {
     @State private var pairedHosts: Set<String> = []
     @State private var stage: String?
     @State private var startedAt: Date?
+    /// When the Mac expects Claude to finish, from its latest estimate.
+    @State private var finishesAt: Date?
     @State private var outcome: String?
     @State private var work: Task<Void, Never>?
     @State private var confirmDelete = false
@@ -78,8 +80,13 @@ struct StudioSheet: View {
                     if let startedAt, let stage {
                         TimelineView(.periodic(from: startedAt, by: 1)) { context in
                             let s = Int(context.date.timeIntervalSince(startedAt))
-                            Label("\(stage) · \(String(format: "%d:%02d", s / 60, s % 60))", systemImage: "wand.and.sparkles")
-                                .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Label("\(stage) · \(String(format: "%d:%02d", s / 60, s % 60))", systemImage: "wand.and.sparkles")
+                                if let finishesAt {
+                                    Label(Self.timeLeft(finishesAt.timeIntervalSince(context.date)), systemImage: "hourglass")
+                                }
+                            }
+                            .foregroundStyle(.secondary)
                         }
                     }
                     if let outcome { Text(outcome) }
@@ -163,11 +170,13 @@ struct StudioSheet: View {
                 work = nil
                 startedAt = nil
                 stage = nil
+                finishesAt = nil
             }
             do {
                 let style = TripSettings.style().rawValue
-                let video = try await StudioClient.makeVideo(on: mac, clips: clips, style: style,
-                                                             context: context) { stage = $0 }
+                let video = try await StudioClient.makeVideo(on: mac, clips: clips, style: style, context: context,
+                                                             stage: { stage = $0 },
+                                                             eta: { finishesAt = $0.map { Date.now + $0 } })
                 // Kept in the app for the Gallery; if that fails, Photos still gets it and the download goes.
                 let kept = try? keepForGallery(video, style: style)
                 outcome = await PhotoLibrary.saveVideo(kept ?? video)
@@ -178,6 +187,13 @@ struct StudioSheet: View {
                 outcome = (error as? URLError)?.code == .cancelled ? "Cancelled" : error.localizedDescription
             }
         }
+    }
+
+    /// "About 6 min left", rounded up to the minute; "Finishing up" once the estimate has run out.
+    private static func timeLeft(_ seconds: TimeInterval) -> String {
+        if seconds <= 0 { return "Finishing up" }
+        if seconds < 60 { return "Under a minute left" }
+        return "About \(Int((seconds / 60).rounded(.up))) min left"
     }
 
     /// The backup: renders with AVFoundation on the phone, no Mac needed.
