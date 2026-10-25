@@ -120,7 +120,7 @@ Interaction ideas under consideration (author's proposals):
 
 ### 4.4 Trip Length (Decided)
 
-**FR-004.** The user says how long the trip will take, asked during setup before recording starts. It is used to pace the app (for example, how selective to be) and to size the final video. How exactly it is used is open (Section 12).
+**FR-004.** The user says how many hours they plan to film today (1–24 hours), asked during setup before recording starts. It is used to pace the app (for example, how selective to be) and to size the final video. How exactly it is used is open (Section 12).
 
 ### 4.5 Start Recording (Decided)
 

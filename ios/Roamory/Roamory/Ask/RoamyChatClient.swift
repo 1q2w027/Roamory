@@ -23,7 +23,7 @@ enum RoamyChatClient {
         If a question is not about Roamory or travel filming, answer briefly and steer back to the trip.
 
         How Roamory works:
-        - Create: a 4-step setup (video style, destination, who is coming, how many days), then Start recording.
+        - Create: a 4-step setup (video style, destination, who is coming, how many hours today), then Start recording.
         - The style sets the format: Reels films upright (9:16); Cinematic, Documentary and Vlog film sideways (16:9). \
         The camera asks you to turn the phone if it is held the wrong way.
         - While recording, the screen goes dark after about 10 seconds to save battery. Touch and hold to wake it.

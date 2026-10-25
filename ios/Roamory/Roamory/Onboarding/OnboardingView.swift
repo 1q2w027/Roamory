@@ -13,7 +13,7 @@ struct OnboardingView: View {
     @AppStorage(TripSettings.Key.country) private var country = OnboardingCatalog.defaultCountry
     @AppStorage(TripSettings.Key.city) private var city = OnboardingCatalog.defaultCity
     @AppStorage(TripSettings.Key.tripType) private var tripType = "honeymoon"
-    @AppStorage(TripSettings.Key.lengthDays) private var lengthDays = 3
+    @AppStorage(TripSettings.Key.lengthHours) private var lengthHours = 3
     @AppStorage(TripSettings.Key.details) private var details = ""
     @State private var step = Self.initialStep
     @State private var forward = true
@@ -24,7 +24,7 @@ struct OnboardingView: View {
         ("Your style", "Which one feels like your trip?"),
         ("Destination", "Where to?"),
         ("The trip", "Who's coming along?"),
-        ("How long", "How many days?"),
+        ("How long", "How many hours today?"),
         ("Optional", "Anything else we should know?"),
     ]
 
@@ -83,7 +83,7 @@ struct OnboardingView: View {
         case 2:
             if let catalog { TripTypeStep(types: catalog.tripTypes, tripType: $tripType) }
         case 3:
-            TripLengthStep(days: $lengthDays, style: Style(rawValue: style) ?? .cinematic)
+            TripLengthStep(hours: $lengthHours, style: Style(rawValue: style) ?? .cinematic)
         default:
             TripDetailsStep(details: $details)
         }
@@ -94,7 +94,7 @@ struct OnboardingView: View {
         case 0: Style(rawValue: style) != nil
         case 1: !city.isEmpty
         case 2: !tripType.isEmpty
-        case 3: lengthDays >= 1
+        case 3: TripLengthStep.range.contains(lengthHours)
         default: true
         }
     }
