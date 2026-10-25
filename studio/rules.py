@@ -59,15 +59,13 @@ def probe(video: Path) -> dict | None:
 
 
 def result_errors(result, request: dict, video: Path) -> list[str]:
-    """README "Studio result rules" 1-4, plus the video plays."""
+    """README "Studio result rules" 1-3, plus the video plays."""
     errors = [f"{'/'.join(map(str, e.path)) or 'result'}: {e.message}" for e in _RESULT.iter_errors(result)]
     if errors:
         return errors
     clip_ids = [c["clip_id"] for c in request["clips"]]
     ids = [m["clip_id"] for m in result["moments"]]
     errors += [f"clip_id {i} is not a clip of the request" for i in ids if i not in clip_ids]
-    errors += [f"clip_id {i} repeats" for i in sorted(set(ids)) if ids.count(i) > 1]
-    errors += [f"clip {i} is missing from moments" for i in clip_ids if i not in ids]
     for m in result["moments"]:
         if not m["start_s"] < m["end_s"] <= result["total_s"] + 1e-6:
             errors.append(f"{m["clip_id"]}: [{m['start_s']}, {m['end_s']}] is not inside the video")

@@ -25,11 +25,11 @@ claude -p <prompt.md> --model … --max-turns … --max-budget-usd … --output-
   "Bash(roamory-text:*)" "Bash(roamory-music:*)" --permission-mode dontAsk
 ```
 
-Claude watches the clips through extracted frames, plans in `out/plan.md`, draws its text and composes its music with the helpers, renders `out/video.mp4` and writes `out/result.json`. The style preset and `styles/<style>.md` are guidance: Claude picks any transitions, effects, text and music that suit the footage.
+Claude reads `brief.json`, `style.md` and `tools.md`, watches the clips through extracted frames, draws its text and composes its music with the helpers, renders `out/video.mp4` and writes `out/result.json`. The style preset and `styles/<style>.md` are guidance: Claude picks any transitions, effects, text and music that suit the footage.
 
 At `/start`, `eta.py` estimates how long the edit will take from the number of clips, their footage length and upload size, the output length times `max_renders`, and the model (`eta_*` in `config.toml`). It then scales that guess by the median of actual / guess over the last 10 finished runs with the same model, kept in `state_dir/eta_history.jsonl`. The job status reports the seconds left as `eta_s`, and the phone shows it.
 
-The helpers are compiled into `studio/.jobs/_bin/` (outside every workspace, on Claude's `PATH`), each again when its source changes. Their spec formats are documented in `prompt.md`.
+The helpers are compiled into `studio/.jobs/_bin/` (outside every workspace, on Claude's `PATH`), each again when its source changes. Their spec formats are documented in `tools.md`, which is copied into every workspace.
 
 - `card.swift`: the default title and end cards, drawn before the run.
 - `text.swift` (`roamory-text <spec.json>`): text and shape layers in any installed font to transparent PNGs, because Homebrew's ffmpeg has no `drawtext`. `--fonts` lists the fonts.
