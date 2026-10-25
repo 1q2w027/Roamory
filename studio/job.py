@@ -16,6 +16,7 @@ from .config import ROOT, Config
 
 log = logging.getLogger("studio")
 PROMPT = ROOT / "studio" / "prompt.md"
+TOOLS_DOC = ROOT / "studio" / "tools.md"
 STYLES = ROOT / "studio" / "styles"
 # Swift helpers, compiled into jobs/_bin (outside every workspace, so Claude cannot rewrite them).
 BINARIES = {"card": "card.swift", "roamory-text": "text.swift", "roamory-music": "music.swift"}
@@ -173,6 +174,7 @@ class Job:
         }
         (self.dir / "brief.json").write_text(json.dumps(brief, indent=2))
         shutil.copy(STYLES / f"{style}.md", self.dir / "style.md")
+        shutil.copy(TOOLS_DOC, self.dir / "tools.md")
         return PROMPT.read_text()
 
     def _run(self):

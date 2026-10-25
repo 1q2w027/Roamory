@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Stands in for `claude -p` in tests. FAKE_MODE: ok (draws a text PNG and music with the helpers on PATH, renders a
-test video and a valid result), short (result
-that misses the target), fail (exits with nothing written), hang (sleeps past any test timeout)."""
+test video and a valid result), reuse (a valid result that leaves out the last clip and shows the first twice), short
+(result that misses the target), fail (exits with nothing written), hang (sleeps past any test timeout)."""
 import json
 import os
 import subprocess
@@ -22,20 +22,21 @@ if mode == "hang":
     time.sleep(60)
 if mode == "fail":
     sys.exit(1)
-if mode == "ok":
+if mode in ("ok", "reuse"):
     Path("work/text.json").write_text(json.dumps({"out": "work/text.png", "width": 64, "height": 64,
                                                   "layers": [{"text": "Hi", "font": "rounded", "weight": "bold"}]}))
     Path("work/score.json").write_text(json.dumps({"bpm": 120, "length_s": 2, "tracks": [
         {"instrument": "pad", "notes": [[0, ["C4", "E4", "G4"], 4]]}, {"instrument": "kick", "notes": [[0, "x"], [2, "x"]]}]}))
     subprocess.run(["roamory-text", "work/text.json"], check=True, capture_output=True)
     subprocess.run(["roamory-music", "work/score.json"], check=True, capture_output=True)
-    assert Path("style.md").read_text().startswith("# ")
+    assert Path("style.md").read_text().startswith("# ") and Path("tools.md").exists()
 total = brief["effective_target_s"] * (0.5 if mode == "short" else 1)
 w, h = brief["preset"]["output"]["width"] // 4, brief["preset"]["output"]["height"] // 4
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"testsrc=size={w}x{h}:rate=30:duration={total}",
                 "-pix_fmt", "yuv420p", "out/video.mp4"], check=True)
-slot = (total - 2) / len(brief["clips"])
+shown = brief["clips"][:-1] + brief["clips"][:1] if mode == "reuse" else brief["clips"]
+slot = (total - 2) / len(shown)
 moments = [{"clip_id": c["clip_id"], "start_s": 1 + k * slot, "end_s": 1 + (k + 1) * slot}
-           for k, c in enumerate(brief["clips"])]
+           for k, c in enumerate(shown)]
 Path("out/result.json").write_text(json.dumps({"total_s": total, "title": brief["title"], "moments": moments}))
 emit({"type": "result", "subtype": "success", "num_turns": 3, "total_cost_usd": 0})

@@ -1,6 +1,6 @@
 // roamory-text: draws text layers (any installed font, colour, outline, shadow, box) and simple shapes into PNGs with
 // a transparent background, because Homebrew's ffmpeg has no drawtext. Claude lays them over footage with overlay.
-// Usage: roamory-text <spec.json>   or   roamory-text --fonts   (spec format in studio/prompt.md)
+// Usage: roamory-text <spec.json>   or   roamory-text --fonts   (spec format in studio/tools.md)
 import AppKit
 
 func fail(_ message: String) -> Never {

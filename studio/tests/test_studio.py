@@ -116,6 +116,13 @@ def test_busy_while_a_job_is_active(bridge):
     assert bridge("POST", "/v1/studio/jobs", example())[0] == 429
 
 
+def test_completes_without_every_clip_once(bridge):
+    bridge.monkeypatch.setenv("FAKE_MODE", "reuse")
+    job_id = upload_all(bridge, example())
+    bridge("POST", f"/v1/studio/jobs/{job_id}/start")
+    assert wait(bridge, job_id)["status"] == "completed"
+
+
 @pytest.mark.parametrize("mode", ["fail", "short"])
 def test_fails(bridge, mode):
     bridge.monkeypatch.setenv("FAKE_MODE", mode)

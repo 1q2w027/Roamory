@@ -57,16 +57,15 @@ Body: the clip file as saved (`video/mp4`, HEVC passthrough), with `Content-Leng
 
 ### Studio effective target
 
-With the style preset `p` and `n` clips totalling `F` seconds: `min(max(p.target_s.default, n × p.clip_s.min + p.title_s + p.end_card_s), F + p.title_s + p.end_card_s)`. Every clip is a button moment, so they all go in; short footage shrinks the target rather than failing.
+With the style preset `p` and `n` clips totalling `F` seconds: `min(max(p.target_s.default, n × p.clip_s.min + p.title_s + p.end_card_s), F + p.title_s + p.end_card_s)`. The editor may leave clips out or repeat them; short footage shrinks the target rather than failing.
 
 ### Studio result rules
 
 The bridge checks these before completing the job; the phone may rely on them.
 
-1. Every `moments[].clip_id` is a clip of the request, and none repeats.
-2. Every clip is in `moments`.
-3. `moments` are in playback order and each `0 ≤ start_s < end_s ≤ total_s`.
-4. `total_s` is within ±10 % of the effective target and within 0.5 s of the rendered file's duration.
+1. Every `moments[].clip_id` is a clip of the request. A clip may be left out or appear more than once.
+2. `moments` are in playback order and each `0 ≤ start_s < end_s ≤ total_s`.
+3. `total_s` is within ±10 % of the effective target and within 0.5 s of the rendered file's duration.
 
 The prompt also tells Claude: clips in chronological order, title text only from the destination, trip type and `start_date`, no invented events, no identifying people. The output size and fps come from the style preset.
 
