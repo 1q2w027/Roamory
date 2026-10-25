@@ -167,11 +167,10 @@ def test_stage_parsing():
     assert stage_from_event({"type": "user"}) is None
 
 
-def test_claude_is_confined():
+def test_claude_is_not_confined():
     cmd = claude_command(Config(), "prompt")
-    assert "--restricted" in cmd and "Bash(ffmpeg:*)" in cmd and "dontAsk" in cmd
-    assert "Bash(roamory-text:*)" in cmd and "Bash(roamory-music:*)" in cmd
-    assert "Bash" not in cmd[cmd.index("--allowedTools") + 1:cmd.index("--permission-mode")]
+    assert "bypassPermissions" in cmd
+    assert not {"--restricted", "--strict-mcp-config", "--tools", "--allowedTools"} & set(cmd)
 
 
 def test_estimate_grows_with_the_data_and_depends_on_the_model(tmp_path):

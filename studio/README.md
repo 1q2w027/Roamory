@@ -20,9 +20,7 @@ On the iPhone, on the same Wi-Fi: open the camera screen, tap the film button, p
 
 ```
 claude -p <prompt.md> --model … --max-turns … --max-budget-usd … --output-format stream-json --verbose
-  --no-session-persistence --restricted --strict-mcp-config
-  --tools Read Write Edit Glob Bash --allowedTools Read Write Edit Glob "Bash(ffmpeg:*)" "Bash(ffprobe:*)"
-  "Bash(roamory-text:*)" "Bash(roamory-music:*)" --permission-mode dontAsk
+  --no-session-persistence --permission-mode bypassPermissions
 ```
 
 Claude reads `brief.json`, `style.md` and `tools.md`, watches the clips through extracted frames, draws its text and composes its music with the helpers, renders `out/video.mp4` and writes `out/result.json`. The style preset and `styles/<style>.md` are guidance: Claude picks any transitions, effects, text and music that suit the footage.
@@ -35,7 +33,7 @@ The helpers are compiled into `studio/.jobs/_bin/` (outside every workspace, on 
 - `text.swift` (`roamory-text <spec.json>`): text and shape layers in any installed font to transparent PNGs, because Homebrew's ffmpeg has no `drawtext`. `--fonts` lists the fonts.
 - `music.swift` (`roamory-music <score.json>`): renders a score Claude writes (tempo, tracks of notes, 26 synthesised instruments and drums, envelopes, filters, pan, reverb) to a 48 kHz stereo WAV. No music files are used. The bridge checks the result (`rules.py`) before the phone can download it, and deletes the workspace after the download or after `job_ttl_min`.
 
-`--restricted` confines the file tools to the workspace and ignores user settings, but `ffmpeg` itself can write anywhere this Mac user can. That is fine on a dev Mac; don't run the bridge on a shared machine.
+Claude runs with every tool, your user and project settings and your MCP servers, and without permission prompts, in the job's workspace as its working directory. It can read, write and run anything this Mac user can. That is fine on a dev Mac; don't run the bridge on a shared machine.
 
 ## Test
 
