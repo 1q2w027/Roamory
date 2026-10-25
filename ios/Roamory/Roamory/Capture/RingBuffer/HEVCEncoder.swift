@@ -10,10 +10,12 @@ import VideoToolbox
 /// A failed session is dropped and rebuilt on the next frame, as happens after the app returns from the background.
 nonisolated final class HEVCEncoder: @unchecked Sendable {
     nonisolated struct Config {
-        var bitrate = 8_000_000
+        /// Bits per second (build setting `RoamoryVideoBitrate`).
+        var bitrate = Int(BuildSetting.number("RoamoryVideoBitrate", fallback: 20_000_000, range: 2_000_000...80_000_000))
         /// Seconds between keyframes at most.
         var keyframeInterval = 2.0
-        var frameRate = 30.0
+        /// What the camera is asked for (build setting `RoamoryCaptureFrameRate`).
+        var frameRate = BuildSetting.number("RoamoryCaptureFrameRate", fallback: 60, range: 24...60)
     }
 
     private let config: Config
