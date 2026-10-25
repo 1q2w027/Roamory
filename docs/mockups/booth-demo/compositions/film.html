@@ -249,10 +249,11 @@
     #gallery-tile .thumb img { width: 100%; height: 100%; object-fit: cover; }
     #gallery-tile .cap { position: absolute; left: 16px; right: 12px; bottom: 14px; font-size: 22px; font-weight: 900; color: #fff; white-space: nowrap; }
     #gallery-tile .cap span { color: var(--g); }
-    #scr-saving .pill {
-      position: absolute; left: 50%; bottom: 120px; width: 300px; margin-left: -150px; height: 72px; border-radius: 36px;
-      background: var(--red); color: #fff; font-size: 24px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 10px;
-    }
+    /* The curtain's status pills (RecordingCurtain.swift pill(_:color:)): outlined capsules. */
+    .cpill { margin-top: 18px; padding: 10px 20px; border-radius: 24px; border: 1.5px solid; font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .cpill.cap { color: var(--red); border-color: rgba(255, 59, 48, 0.8); }
+    #save-pill { position: relative; color: rgba(255, 255, 255, 0.5); border-color: rgba(255, 255, 255, 0.4); }
+    #save-on { position: absolute; inset: -1.5px; border-radius: 24px; border: 1.5px solid rgba(3, 252, 115, 0.8); color: var(--g); background: #000; display: flex; align-items: center; justify-content: center; opacity: 0; }
 
     /* Beat 6: Roamory Studio runs in a terminal on a generic laptop. */
     #laptop { position: absolute; left: 1020px; top: 300px; width: 560px; z-index: 6; }
@@ -381,7 +382,7 @@
       </div>
       <div class="base"></div>
     </div>
-    <div id="flights" class="clip" data-start="25.2" data-duration="2.9" data-track-index="9" data-layout-ignore>
+    <div id="flights" class="clip" data-start="25.2" data-duration="3" data-track-index="9" data-layout-ignore>
       <div class="fly"><img src="assets/footage/kyoto-kinkakuji.jpg" alt="" /></div>
       <div class="fly"><img src="assets/footage/kyoto-gion-street.jpg" alt="" /></div>
       <div class="fly"><img src="assets/footage/kyoto-kamo-river.jpg" alt="" /></div>
@@ -509,12 +510,10 @@
               <div class="in">
                 <div class="rec"><i></i>Recording</div>
                 <div class="dim">Screen at 0% brightness<br />Tap and hold to wake</div>
+                <div class="cpill cap">Capturing · 30 fps</div>
+                <div class="cpill" id="save-pill">Not saving<div id="save-on"><span>Saving · <span id="saving-time">00:00</span></span></div></div>
                 <div class="hint">Shutter remote, volume key or AirPods: press to start or stop saving</div>
               </div>
-            </div>
-
-            <div id="scr-saving" class="scr clip" data-start="20.9" data-duration="2.5" data-track-index="4">
-              <div class="pill">■ Stop saving · <span id="saving-time">0:00</span></div>
             </div>
 
             <!-- Beat 6: Make video on the phone, then the finished video in the Gallery. -->
@@ -873,10 +872,12 @@
       tl.to('#bracket-left', { x: leftAtPress - SPEED * (PRESS2 - PRESS1 - 0.15), duration: PRESS2 - PRESS1 - 0.15, ease: 'none' }, PRESS1 + 0.15);
       tl.to('#bracket .b-top, #bracket .b-bot', { scaleX: (1440 - leftAtPress + SPEED * (PRESS2 - PRESS1 - 0.15)) / 1440, duration: PRESS2 - PRESS1 - 0.15, ease: 'none' }, PRESS1 + 0.15);
       tl.set('#bracket-label', { textContent: 'saving…' }, PRESS1);
-      tl.fromTo('#scr-saving .pill', { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(2)' }, PRESS1 + 0.05);
-      tl.set('#saving-time', { textContent: '0:01' }, PRESS1 + 1);
-      tl.set('#saving-time', { textContent: '0:02' }, PRESS1 + 2);
-      tl.to('#scr-saving .pill', { opacity: 0, scale: 0.9, duration: 0.2, ease: 'power2.in' }, PRESS2 + 0.1);
+      // The curtain's "Not saving" pill turns into a green "Saving · 00:0s" between the presses, as in the app.
+      tl.fromTo('#save-on', { opacity: 0 }, { opacity: 1, duration: 0.12 }, PRESS1 + 0.05);
+      tl.fromTo('#save-pill', { scale: 1 }, { scale: 1.08, duration: 0.1, ease: 'power2.out', yoyo: true, repeat: 1 }, PRESS1 + 0.05);
+      tl.set('#saving-time', { textContent: '00:01' }, PRESS1 + 1);
+      tl.set('#saving-time', { textContent: '00:02' }, PRESS1 + 2);
+      tl.to('#save-on', { opacity: 0, duration: 0.15 }, PRESS2 + 0.1);
 
       // Press 2: the saved clips lift off the strip and fly into a Photos tile.
       tl.fromTo('#gallery-tile .tile', { opacity: 0, scale: 0.8, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: 'back.out(1.6)' }, PRESS2 - 0.05);
