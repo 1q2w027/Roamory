@@ -78,6 +78,9 @@ enum Director {
         var clips: [String]
         /// The notes from the last answer, or the ones written before filming started.
         var notes: Notes
+        /// Seconds filmed this trip, and seconds of it in saved clips (the clip being saved included).
+        var filmedSeconds: TimeInterval
+        var savedSeconds: TimeInterval
         /// What the web search found about the event before filming, if it ran.
         var brief: String?
     }
@@ -99,9 +102,16 @@ enum Director {
     /// `RoamoryNotesSearchUses`).
     static var searchUses: Int { Int(setting("RoamoryNotesSearchUses", fallback: 3, range: 0...10)) }
 
+    /// Seconds of footage before the first frame of a moment that a clip started by the director begins with (build
+    /// setting `RoamoryDirectorPreRoll`).
+    static var preRoll: TimeInterval { setting("RoamoryDirectorPreRoll", fallback: 15, range: 0...45) }
+    /// Length at which a clip started by the director ends by itself, in seconds (build setting `RoamoryDirectorMaxClip`).
+    static var maxClip: TimeInterval { setting("RoamoryDirectorMaxClip", fallback: 40, range: 10...300) }
+    /// Percent of what is filmed that the director aims to save (build setting `RoamoryDirectorSaveShare`).
+    static var saveShare: Int { Int(setting("RoamoryDirectorSaveShare", fallback: 10, range: 1...100)) }
+
     private static func setting(_ key: String, fallback: Double, range: ClosedRange<Double>) -> Double {
-        let value = (Bundle.main.infoDictionary?[key] as? String).flatMap(Double.init) ?? fallback
-        return min(max(value, range.lowerBound), range.upperBound)
+        BuildSetting.number(key, fallback: fallback, range: range)
     }
 
     private static let notesSchema: [String: Any] = [
@@ -139,32 +149,44 @@ enum Director {
         "additionalProperties": false,
     ]
 
-    private static let rules = """
+    private static var rules: String {
+        """
         You are the director of a trip film. A traveler films their whole trip with a phone camera, and you decide \
-        in real time which footage is kept for the highlight video. The camera always holds the last 45 seconds.
+        in real time which footage is kept for the highlight video. The highlight video is short: about \(saveShare) \
+        percent of what is filmed should end up in saved clips, so most of what you see is skipped. Save what would \
+        make the highlight video, not what would merely be fine to have.
 
         Every few seconds you get a few frames from the camera, oldest first, spread over the time since your last \
         answer, and you answer with one decision:
-        - "save": this footage belongs in the film. If nothing is being saved, the saved clip starts with the \
-        footage the camera already holds, up to the last 45 seconds (less right after another clip ended), so answer \
-        "save" as soon as the beginning of something good is visible; do not wait for it to finish. If a clip is \
-        already being saved, "save" keeps it going.
-        - "skip": not worth keeping. If a clip is being saved, "skip" ends it.
+        - "save": this footage belongs in the film. If nothing is being saved, the saved clip starts about \
+        \(Int(preRoll)) s before the first of these frames, so there is no need to rush: answer "save" once the \
+        moment is visible in these frames, not before and not after it is over. If a clip is already being saved, \
+        "save" keeps it going. A clip ends by itself at \(Int(maxClip)) s; if the moment goes on, answer "save" again \
+        and a new clip follows.
+        - "skip": not worth keeping. If a clip is being saved, "skip" ends it, and it ends where your last "save" \
+        ended: the frames you skip are not in it.
 
-        Save footage with a clear subject or moment: a landmark, striking scenery, a meal, an activity, a show, \
-        a lively street, the traveler's companions enjoying themselves, or arriving somewhere new. Prefer what \
-        fits this trip's type, its style and what the traveler said about it.
-        Skip only footage that is clearly useless: black or covered frames, frames too blurry to tell what they show, \
-        the floor or the ceiling, a screen or menu filling the frame, and views that repeat what an already saved clip \
-        shows. Walking through a place, queues and corridors are not reasons to skip when they show where the traveler \
-        is or what is going on there. Do not save a second clip of the same place or subject unless something clearly \
-        different happens.
-        While a clip is being saved and the same subject or moment goes on, keep saving; judge repeats against the \
-        clips already saved, not against the clip in progress. A good moment can have a dull second in it. End a clip \
-        when the moment is clearly over, or when it has run long (about a minute) and stops showing anything new.
+        Save a moment: something happens that the traveler would want to relive. An event, a show, a talk, a crowd \
+        gathering or reacting, a demo, a meal, an activity, the traveler's companions enjoying themselves, arriving \
+        somewhere new, or a landmark or striking view seen for the first time. What the traveler said they want to \
+        capture comes first. The film's style and the trip type decide how a moment looks, not whether something is one.
+        Skip everything else, in particular:
+        - walking or travelling between places, corridors, queues and people who are only passing by. A place may be \
+        shown once, in one short clip, as an establishing shot; after that it is not a reason to save.
+        - black or covered frames (a finger on the lens), the floor or the ceiling, a screen or menu filling the \
+        frame, and frames too blurry to tell what they show, such as a fast pan.
+        - views that repeat what a saved clip shows. Judge repeats by the subject, not by the building: a new \
+        landmark, a new activity or a crowd gathering in a venue you have seen is new; the same hall or path seen \
+        again is a repeat.
+        While a clip is being saved and the same moment goes on, keep saving; judge repeats against the clips \
+        already saved, not against the clip in progress. A good moment can have a dull second in it. End the clip \
+        when the moment is clearly over.
+        You are told how much has been filmed and how much saved. If the saved share is above \(saveShare) percent, \
+        be stricter.
 
-        Describe only what is visible. Never identify people; say "a person" or "two friends". Name a place only \
-        if it is clearly recognizable or the traveler said so.
+        Describe only what is visible, and say what the frames really show: covered or blurry frames are not a \
+        scene. Never identify people; say "a person" or "two friends". Name a place only if it is clearly \
+        recognizable or the traveler said so.
 
         You keep notes on what is going on. They come back to you with every request, so you can follow what \
         develops from one answer to the next. Rewrite them in every answer: keep what is still true, update the \
@@ -175,11 +197,11 @@ enum Director {
         - checklist: at most \(Notes.maxItems) items of 6 words or fewer, and keep the items you were given unless \
         they are done with. They cover what the traveler wants to capture and what the film needs, such as a shot \
         that shows the place, people talking or reacting, the key moments of the activity and an ending. Each has a \
-        status: "pending" (not seen yet), "underway" (happening in these frames), "covered" (a saved clip already \
-        shows it; use it only for a clip that is saved or being saved) or "dropped" (not going to happen, or no \
-        longer matters).
+        status: "pending" (not seen yet), "underway" (it is the subject of these frames, not something small in the \
+        background), "covered" (a saved clip shows it clearly; use it only for a clip that is saved or being saved) \
+        or "dropped" (not going to happen, or no longer matters).
         - developing: at most 20 words on something starting or building that may become a moment, or empty.
-        Save footage that moves a pending or underway checklist item forward. A covered item needs no second clip.
+        The checklist is what to look for, not a reason to save: an item only counts when the frames really show it.
 
         Answer with JSON:
         - action: "save" or "skip".
@@ -188,6 +210,7 @@ enum Director {
         - why: at most 15 words, the reason for your action.
         - notes: your notes, as described above.
         """
+    }
 
     private static let seedRules = """
         You prepare the director of a trip film. A traveler films a trip with a phone, and the director watches the \
@@ -246,6 +269,11 @@ enum Director {
     /// The text before the frames: what is saved already and what is happening now.
     static func context(_ state: State) -> String {
         var lines: [String] = ["Local time now: \(clock(date: false))."]
+        var progress = "Filmed so far: \(length(state.filmedSeconds)). Saved: \(length(state.savedSeconds))"
+        if state.filmedSeconds >= 60 {
+            progress += ", \(Int((100 * state.savedSeconds / state.filmedSeconds).rounded())) percent of it"
+        }
+        lines.append(progress + ".")
         lines.append(state.notes.isEmpty ? "Your notes: none yet. Write them from the trip and these frames."
                                          : "Your notes so far:\n" + state.notes.text)
         if state.clips.isEmpty {
@@ -261,6 +289,11 @@ enum Director {
             lines.append("Right now nothing is being saved.")
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// A length for the director to read: seconds up to two minutes, whole minutes after that.
+    static func length(_ seconds: TimeInterval) -> String {
+        seconds < 120 ? "\(Int(seconds)) s" : "\(Int((seconds / 60).rounded())) min"
     }
 
     /// A clip's windows as one line. A long clip keeps its first window and its last two, so the request stays short.
@@ -352,7 +385,14 @@ enum Director {
         do {
             var decision = try JSONDecoder().decode(Decision.self, from: Data(reply.text.utf8))
             decision.notes = decision.notes.clamped()
+            // An empty description means the answer derailed; acting on it could end a clip for no reason.
+            guard !decision.summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  decision.why.trimmingCharacters(in: .whitespacesAndNewlines).count > 1 else {
+                throw Failure(errorDescription: "The director's answer was empty.")
+            }
             return decision
+        } catch let failure as Failure {
+            throw failure
         } catch {
             throw Failure(errorDescription: "The director's answer was not a decision: \(reply.text.prefix(200))")
         }

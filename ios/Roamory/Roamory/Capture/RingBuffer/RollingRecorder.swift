@@ -9,7 +9,7 @@ import ImageIO
 
 /// Keeps the last `retention` seconds of camera video (and audio) in memory as encoded samples, plus a small
 /// JPEG still taken at every keyframe, so a few frames can be sent off without decoding the video.
-/// `start()` saves the whole buffer to a file and keeps writing live samples to it; `stop()` closes the
+/// `start()` saves the buffer (or its newest part) to a file and keeps writing live samples to it; `stop()` closes the
 /// file. The buffer keeps filling either way. Nothing reaches the disk unless `start()` is called.
 nonisolated final class RollingRecorder: @unchecked Sendable {
     nonisolated struct Config {
@@ -35,6 +35,13 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
             case .footageGone: "That footage is no longer in the buffer."
             }
         }
+    }
+
+    /// What a save started with `start()` begins with: `startTime` is the presentation time (seconds) of its first video
+    /// sample, `preRoll` the seconds of footage from before the call that it holds.
+    nonisolated struct StartedClip: Sendable {
+        let startTime: Double
+        let preRoll: TimeInterval
     }
 
     /// A file written by `writeClip`. `start` and `end` are the presentation times (seconds) of its first and last video sample.
@@ -133,13 +140,13 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
 
     // MARK: Save control
 
-    /// Starts saving: the whole buffer goes into a new mp4 now, and every sample after that is appended
-    /// until `stop()`. Returns the seconds of footage from before the call that the file begins with.
+    /// Starts saving: the buffer goes into a new mp4 now, from the keyframe at or before `preRoll` seconds back (the
+    /// whole buffer when nil), and every sample after that is appended until `stop()`.
     @discardableResult
-    func start(to url: URL = RollingRecorder.temporaryClipURL()) async throws -> TimeInterval {
+    func start(preRoll: TimeInterval? = nil, to url: URL = RollingRecorder.temporaryClipURL()) async throws -> StartedClip {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.beginSaving(to: url) })
+                continuation.resume(with: Result { try self.beginSaving(preRoll: preRoll, to: url) })
             }
         }
     }
@@ -236,11 +243,13 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
 
     // MARK: Queue-confined
 
-    private func beginSaving(to url: URL) throws -> TimeInterval {
+    private func beginSaving(preRoll: TimeInterval?, to url: URL) throws -> StartedClip {
         guard writer == nil else { throw RecorderError.alreadySaving }
-        // The buffer starts on a keyframe, so the file can be decoded from its first sample.
-        let videoSnapshot = video.entries
-        guard let first = videoSnapshot.first, let videoFormat else { throw RecorderError.bufferEmpty }
+        // The buffer starts on a keyframe, and so does a part of it that begins at one, so the file can be decoded
+        // from its first sample.
+        guard let newest = video.last, let videoFormat else { throw RecorderError.bufferEmpty }
+        let videoSnapshot = preRoll.map { video.range(from: newest.time - $0) } ?? video.entries
+        guard let first = videoSnapshot.first else { throw RecorderError.bufferEmpty }
         let start = first.time
         let writer = try ClipWriter(url: url, videoFormat: videoFormat, audioFormat: audioFormat,
                                     start: CMSampleBufferGetPresentationTimeStamp(first.payload), queue: queue)
@@ -248,7 +257,7 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
         for entry in audio.range(from: start) { writer.appendAudio(entry.payload) }
         self.writer = writer
         checkWriter()
-        return video.duration
+        return StartedClip(startTime: start, preRoll: newest.time - start)
     }
 
     /// Hands the file to the waiting `stop()`.

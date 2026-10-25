@@ -11,17 +11,27 @@
 	<array>
 		<string>_roamory._tcp</string>
 	</array>
+	<key>RoamoryCaptureFrameRate</key>
+	<string>$(ROAMORY_CAPTURE_FPS)</string>
 	<key>RoamoryChatModel</key>
 	<string>$(ROAMORY_CHAT_MODEL)</string>
 	<key>RoamoryDirectorFrames</key>
 	<string>$(ROAMORY_DIRECTOR_FRAMES)</string>
 	<key>RoamoryDirectorInterval</key>
 	<string>$(ROAMORY_DIRECTOR_INTERVAL)</string>
+	<key>RoamoryDirectorMaxClip</key>
+	<string>$(ROAMORY_DIRECTOR_MAX_CLIP)</string>
 	<key>RoamoryDirectorModel</key>
 	<string>$(ROAMORY_DIRECTOR_MODEL)</string>
+	<key>RoamoryDirectorPreRoll</key>
+	<string>$(ROAMORY_DIRECTOR_PREROLL)</string>
+	<key>RoamoryDirectorSaveShare</key>
+	<string>$(ROAMORY_DIRECTOR_SAVE_SHARE)</string>
 	<key>RoamoryNotesModel</key>
 	<string>$(ROAMORY_NOTES_MODEL)</string>
 	<key>RoamoryNotesSearchUses</key>
 	<string>$(ROAMORY_NOTES_SEARCH_USES)</string>
+	<key>RoamoryVideoBitrate</key>
+	<string>$(ROAMORY_VIDEO_BITRATE)</string>
 </dict>
 </plist>

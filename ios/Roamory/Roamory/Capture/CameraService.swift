@@ -67,6 +67,15 @@ final class CameraService: NSObject, ObservableObject,
     /// What the director's windows showed in the clip being saved, and one summary per clip saved this trip.
     private var clipWindows: [String] = []
     private var clipSummaries: [String] = []
+    /// The recorder's time of the clip being saved's first sample, and of the newest frame the director judged worth
+    /// keeping in it (its last `save` answer); when the director ends the clip, what comes after that is cut.
+    private var clipStartTime: Double?
+    private var clipGoodThrough: Double?
+    /// Seconds filmed and seconds saved this trip, for the director to judge how much it has kept. The clip being
+    /// saved and the film being shot are added on top while they run.
+    private var filmedSeconds: TimeInterval = 0
+    private var savedSeconds: TimeInterval = 0
+    private var filmingStart: Date?
     /// The director's running notes: written before filming starts, then rewritten with every answer.
     private var directorNotes = Director.Notes()
     /// What the web search found about the event before filming; part of every request's system prompt.
@@ -182,6 +191,7 @@ final class CameraService: NSObject, ObservableObject,
               session.canAddInput(input),
               session.canAddOutput(videoOutput) else { return false }
         session.addInput(input)
+        chooseFormat(for: device)
         videoOutput.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String:
                                         kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange]
         videoOutput.alwaysDiscardsLateVideoFrames = true
@@ -195,13 +205,14 @@ final class CameraService: NSObject, ObservableObject,
                 connection.videoRotationAngle = angle
                 appliedRotationAngle = angle
             }
-            // The strongest stabilization the format allows; the default is off.
-            let modes: [AVCaptureVideoStabilizationMode] = [.cinematicExtendedEnhanced, .cinematicExtended, .cinematic, .standard]
-            if let mode = modes.first(where: device.activeFormat.isVideoStabilizationModeSupported) {
-                connection.preferredVideoStabilizationMode = mode
+            // Standard stabilization (the default is off). The cinematic modes crop and soften the picture.
+            if device.activeFormat.isVideoStabilizationModeSupported(.standard) {
+                connection.preferredVideoStabilizationMode = .standard
             }
             #if DEBUG
-            print("Stabilization: \(connection.activeVideoStabilizationMode.rawValue) (preferred \(connection.preferredVideoStabilizationMode.rawValue))")
+            print("Stabilization: \(connection.activeVideoStabilizationMode.rawValue) (preferred \(connection.preferredVideoStabilizationMode.rawValue)), "
+                  + "\(device.activeFormat.formatDescription.dimensions.width)x\(device.activeFormat.formatDescription.dimensions.height) "
+                  + "at 1/\(Int(device.activeVideoMinFrameDuration.timescale)) s frames")
             #endif
         }
         videoDevice = device
@@ -224,17 +235,44 @@ final class CameraService: NSObject, ObservableObject,
         return true
     }
 
-    /// Saves the whole buffer and everything captured from now on, until `stopSaving()`.
+    /// Picks the 1080p format that comes closest to the frame rate the build settings ask for (60 fps by default;
+    /// the ones that stabilize with the standard mode only) and fixes the camera to that rate, so the shutter can stay
+    /// short indoors. Without such a format the session preset's choice stays.
+    nonisolated private func chooseFormat(for device: AVCaptureDevice) {
+        let wanted = BuildSetting.number("RoamoryCaptureFrameRate", fallback: 60, range: 24...60)
+        func rate(_ format: AVCaptureDevice.Format) -> Double {
+            min(wanted, format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0)
+        }
+        let candidates = device.formats.filter { format in
+            let size = format.formatDescription.dimensions
+            return size.width == 1920 && size.height == 1080
+                && format.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                && format.isVideoStabilizationModeSupported(.standard)
+        }
+        guard let best = candidates.max(by: { rate($0) < rate($1) }), rate(best) >= 24,
+              (try? device.lockForConfiguration()) != nil else { return }
+        defer { device.unlockForConfiguration() }
+        device.activeFormat = best
+        let frame = CMTime(value: 1, timescale: CMTimeScale(rate(best).rounded()))
+        device.activeVideoMinFrameDuration = frame
+        device.activeVideoMaxFrameDuration = frame
+        session.sessionPreset = .inputPriority
+    }
+
+    /// Saves the buffer and everything captured from now on, until `stopSaving()`. A clip the director starts begins
+    /// `Director.preRoll` seconds back; one started by hand holds the whole buffer.
     func startSaving(byDirector: Bool = false) {
         guard isFilming, !isSaving else { return }
         isSaving = true
         directorOwnsSave = byDirector
         clipWindows = []
+        clipGoodThrough = nil
         message = nil
         Task {
             do {
-                let preroll = try await recorder.start()
-                savingStart = Date().addingTimeInterval(-preroll)
+                let started = try await recorder.start(preRoll: byDirector ? Director.preRoll : nil)
+                savingStart = Date().addingTimeInterval(-started.preRoll)
+                clipStartTime = started.startTime
             } catch {
                 isSaving = false
                 directorOwnsSave = false
@@ -249,6 +287,7 @@ final class CameraService: NSObject, ObservableObject,
     func startFilming() {
         guard isReady, !isFilming, !isEnding else { return }
         isFilming = true
+        filmingStart = .now
         feedsBuffer.withLock { $0 = true }
         startDirector()
     }
@@ -259,6 +298,8 @@ final class CameraService: NSObject, ObservableObject,
         guard isFilming, !isEnding else { return }
         isEnding = true
         isFilming = false
+        if let start = filmingStart { filmedSeconds += Date().timeIntervalSince(start) }
+        filmingStart = nil
         directorTask?.cancel()
         directorTask = nil
         // The clip needs frames to end on a whole group of pictures, so they keep coming until it is closed.
@@ -370,9 +411,18 @@ final class CameraService: NSObject, ObservableObject,
         let through: Double
         do { (frames, through) = try recorder.peekFrames(count: Director.frameCount) } catch { return }
 
-        let state = Director.State(isSaving: isSaving, savingSeconds: savingStart.map { Date().timeIntervalSince($0) } ?? 0,
+        // A clip the director started ends at its length limit, so no moment saves a minute of footage by default.
+        // If the moment goes on, the director's next `save` starts another clip right after it.
+        if isSaving, directorOwnsSave, let start = savingStart, Date().timeIntervalSince(start) >= Director.maxClip {
+            isStopping = true
+            await closeClip()
+            guard isFilming, !Task.isCancelled else { return }
+        }
+        let clipSeconds = savingStart.map { Date().timeIntervalSince($0) } ?? 0
+        let state = Director.State(isSaving: isSaving, savingSeconds: clipSeconds,
                                    clipSoFar: clipWindows, clips: clipSummaries, notes: directorNotes,
-                                   brief: eventBrief)
+                                   filmedSeconds: filmedSeconds + (filmingStart.map { Date().timeIntervalSince($0) } ?? 0),
+                                   savedSeconds: savedSeconds + clipSeconds, brief: eventBrief)
         let request = Director.request(frames: frames, state: state)
         var entry = DirectorLog.Entry(time: .now, frames: frames, system: request.system, prompt: request.prompt,
                                       wasSaving: state.isSaving)
@@ -389,9 +439,10 @@ final class CameraService: NSObject, ObservableObject,
             guard !Task.isCancelled, isReady else { return }
             // Only an answer uses the frames up; after a failure the next request sends them again.
             recorder.discardFrames(through: through)
-            directorNotes = decision.notes
-            entry.notes = decision.notes
-            entry.applied = apply(decision)
+            // An answer without notes (the model sometimes leaves them out) keeps the notes it had.
+            if !decision.notes.isEmpty { directorNotes = decision.notes }
+            entry.notes = directorNotes
+            entry.applied = apply(decision, through: through)
             directorLine = "\(decision.action.rawValue) · \(String(format: "%.1f", entry.seconds)) s · \(decision.why)"
             if message?.hasPrefix(Self.directorErrorPrefix) == true { message = nil }
         } catch {
@@ -406,21 +457,25 @@ final class CameraService: NSObject, ObservableObject,
     }
 
     /// Acts on a decision and says what it did.
-    private func apply(_ decision: Director.Decision) -> String {
+    /// `through` is the time of the newest frame the decision looked at.
+    private func apply(_ decision: Director.Decision, through: Double) -> String {
         // The answer may arrive while the clip is being closed (by hand, or by the camera stopping).
         guard !isStopping else { return "clip was closing" }
         switch decision.action {
         case .save:
             if isSaving {
                 clipWindows.append(decision.summary)
+                clipGoodThrough = through
                 return directorOwnsSave ? "kept saving" : "kept saving (started by hand)"
             }
             startSaving(byDirector: true)
             clipWindows = [decision.summary]
+            clipGoodThrough = through
             return "started saving"
         case .skip:
             if isSaving && directorOwnsSave {
-                stopSaving()
+                // The frames just judged are not worth keeping, so the clip ends where the last good ones did.
+                stopSaving(keepingThrough: clipGoodThrough)
                 return "stopped saving"
             }
             guard isSaving else { return "not saving" }
@@ -445,27 +500,60 @@ final class CameraService: NSObject, ObservableObject,
 
     /// Closes the saved clip, keeps it for the trip and puts it in Photos. The buffer keeps running.
     func stopSaving() {
+        stopSaving(keepingThrough: nil)
+    }
+
+    /// Like `stopSaving()`; with `time` (the recorder's time) the clip is cut there, so it ends with the last footage
+    /// worth keeping and not with the frames that were judged after it.
+    private func stopSaving(keepingThrough time: Double?) {
         guard isSaving, !isStopping else { return }
         isStopping = true
-        Task { await closeClip() }
+        Task { await closeClip(keepingThrough: time) }
     }
 
     /// The closing of a clip, with `isStopping` already set by the caller.
-    private func closeClip() async {
+    private func closeClip(keepingThrough time: Double? = nil) async {
         let summary = takeClip()
         let start = savingStart ?? .now
+        let startTime = clipStartTime
         defer {
             isStopping = false
             isSaving = false
             savingStart = nil
+            clipStartTime = nil
+            clipGoodThrough = nil
         }
         do {
-            let file = try await recorder.stop()
+            var file = try await recorder.stop()
+            var seconds = Date().timeIntervalSince(start)
+            if let time, let startTime, let cut = await Self.cut(file, after: time - startTime) {
+                file = cut.url
+                seconds = cut.seconds
+            }
+            savedSeconds += seconds
             clipSummaries.append(summary)
             await saveToPhotos(file, recordedAt: start)
         } catch {
             message = "Recording failed: \(error.localizedDescription)"
         }
+    }
+
+    /// The first `seconds` of the clip in a new file, cut without re-encoding, and the old file is deleted. Nil, with
+    /// the file untouched, when there is nothing to cut or the cut fails.
+    private static func cut(_ file: URL, after seconds: Double) async -> (url: URL, seconds: Double)? {
+        let asset = AVURLAsset(url: file)
+        guard let duration = try? await asset.load(.duration).seconds, seconds > 1, seconds < duration - 0.5,
+              let export = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else { return nil }
+        let url = RollingRecorder.temporaryClipURL()
+        export.timeRange = CMTimeRange(start: .zero, duration: CMTime(seconds: seconds, preferredTimescale: 600))
+        do {
+            try await export.export(to: url, as: .mp4)
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            return nil
+        }
+        try? FileManager.default.removeItem(at: file)
+        return (url, seconds)
     }
 
     /// The clip ended without `stopSaving()`: capture was interrupted (we keep what was recorded) or writing failed.
@@ -478,6 +566,7 @@ final class CameraService: NSObject, ObservableObject,
         switch result {
         case .success(let url):
             if let summary { clipSummaries.append(summary) }
+            savedSeconds += Date().timeIntervalSince(start)
             await saveToPhotos(url, recordedAt: start)
         case .failure(let error): message = "Recording failed: \(error.localizedDescription)"
         }
