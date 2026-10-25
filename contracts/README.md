@@ -51,6 +51,8 @@ Body: the clip file as saved (`video/mp4`, HEVC passthrough), with `Content-Leng
 
 ### Studio request rules
 
+`context.length_hours` is required: an integer from 1 to 24 describing today’s planned filming time. The phone stores it as `detection.lengthHours`; the former day-based setting is not reused. Requests using `length_days` are rejected.
+
 1. `clip_id`s are unique, and each is uploaded exactly once before `/start`.
 
 ### Studio effective target
