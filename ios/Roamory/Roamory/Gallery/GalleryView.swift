@@ -399,7 +399,17 @@ private struct VideoPlayerScreen: View {
         } message: {
             Text("It is removed from the app. The copy in Photos stays.")
         }
-        .onAppear { player.play() }
+        .onAppear {
+            // Without a playback session the silent switch mutes the video, and after filming the camera's
+            // play-and-record session sends the sound to the earpiece. The Gallery only shows once the camera has
+            // stopped, so this does not cut off recording. Off the main thread: the audio session can block.
+            DispatchQueue.global(qos: .userInitiated).async {
+                let audio = AVAudioSession.sharedInstance()
+                try? audio.setCategory(.playback, mode: .moviePlayback)
+                try? audio.setActive(true)
+                DispatchQueue.main.async { player.play() }
+            }
+        }
         .onDisappear { player.pause() }
     }
 }
