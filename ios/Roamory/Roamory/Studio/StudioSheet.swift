@@ -56,7 +56,7 @@ struct StudioSheet: View {
                 } header: {
                     Text("Mac")
                 } footer: {
-                    Text(browser.failure ?? "On the Mac, run python -m studio.server in the Roamory repo. Claude Code there edits the video.")
+                    Text(browser.failure ?? "On the Mac, run python -m studio.server in the Roamory repo to start Roamory Studio.")
                 }
 
                 if let mac = selected, !pairedHosts.contains(mac.host) {
@@ -91,7 +91,7 @@ struct StudioSheet: View {
                     }
                     if let outcome { Text(outcome) }
                 } footer: {
-                    Text("Claude watches the clips, cuts them to your style and renders the video. This takes a few minutes; keep Roamory open.")
+                    Text("Roamory Studio watches the clips, cuts them to your style and renders the video. This takes a few minutes; keep Roamory open.")
                 }
 
                 Section {
