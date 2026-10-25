@@ -3,6 +3,7 @@
   "status": "failed",
   "stage": null,
   "elapsed_s": 600.0,
+  "eta_s": null,
   "error": {
     "code": "agent_timeout",
     "message": "Claude did not finish within 600 s.",

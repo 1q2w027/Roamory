@@ -39,7 +39,7 @@ Body: the clip file as saved (`video/mp4`, HEVC passthrough), with `Content-Leng
 
 ### `GET /v1/studio/jobs/{job_id}`
 
-`200` returns a studio job. Poll until `status` is `completed` or `failed`. A failed job carries an `error` with code `agent_failed`, `agent_timeout` or `internal`.
+`200` returns a studio job. Poll until `status` is `completed` or `failed`. While `editing`, `eta_s` is the bridge's estimate of the seconds left (0 once it has run out). A failed job carries an `error` with code `agent_failed`, `agent_timeout` or `internal`.
 
 ### `GET /v1/studio/jobs/{job_id}/result`
 

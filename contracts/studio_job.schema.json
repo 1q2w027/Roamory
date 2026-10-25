@@ -5,7 +5,7 @@
   "description": "Body of GET /v1/studio/jobs/{job_id}. The phone polls it until status is completed (then fetches the result and the video) or failed.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["job_id", "status", "stage", "elapsed_s", "error"],
+  "required": ["job_id", "status", "stage", "elapsed_s", "eta_s", "error"],
   "properties": {
     "job_id": {"type": "string", "minLength": 1},
     "status": {
@@ -19,6 +19,11 @@
       "description": "A short line about what Claude is doing now, for the phone's progress text."
     },
     "elapsed_s": {"type": "number", "minimum": 0, "description": "Seconds since /start, 0 before it."},
+    "eta_s": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "description": "Estimated seconds until the edit finishes, from the clips, their size, the output length and the model; the bridge refines it with its past runs. Null unless status is editing; 0 once the estimate has run out (still working)."
+    },
     "error": {
       "oneOf": [
         {"type": "null"},
