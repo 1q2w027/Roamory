@@ -122,7 +122,7 @@ enum StudioClient {
                 if let line = state.stage { stage(line) }
                 eta(state.eta_s)
                 if state.status == "failed" {
-                    throw Failure(errorDescription: state.error?.message ?? "Claude could not make the video.")
+                    throw Failure(errorDescription: state.error?.message ?? "Roamory Studio could not make the video.")
                 }
                 if state.status == "completed" { break }
             }

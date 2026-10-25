@@ -138,7 +138,7 @@ class Job:
         clip_bytes = sum(self.clip_path(i).stat().st_size for i in self.clip_ids)
         self.guess_s, self.estimate_s = eta.estimate_s(self.config, self.request, clip_bytes)
         log.info("job %s: estimated %.0f s with %s", self.id, self.estimate_s, self.config.model)
-        self.status, self.stage, self.started_at = "editing", "Starting Claude", time.time()
+        self.status, self.stage, self.started_at = "editing", "Starting the edit", time.time()
         threading.Thread(target=self._run, name=self.id, daemon=True).start()
 
     def cancel(self):
@@ -216,14 +216,14 @@ class Job:
         if self._cancelled:
             return self._fail("agent_failed", "cancelled")
         if timed_out.is_set():
-            return self._fail("agent_timeout", f"Claude did not finish within {self.config.timeout_s:g} s.")
+            return self._fail("agent_timeout", f"Roamory Studio did not finish the video within {self.config.timeout_s:g} s.")
         self._check(summary, stderr_path)
 
     def _check(self, summary: dict, stderr_path: Path):
         result_path = self.dir / "out" / "result.json"
         if not result_path.exists():
             why = summary.get("result") or summary.get("subtype") or stderr_path.read_text()[-300:] or "no result.json"
-            return self._fail("agent_failed", f"Claude wrote no result: {why}")
+            return self._fail("agent_failed", f"Roamory Studio made no video: {why}")
         try:
             result = json.loads(result_path.read_text())
         except ValueError as e:

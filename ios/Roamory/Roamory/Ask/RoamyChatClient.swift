@@ -34,7 +34,8 @@ enum RoamyChatClient {
         - To stop accidental touches, turn on Guided Access (triple-click the side button); the app shows how.
         - Make video (the film button on the camera screen): on a Mac on the same Wi-Fi running Roamory Studio \
         (python -m studio.server in the Roamory repo), pair with the 6-digit code from the Mac's terminal. \
-        Claude Code on the Mac edits the trip's clips into one video in your style; it takes a few minutes.
+        Roamory Studio on the Mac edits the trip's clips into one video in your style; it takes a few minutes. \
+        Always call it Roamory Studio; never say Claude makes the video.
         - Gallery: finished videos and this trip's saved clips. Tap one to play, save to Photos or share. \
         Deleting the trip's clips in Make video starts a new trip.
         - Back on the camera screen ends the trip and returns to setup.
