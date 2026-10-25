@@ -18,6 +18,8 @@ struct OnboardingView: View {
     @State private var step = Self.initialStep
     @State private var forward = true
     @State private var started = false
+    /// How far an edge swipe has pulled the screen to the right; the content follows the finger.
+    @State private var dragX: CGFloat = 0
     private let catalog = try? OnboardingCatalog.bundled()
 
     private static let steps: [(eyebrow: String, title: String)] = [
@@ -52,6 +54,8 @@ struct OnboardingView: View {
                         ))
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(x: dragX)
+                .opacity(1 - min(dragX / 600, 0.4))
                 AccentButton(title: step == Self.steps.count - 1 ? "Start recording" : "Continue",
                              enabled: canContinue, action: advance)
             }
@@ -60,11 +64,26 @@ struct OnboardingView: View {
             .padding(.bottom, 8)
         }
         .preferredColorScheme(.dark)
-        // A swipe from the left edge goes back a step, like a navigation stack.
+        // A swipe from the left edge toward the right goes back a step (on the first step, leaves setup), like a
+        // navigation stack: the step follows the finger, then slides away or springs back. The edge zone keeps it
+        // clear of the globe, the deck and the sliders.
         .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
+            DragGesture(minimumDistance: 12)
+                .onChanged { value in
+                    guard isEdgeSwipe(value) else { return }
+                    dragX = max(0, value.translation.width)
+                }
                 .onEnded { value in
-                    if value.startLocation.x < 24, value.translation.width > 80 { back() }
+                    let commit = isEdgeSwipe(value)
+                        && (value.translation.width > 100 || value.predictedEndTranslation.width > 240)
+                    if commit && step == 0 {
+                        onClose?()
+                    } else if commit {
+                        forward = false
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.86)) { dragX = 0; step -= 1 }
+                    } else {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { dragX = 0 }
+                    }
                 }
         )
         .sensoryFeedback(.impact(weight: .medium), trigger: step)
@@ -97,6 +116,10 @@ struct OnboardingView: View {
         case 3: TripLengthStep.range.contains(lengthHours)
         default: true
         }
+    }
+
+    private func isEdgeSwipe(_ value: DragGesture.Value) -> Bool {
+        value.startLocation.x < 44 && value.translation.width > abs(value.translation.height) * 1.5
     }
 
     private func advance() {
