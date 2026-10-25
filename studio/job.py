@@ -11,7 +11,7 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from . import rules
+from . import eta, rules
 from .config import ROOT, Config
 
 log = logging.getLogger("studio")
@@ -92,6 +92,8 @@ class Job:
         self.error: dict | None = None
         self.result: dict | None = None
         self.started_at: float | None = None
+        self.guess_s = 0.0
+        self.estimate_s: float | None = None
         self.touched_at = time.time()
         self._proc: subprocess.Popen | None = None
         self._cancelled = False
@@ -114,8 +116,11 @@ class Job:
 
     def to_json(self) -> dict:
         elapsed = (time.time() if self.status == "editing" else self.touched_at) - self.started_at if self.started_at else 0
+        remaining = None
+        if self.status == "editing" and self.estimate_s is not None:
+            remaining = round(max(self.estimate_s - elapsed, 0))
         return {"job_id": self.id, "status": self.status, "stage": self.stage,
-                "elapsed_s": round(max(elapsed, 0), 1), "error": self.error}
+                "elapsed_s": round(max(elapsed, 0), 1), "eta_s": remaining, "error": self.error}
 
     @property
     def video(self) -> Path:
@@ -130,6 +135,9 @@ class Job:
     # Edit
 
     def start(self):
+        clip_bytes = sum(self.clip_path(i).stat().st_size for i in self.clip_ids)
+        self.guess_s, self.estimate_s = eta.estimate_s(self.config, self.request, clip_bytes)
+        log.info("job %s: estimated %.0f s with %s", self.id, self.estimate_s, self.config.model)
         self.status, self.stage, self.started_at = "editing", "Starting Claude", time.time()
         threading.Thread(target=self._run, name=self.id, daemon=True).start()
 
@@ -226,6 +234,10 @@ class Job:
         self.result = result
         self.status, self.stage = "completed", "Done"
         self.touched_at = time.time()
+        try:
+            eta.record(self.config, self.guess_s, self.touched_at - self.started_at)
+        except OSError as e:
+            log.warning("could not record the run time: %s", e)
         log.info("job %s completed: %.1f s video", self.id, result["total_s"])
 
     def delete(self):

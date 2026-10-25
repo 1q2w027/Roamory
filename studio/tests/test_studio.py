@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from studio import rules
+from studio import eta, rules
 from studio.config import CONTRACTS, Config
 from studio.job import STYLES, claude_command, stage_from_event, title_for
 from studio.server import make_server
@@ -91,8 +91,13 @@ def test_completes(bridge):
     bridge.monkeypatch.setenv("FAKE_MODE", "ok")
     job_id = upload_all(bridge, example())
     assert bridge("POST", f"/v1/studio/jobs/{job_id}/start")[0] == 202
+    status, editing = bridge("GET", f"/v1/studio/jobs/{job_id}")
+    rules._validator("studio_job.schema.json").validate(editing)
     job = wait(bridge, job_id)
-    assert job["status"] == "completed", job
+    assert job["status"] == "completed" and job["eta_s"] is None, job
+    rules._validator("studio_job.schema.json").validate(job)
+    assert [json.loads(l)["model"] for l in (bridge.studio.config.state_path / eta.HISTORY_FILE).open()] == \
+        [bridge.studio.config.model]
     status, result = bridge("GET", f"/v1/studio/jobs/{job_id}/result")
     assert status == 200 and [m["clip_id"] for m in result["moments"]] == ["c_01", "c_02", "c_03", "c_04"]
     status, video = bridge("GET", f"/v1/studio/jobs/{job_id}/video")
@@ -160,3 +165,29 @@ def test_claude_is_confined():
     assert "--restricted" in cmd and "Bash(ffmpeg:*)" in cmd and "dontAsk" in cmd
     assert "Bash(roamory-text:*)" in cmd and "Bash(roamory-music:*)" in cmd
     assert "Bash" not in cmd[cmd.index("--allowedTools") + 1:cmd.index("--permission-mode")]
+
+
+def test_estimate_grows_with_the_data_and_depends_on_the_model(tmp_path):
+    config = Config(state_dir=str(tmp_path), model="claude-opus-5-5")
+    request = example()
+    guess, estimate = eta.estimate_s(config, request, 50 << 20)
+    assert guess == estimate > config.eta_base_s
+    assert eta.estimate_s(config, request, 500 << 20)[1] > estimate
+    longer = example()
+    longer["clips"] = longer["clips"] + [{**c, "clip_id": c["clip_id"] + "b"} for c in longer["clips"]]
+    assert eta.estimate_s(config, longer, 50 << 20)[1] > estimate
+    assert eta.estimate_s(Config(state_dir=str(tmp_path), model="claude-haiku-5-5"), request, 50 << 20)[1] < estimate
+    config.timeout_s = 60
+    assert eta.estimate_s(config, request, 50 << 20)[1] == 60
+
+
+def test_estimate_learns_from_past_runs(tmp_path):
+    config = Config(state_dir=str(tmp_path))
+    guess, _ = eta.estimate_s(config, example(), 0)
+    for actual in (1.8, 2.0, 2.2):
+        eta.record(config, guess, guess * actual)
+    eta.record(Config(state_dir=str(tmp_path), model="other"), guess, guess * 0.1)
+    assert eta.scale(config) == pytest.approx(2.0)
+    for _ in range(3):
+        eta.record(config, guess, guess * 100)
+    assert eta.scale(config) == eta.SCALE_LIMITS[1]

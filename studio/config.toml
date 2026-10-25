@@ -14,3 +14,18 @@ max_clip_mb = 1000
 job_ttl_min = 60
 state_dir = "~/.roamory-studio"
 jobs_dir = "studio/.jobs"
+
+# Estimated time for an edit, shown on the phone: base + per clip + per second of footage + per MB uploaded
+# + per second of output for each of max_renders renders, times the model's factor. The bridge then scales the
+# guess by its last runs with the same model (state_dir/eta_history.jsonl), so these only need to be roughly right.
+eta_base_s = 180
+eta_per_clip_s = 40
+eta_per_footage_s = 1.0
+eta_per_mb_s = 0.05
+eta_per_output_s = 0.7
+
+# The first key found in the model ID wins; other models count as 1.
+[eta_model_factors]
+opus = 1.0
+sonnet = 0.7
+haiku = 0.45
