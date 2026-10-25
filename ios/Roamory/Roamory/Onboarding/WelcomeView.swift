@@ -5,7 +5,7 @@ import SwiftUI
 struct WelcomeView: View {
     var onDone: () -> Void
 
-    @State private var page = 0
+    @State private var page = Self.initialPage
     @State private var drag: CGFloat = 0
     @State private var finished = false
 
@@ -29,6 +29,15 @@ struct WelcomeView: View {
              body: "Your saved clips wait in the Gallery, ready to be cut into a video to watch and share.",
              badge: ("sparkles", "Made for you")),
     ]
+
+    /// Debug builds can open at a page with the launch argument `-welcomePage N`.
+    private static var initialPage: Int {
+        #if DEBUG
+        min(max(UserDefaults.standard.integer(forKey: "welcomePage"), 0), pages.count - 1)
+        #else
+        0
+        #endif
+    }
 
     private var current: Int { page }
     private var isLast: Bool { current == Self.pages.count - 1 }

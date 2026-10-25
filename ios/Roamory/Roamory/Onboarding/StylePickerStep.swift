@@ -5,27 +5,30 @@ import SwiftUI
 /// Step 1 (PRD FR-001): four sample clips loop silently; tapping one chooses it and grows it to fill the step with sound.
 struct StylePickerStep: View {
     @Binding var style: String
+    /// True while a clip is open fullscreen; setup shows Continue only then.
+    @Binding var isExpanded: Bool
     @State private var expanded: Style?
     @State private var players: [Style: LoopingPlayer] = [:]
     @State private var dragDown: CGFloat = 0
     @Namespace private var namespace
     private let presets = try? StylePresets.bundled()
 
-    /// Grid order, as in the mockup. The bundled sample clips a…d are assigned in this order.
+    /// Grid order, as in the mockup.
     static let order: [Style] = [.reels, .cinematic, .documentary, .vlog]
 
     var body: some View {
         GeometryReader { geo in
             let spacing: CGFloat = 12
             let width = (geo.size.width - spacing) / 2
-            let height = max(120, min((geo.size.height - spacing - 56) / 2, width * 1.3))
+            // Cards fill the height the step has (Continue is hidden here), leaving room for the footnote.
+            let height = max(120, (geo.size.height - spacing - 56) / 2)
             ZStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 16) {
                     Grid(horizontalSpacing: spacing, verticalSpacing: spacing) {
                         GridRow { card(Self.order[0], width: width, height: height); card(Self.order[1], width: width, height: height) }
                         GridRow { card(Self.order[2], width: width, height: height); card(Self.order[3], width: width, height: height) }
                     }
-                    Text("All four clips loop silently. Tap one to choose it and watch it with sound.")
+                    Text("Tap one to choose it and watch it with sound.")
                         .font(.footnote)
                         .foregroundStyle(Theme.secondaryText)
                         .opacity(expanded == nil ? 1 : 0)
@@ -36,7 +39,14 @@ struct StylePickerStep: View {
                 }
             }
         }
-        .onAppear(perform: makePlayers)
+        .onAppear {
+            isExpanded = false
+            makePlayers()
+            #if DEBUG
+            // `-expandStyle reels` opens that style's clip, for screenshots.
+            if let s = UserDefaults.standard.string(forKey: "expandStyle").flatMap(Style.init(rawValue:)) { expand(s) }
+            #endif
+        }
         .onDisappear {
             players.values.forEach { $0.player.pause() }
             players = [:]
@@ -46,8 +56,8 @@ struct StylePickerStep: View {
 
     private func makePlayers() {
         guard players.isEmpty else { return }
-        for (style, url) in zip(Self.order, BundledResources.sampleClipURLs) {
-            players[style] = LoopingPlayer(url: url)
+        for style in Self.order {
+            if let url = BundledResources.stylePreviewURL(style) { players[style] = LoopingPlayer(url: url) }
         }
     }
 
@@ -118,13 +128,17 @@ struct StylePickerStep: View {
             try? AVAudioSession.sharedInstance().setCategory(.playback)
         }
         players[s]?.player.isMuted = false
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) { expanded = s }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.82)) {
+            expanded = s
+            isExpanded = true
+        }
     }
 
     private func collapse() {
         if let expanded { players[expanded]?.player.isMuted = true }
         withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
             expanded = nil
+            isExpanded = false
             dragDown = 0
         }
     }

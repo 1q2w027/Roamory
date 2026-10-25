@@ -21,8 +21,25 @@ enum AppTab: String, CaseIterable {
 struct RootView: View {
     /// Delete the app to see the intro again.
     @AppStorage("welcomeSeen") private var welcomeSeen = false
-    @State private var tab: AppTab = .create
-    @State private var recording = false
+    @State private var tab: AppTab = Self.initialTab
+    @State private var recording = Self.initialRecording
+
+    /// Debug builds can open at a tab with `-tab gallery|create|ask`, or on the camera with `-recording YES`.
+    private static var initialTab: AppTab {
+        #if DEBUG
+        UserDefaults.standard.string(forKey: "tab").flatMap(AppTab.init(rawValue:)) ?? .create
+        #else
+        .create
+        #endif
+    }
+
+    private static var initialRecording: Bool {
+        #if DEBUG
+        UserDefaults.standard.bool(forKey: "recording")
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         ZStack {
