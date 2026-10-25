@@ -133,9 +133,28 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
             options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: stillQuality])
     }
 
-    /// A microphone buffer.
+    /// A microphone buffer. It is copied first: the capture session hands out buffers from a small pool and drops
+    /// the microphone's samples while the buffer holds them all, which left clips without sound.
     func handle(audio sample: CMSampleBuffer) {
-        queue.async { self.ingest(audio: sample) }
+        guard let copy = Self.copy(audio: sample) else { return }
+        queue.async { self.ingest(audio: copy) }
+    }
+
+    /// The sample with its audio data in memory of its own.
+    private static func copy(audio sample: CMSampleBuffer) -> CMSampleBuffer? {
+        guard let data = CMSampleBufferGetDataBuffer(sample), let format = CMSampleBufferGetFormatDescription(sample) else {
+            return nil
+        }
+        var block: CMBlockBuffer?
+        guard CMBlockBufferCreateContiguous(allocator: nil, sourceBuffer: data, blockAllocator: nil, customBlockSource: nil,
+                                            offsetToData: 0, dataLength: 0, flags: kCMBlockBufferAlwaysCopyDataFlag,
+                                            blockBufferOut: &block) == noErr, let block else { return nil }
+        var copy: CMSampleBuffer?
+        let status = CMAudioSampleBufferCreateReadyWithPacketDescriptions(
+            allocator: nil, dataBuffer: block, formatDescription: format, sampleCount: CMSampleBufferGetNumSamples(sample),
+            presentationTimeStamp: CMSampleBufferGetPresentationTimeStamp(sample), packetDescriptions: nil,
+            sampleBufferOut: &copy)
+        return status == noErr ? copy : nil
     }
 
     // MARK: Save control
