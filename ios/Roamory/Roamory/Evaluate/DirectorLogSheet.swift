@@ -66,6 +66,12 @@ struct DirectorLogSheet: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(decision.action == .save ? .green : .primary)
                 Text(decision.why).font(.footnote).foregroundStyle(.secondary)
+            } else if entry.kind == .notes, entry.error == nil, let notes = entry.notes {
+                Text("NOTES · written before filming").font(.subheadline.weight(.semibold))
+                Text(notes.text).font(.footnote).foregroundStyle(.secondary)
+            } else if entry.kind == .research, entry.error == nil, let found = entry.raw {
+                Text("RESEARCH · web search before filming").font(.subheadline.weight(.semibold))
+                Text(found).font(.footnote).foregroundStyle(.secondary).lineLimit(6)
             } else {
                 Text(entry.error ?? "No answer").font(.footnote).foregroundStyle(.red)
             }
@@ -101,6 +107,9 @@ private struct DirectorEntryView: View {
                     if let usage = entry.usage {
                         line("Tokens", "in \(usage.input) · out \(usage.output) · cache read \(usage.cacheRead) · cache write \(usage.cacheWrite)")
                     }
+                }
+                if let notes = entry.notes {
+                    section("Notes") { Text(notes.text) }
                 }
                 section("Frames sent (\(entry.frames.count))") {
                     ForEach(Array(entry.frames.enumerated()), id: \.offset) { k, jpeg in

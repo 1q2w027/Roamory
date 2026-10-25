@@ -168,6 +168,17 @@ nonisolated final class RollingRecorder: @unchecked Sendable {
         return try await writer.finish()
     }
 
+    /// Empties the buffer and the stills, as if the camera had just started. A save in progress is left alone, so
+    /// close it first. The next frame becomes a keyframe, so the buffer starts on one again.
+    func reset() {
+        queue.async {
+            self.video.removeAll()
+            self.audio.removeAll()
+            self.stills.removeAll()
+        }
+        encoder.requestKeyframe()
+    }
+
     /// Writes the buffered footage from the keyframe at or before `start` up to `end` (both presentation times in
     /// seconds) to a new mp4, and returns once the file is finished. An `end` past the newest sample writes up to it.
     /// The buffer and a save started with `start()` are untouched.

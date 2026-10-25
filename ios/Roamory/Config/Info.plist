@@ -19,5 +19,9 @@
 	<string>$(ROAMORY_DIRECTOR_INTERVAL)</string>
 	<key>RoamoryDirectorModel</key>
 	<string>$(ROAMORY_DIRECTOR_MODEL)</string>
+	<key>RoamoryNotesModel</key>
+	<string>$(ROAMORY_NOTES_MODEL)</string>
+	<key>RoamoryNotesSearchUses</key>
+	<string>$(ROAMORY_NOTES_SEARCH_USES)</string>
 </dict>
 </plist>
